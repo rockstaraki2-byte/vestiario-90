@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Bell, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Home, Inbox, LayoutGrid, MessageSquareText, Newspaper, Play, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
 import styles from "./page.module.css";
 import { createInitialWorld, advanceDay, type GameWorld } from "@/game-engine/world";
+import { loadLocalSave, saveLocalWorld } from "@/game-engine/save";
 
 const NAV = [["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["Táticas",LayoutGrid],["Calendário",CalendarDays],["Classificação",Trophy],["Mercado",BarChart3],["Notícias",Newspaper]] as const;
 const form=["V","V","E","D","V"];
@@ -11,8 +12,9 @@ const fixtures=[{date:"18 SET",home:"Aurora FC",away:"Ferroviário Azul",venue:"
 
 export default function Dashboard(){
  const [world,setWorld]=useState<GameWorld>(()=>createInitialWorld("vestiario-90-demo")); const [active,setActive]=useState("Visão geral"); const [notice,setNotice]=useState("");
+ useEffect(()=>{const saved=loadLocalSave();if(saved)queueMicrotask(()=>setWorld(saved.world))},[]);
  const squadMorale=useMemo(()=>Math.round(world.players.reduce((s,p)=>s+p.morale,0)/world.players.length),[world]);
- function handleAdvance(){const next=advanceDay(world);setWorld(next);setNotice(next.lastEvent);window.setTimeout(()=>setNotice(""),3600)}
+ function handleAdvance(){const next=advanceDay(world);setWorld(next);saveLocalWorld(next);setNotice(`${next.lastEvent} • Jogo salvo`);window.setTimeout(()=>setNotice(""),3600)}
  return <div className={styles.shell}>
   <aside className={styles.sidebar}><div className={styles.brand}><span>V90</span><div><b>VESTIÁRIO</b><small>90</small></div></div><nav>{NAV.map(([label,Icon])=><button key={label} onClick={()=>setActive(label)} className={active===label?styles.activeNav:""}><Icon size={18}/><span>{label}</span>{label==="Caixa de entrada"&&<i>3</i>}</button>)}</nav><div className={styles.clubCard}><div className={styles.crest}>A</div><div><b>Aurora FC</b><small>Liga Nacional</small></div><ChevronRight size={17}/></div><button className={styles.settings}><Settings size={18}/> Configurações</button><div className={styles.manager}><CircleUserRound/><div><b>Raul Soares</b><small>Treinador principal</small></div></div></aside>
   <main className={styles.main}><header className={styles.topbar}><div className={styles.mobileBrand}>V90</div><div className={styles.season}><span>Temporada 2026</span><b>{world.day} SET • QUINTA</b></div><div className={styles.topActions}><button aria-label="Mensagens"><MessageSquareText size={19}/><i/></button><button aria-label="Notificações"><Bell size={19}/><i/></button><button className={styles.advance} onClick={handleAdvance}>AVANÇAR <Play size={15} fill="currentColor"/></button></div></header>
