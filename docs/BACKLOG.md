@@ -8,8 +8,10 @@
 - [ ] proteção da `main`
 
 ## M1 — Temporada jogável
-- [ ] 20 clubes e ~600 jogadores por seed
-- [ ] 38 rodadas, elenco, escalação, tática e match engine textual
+- [x] 20 clubes e 600 jogadores por seed
+- [x] calendário determinístico de 38 rodadas
+- [x] telas funcionais de elenco e classificação
+- [ ] escalação, tática e match engine textual
 - [ ] classificação, lesões, suspensões e virada de temporada
 
 ## M2 — Pessoas
