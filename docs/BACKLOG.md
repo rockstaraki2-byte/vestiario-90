@@ -2,7 +2,10 @@
 
 ## M0 — Fundação
 - [x] Next.js/TypeScript, identidade responsiva, RNG e testes, manifesto PWA
-- [ ] PostgreSQL/Prisma, autenticação, CI e proteção da `main`
+- [x] contrato PostgreSQL/Prisma com entidades do MVP
+- [x] autosave local versionado, Event Engine e CI
+- [ ] provisionar PostgreSQL, gerar migration e integrar autenticação
+- [ ] proteção da `main`
 
 ## M1 — Temporada jogável
 - [ ] 20 clubes e ~600 jogadores por seed
