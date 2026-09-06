@@ -1,0 +1,29 @@
+name: Apply Sprint 9 Integration
+on:
+  push:
+    branches: [feat/sprint9-narrative-matchday]
+    paths:
+      - scripts/apply-sprint9-integration.mjs
+      - .github/workflows/apply-sprint9.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/sprint9-narrative-matchday
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/apply-sprint9-integration.mjs
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/game-engine/world-events.ts src/game-engine/season.ts src/app/page.tsx docs/BACKLOG.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: connect Sprint 9 narrative and tactical UI"
+          git push origin HEAD:feat/sprint9-narrative-matchday
