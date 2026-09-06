@@ -45,7 +45,15 @@ jobs:
               p.write_text(s)
 
           p=Path('src/game-engine/live-match.ts')
-          s=p.read_text().replace('const side:s.userSide extends never?never:MatchSide=s.userSide==="home"?"away":"home"','const side:MatchSide=s.userSide==="home"?"away":"home"')
+          s=p.read_text()
+          s=s.replace('const side:s.userSide extends never?never:MatchSide=s.userSide==="home"?"away":"home"','const side:MatchSide=s.userSide==="home"?"away":"home"')
+          s=s.replace('export function startLiveMatch(s:LiveMatchState,home:LeagueClub){','export function startLiveMatch(s:LiveMatchState,home:LeagueClub):LiveMatchState{')
+          s=s.replace('export function resumeSecondHalf(s:LiveMatchState){','export function resumeSecondHalf(s:LiveMatchState):LiveMatchState{')
+          s=s.replace('function autoReplace(s:LiveMatchState,side:MatchSide){','function autoReplace(s:LiveMatchState,side:MatchSide):LiveMatchState{')
+          s=s.replace('function autoAi(s:LiveMatchState,home:LeagueClub,away:LeagueClub,minute:number){','function autoAi(s:LiveMatchState,home:LeagueClub,away:LeagueClub,minute:number):LiveMatchState{')
+          s=s.replace('export function updateLiveTactic(s:LiveMatchState,side:MatchSide,t:MatchTactic){','export function updateLiveTactic(s:LiveMatchState,side:MatchSide,t:MatchTactic):LiveMatchState{')
+          s=s.replace('export function setTeamTalk(s:LiveMatchState,talk:TeamTalk){','export function setTeamTalk(s:LiveMatchState,talk:TeamTalk):LiveMatchState{')
+          s=s.replace('export function makeSubstitution(s:LiveMatchState,side:MatchSide,outId:string,inId:string){','export function makeSubstitution(s:LiveMatchState,side:MatchSide,outId:string,inId:string):LiveMatchState{')
           p.write_text(s)
 
           p=Path('src/game-engine/advanced-world.ts')
@@ -62,6 +70,11 @@ jobs:
           new='if(event.type==="card"&&player.yellowCards>=threshold){player.yellowCards=0;player.suspensionMatches=Math.max(1,player.suspensionMatches);}if(event.type==="red_card"){player.redCards=(player.redCards??0)+1;player.suspensionMatches=Math.max(1,player.suspensionMatches);}if(event.type==="injury")'
           if old not in s:
               raise SystemExit('red-card persistence marker missing')
+          s=s.replace(old,new)
+          old='won=resolved?.match.winnerId===(userSide==="home"?resolved.match.home.id:resolved?.match.away.id);'
+          new='won=Boolean(resolved&&resolved.match.winnerId===(userSide==="home"?resolved.match.home.id:resolved.match.away.id));'
+          if old not in s:
+              raise SystemExit('cup winner nullability marker missing')
           p.write_text(s.replace(old,new))
           PY
       - run: npm ci
