@@ -1,5 +1,5 @@
 import { SeededRng } from "./rng";
-import { PROFESSIONAL_COMPETITIONS, type CompetitionClubRoster, type ProfessionalCompetitionId } from "../data/brazil-2026/competitions";
+import { PROFESSIONAL_COMPETITIONS, type ProfessionalCompetitionId } from "../data/brazil-2026/competitions";
 import type { LeaguePlayer } from "./league";
 import type { SeasonState } from "./season";
 import { applyDepartureImpact, applyArrivalImpact } from "./social";
@@ -48,7 +48,7 @@ export function respondInternationalIncoming(state:SeasonState,offerId:string,ac
  const index=club.players.findIndex(p=>p.id===offer.playerId);if(index<0)return{state,message:"Jogador não está mais no elenco."};const player=club.players[index],social=applyDepartureImpact(club,player.id);club.players.splice(index,1);club.transferBudgetEur+=offer.feeEur;offer.status="Concluída";offer.message=`${player.name} foi negociado com ${offer.externalClubName}. ${social}`;internationalMarket.history.unshift({id:nextId(internationalMarket,"intl-deal"),year:state.year,round:state.currentRound,playerName:player.name,from:club.name,to:offer.externalClubName,feeEur:offer.feeEur,kind:"Usuário"});return{state:{...state,league,internationalMarket,lineupIds:state.lineupIds.filter(id=>id!==player.id),benchIds:state.benchIds.filter(id=>id!==player.id)},message:offer.message};
 }
 
-function externalClubPool(active:ProfessionalCompetitionId){return PROFESSIONAL_COMPETITIONS.flatMap(comp=>comp.id===active?[]:comp.clubs.map(club=>({competitionId:comp.id,name:club.name,reputation:Math.max(50,Math.min(96,52+Math.round(Math.log10(Math.max(1,club.marketValueEur))*6))),club}))));}
+function externalClubPool(active:ProfessionalCompetitionId){return PROFESSIONAL_COMPETITIONS.flatMap(comp=>{if(comp.id===active)return[];return comp.clubs.map(club=>({competitionId:comp.id,name:club.name,reputation:Math.max(50,Math.min(96,52+Math.round(Math.log10(Math.max(1,club.marketValueEur))*6))),club}));});}
 export function processInternationalMarketRound(state:SeasonState):SeasonState{
  const {league,internationalMarket}=cloneStatePieces(state);if(internationalMarket.lastProcessedRound===state.currentRound)return state;internationalMarket.lastProcessedRound=state.currentRound;for(const offer of internationalMarket.offers)if(offer.status==="Pendente"&&offer.expiresRound<state.currentRound)offer.status="Expirada";
  const club=league.clubs.find(c=>c.id===state.selectedClubId)!;if(!isGlobalTransferWindowOpen(state.currentDate,state.competitionId))return{...state,league,internationalMarket};const rng=new SeededRng(`${state.baseSeed}:global-market:r${state.currentRound}`),externals=externalClubPool(state.competitionId);
