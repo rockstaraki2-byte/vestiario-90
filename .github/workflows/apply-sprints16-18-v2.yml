@@ -25,8 +25,17 @@ jobs:
               p=Path(path);s=p.read_text()
               if old not in s: raise SystemExit(f'marker not found {path}: {old[:120]}')
               p.write_text(s.replace(old,new,count))
-          p=Path('src/game-engine/world-competitions.ts');p.write_text(p.read_text().replace('  return rng.shuffle?selected:selected.sort(()=>0);','  return selected;'))
-          p=Path('src/game-engine/international-market.ts');p.write_text(p.read_text().replace('import { PROFESSIONAL_COMPETITIONS, type CompetitionClubRoster, type ProfessionalCompetitionId }','import { PROFESSIONAL_COMPETITIONS, type ProfessionalCompetitionId }'))
+
+          p=Path('src/game-engine/world-competitions.ts')
+          s=p.read_text().replace('  return rng.shuffle?selected:selected.sort(()=>0);','  return selected;')
+          s=s.replace('function knockoutStages(size:number){const result:string[]=[];let current=size;while(current>2){result.push(current===32?"16 avos":current===16?"Oitavas de final":current===8?"Quartas de final":"Semifinal");current=Math.floor(current/2);}result.push("Final");return result;}\n','')
+          p.write_text(s)
+          p=Path('src/game-engine/international-market.ts')
+          s=p.read_text().replace('import { PROFESSIONAL_COMPETITIONS, type CompetitionClubRoster, type ProfessionalCompetitionId }','import { PROFESSIONAL_COMPETITIONS, type ProfessionalCompetitionId }')
+          old='function externalClubPool(active:ProfessionalCompetitionId){return PROFESSIONAL_COMPETITIONS.flatMap(comp=>comp.id===active?[]:comp.clubs.map(club=>({competitionId:comp.id,name:club.name,reputation:Math.max(50,Math.min(96,52+Math.round(Math.log10(Math.max(1,club.marketValueEur))*6))),club}))));}'
+          new='function externalClubPool(active:ProfessionalCompetitionId){return PROFESSIONAL_COMPETITIONS.flatMap(comp=>{if(comp.id===active)return[];return comp.clubs.map(club=>({competitionId:comp.id,name:club.name,reputation:Math.max(50,Math.min(96,52+Math.round(Math.log10(Math.max(1,club.marketValueEur))*6))),club}));});}'
+          if old not in s: raise SystemExit('externalClubPool marker not found')
+          p.write_text(s.replace(old,new))
 
           path='src/game-engine/season.ts'
           rep(path,'import { competitionStartDate, professionalCompetitionById, type ProfessionalCompetitionId } from "../data/brazil-2026/competitions";\n','import { competitionStartDate, professionalCompetitionById, type ProfessionalCompetitionId } from "../data/brazil-2026/competitions";\nimport { createClubAiState, hydrateClubAi, prepareClubAiNextSeason, processClubAiRound, tacticForClub, type ClubAiState } from "./club-ai";\nimport { createWorldCompetitions, hydrateWorldCompetitions, prepareWorldCompetitionsNextSeason, processWorldCompetitions, type WorldCompetitionsState } from "./world-competitions";\nimport { createInternationalMarket, hydrateInternationalMarket, prepareInternationalMarketNextSeason, processInternationalMarketRound, type InternationalMarketState } from "./international-market";\n')
