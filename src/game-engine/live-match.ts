@@ -1,6 +1,7 @@
 import { SeededRng } from "./rng";
 import type { LeagueClub, LeaguePlayer } from "./league";
 import { DEFAULT_TACTIC, pickStartingXI, type MatchEvent, type MatchResult, type MatchTactic } from "./match";
+import{tacticalFitMultiplier}from"./tactical-position";
 
 export type LiveMatchPhase="pre_match"|"first_half"|"halftime"|"second_half_window"|"fulltime";
 export type TeamTalk="Cobrar"|"Incentivar"|"Acalmar";
@@ -9,113 +10,43 @@ export type MatchSpeed="normal"|"fast"|"very_fast";
 export type LiveSubstitution={side:MatchSide;outPlayerId:string;inPlayerId:string;minute:number};
 export type LiveMatchState={
   seed:string;phase:LiveMatchPhase;currentMinute:number;userSide:MatchSide;
-  homeLineupIds:string[];awayLineupIds:string[];homeBenchIds:string[];awayBenchIds:string[];
+  homeLineupIds:string[];awayLineupIds:string[];homeBenchIds:string[];awayBenchIds:string[];maxSubstitutions:number;
   homeTactic:MatchTactic;awayTactic:MatchTactic;
   homeGoals:number;awayGoals:number;possessionHome:number;possessionSamples:number;shotsHome:number;shotsAway:number;
   events:MatchEvent[];substitutions:LiveSubstitution[];injuredPlayerIds:string[];usedPlayerIds:string[];
   teamTalk?:TeamTalk;
 };
 
-function availableBench(club:LeagueClub,lineupIds:string[]):string[]{
- const selected=new Set(lineupIds);return club.players.filter(p=>p.injuryDays===0&&p.suspensionMatches===0&&!selected.has(p.id)).sort((a,b)=>b.overall-a.overall).slice(0,12).map(p=>p.id);
-}
+function availableBench(club:LeagueClub,lineupIds:string[],size=12):string[]{const selected=new Set(lineupIds);return club.players.filter(p=>p.injuryDays===0&&p.suspensionMatches===0&&!selected.has(p.id)).sort((a,b)=>b.overall-a.overall).slice(0,size).map(p=>p.id);}
+function selectedBench(club:LeagueClub,lineupIds:string[],benchIds:string[]|undefined,size:number){if(!benchIds?.length)return availableBench(club,lineupIds,size);const starters=new Set(lineupIds),valid=benchIds.filter((id,index)=>benchIds.indexOf(id)===index&&!starters.has(id)&&club.players.some(p=>p.id===id&&p.injuryDays===0&&p.suspensionMatches===0));return valid.slice(0,size);}
 function exactLineup(club:LeagueClub,ids:string[]):LeaguePlayer[]{return ids.map(id=>club.players.find(p=>p.id===id)).filter((p):p is LeaguePlayer=>Boolean(p));}
 function activePhase(state:LiveMatchState){return state.phase==="first_half"||state.phase==="second_half_window";}
 function canDecide(state:LiveMatchState){return activePhase(state)||state.phase==="halftime";}
-function strength(club:LeagueClub,lineupIds:string[],tactic:MatchTactic,momentum=0){
- const lineup=exactLineup(club,lineupIds);if(!lineup.length)return 35;
- const base=lineup.reduce((sum,p)=>sum+p.overall*(p.condition/100)*(.92+p.morale/1250)*Math.max(.76,1-p.fatigue/230),0)/11;
- const mentality=tactic.mentality==="Ofensiva"?2.2:tactic.mentality==="Defensiva"?-.9:0;
- return base+mentality+(tactic.pressing-50)*.026+(tactic.tempo-50)*.021+momentum-Math.max(0,11-lineup.length)*3.2;
-}
+function strength(club:LeagueClub,lineupIds:string[],tactic:MatchTactic,momentum=0){const lineup=exactLineup(club,lineupIds);if(!lineup.length)return 35;const base=lineup.reduce((sum,p)=>sum+p.overall*(p.condition/100)*(.92+p.morale/1250)*Math.max(.76,1-p.fatigue/230)*tacticalFitMultiplier(p,tactic.positions?.[p.id]),0)/11;const mentality=tactic.mentality==="Ofensiva"?2.2:tactic.mentality==="Defensiva"?-.9:0;return base+mentality+(tactic.pressing-50)*.026+(tactic.tempo-50)*.021+momentum-Math.max(0,11-lineup.length)*3.2;}
 function attackingPlayer(rng:SeededRng,lineup:LeaguePlayer[]){const candidates=lineup.filter(p=>["ATA","PE","PD","MEI","MC"].includes(p.position));return rng.pick(candidates.length?candidates:lineup);}
-function teamTalkMomentum(state:LiveMatchState,minute:number){
- if(minute>68)return 0;const decay=Math.max(0,1-(minute-46)/25);
- const winning=state.userSide==="home"?state.homeGoals>state.awayGoals:state.awayGoals>state.homeGoals;
- const losing=state.userSide==="home"?state.homeGoals<state.awayGoals:state.awayGoals<state.homeGoals;
- const raw=state.teamTalk==="Cobrar"?(losing?1.7:winning?-.2:.9):state.teamTalk==="Incentivar"?1:state.teamTalk==="Acalmar"?(winning?.8:.25):0;
- return raw*decay;
-}
-function minuteRng(state:LiveMatchState,minute:number){
- const tactics=`${state.homeTactic.formation}:${state.homeTactic.mentality}:${state.homeTactic.pressing}:${state.homeTactic.tempo}:${state.awayTactic.formation}:${state.awayTactic.mentality}:${state.awayTactic.pressing}:${state.awayTactic.tempo}`;
- return new SeededRng(`${state.seed}:m${minute}:${state.substitutions.length}:${state.homeGoals}-${state.awayGoals}:${tactics}`);
-}
+function assistPlayer(rng:SeededRng,lineup:LeaguePlayer[],scorer:LeaguePlayer){const pool=lineup.filter(p=>p.id!==scorer.id&&["ATA","PE","PD","MEI","MC","VOL"].includes(p.position));return pool.length&&rng.next()<.72?rng.pick(pool):undefined;}
+function teamTalkMomentum(state:LiveMatchState,minute:number){if(minute>68)return 0;const decay=Math.max(0,1-(minute-46)/25);const winning=state.userSide==="home"?state.homeGoals>state.awayGoals:state.awayGoals>state.homeGoals;const losing=state.userSide==="home"?state.homeGoals<state.awayGoals:state.awayGoals<state.homeGoals;const raw=state.teamTalk==="Cobrar"?(losing?1.7:winning?-.2:.9):state.teamTalk==="Incentivar"?1:state.teamTalk==="Acalmar"?(winning?.8:.25):0;return raw*decay;}
+function minuteRng(state:LiveMatchState,minute:number){const tactics=`${state.homeTactic.formation}:${state.homeTactic.mentality}:${state.homeTactic.pressing}:${state.homeTactic.tempo}:${state.awayTactic.formation}:${state.awayTactic.mentality}:${state.awayTactic.pressing}:${state.awayTactic.tempo}`;return new SeededRng(`${state.seed}:m${minute}:${state.substitutions.length}:${state.homeGoals}-${state.awayGoals}:${tactics}`);}
 
-export function createLiveMatch(home:LeagueClub,away:LeagueClub,seed:string,userSide:MatchSide,userLineupIds:string[],userTactic:MatchTactic=DEFAULT_TACTIC):LiveMatchState{
- const homeIds=userSide==="home"?pickStartingXI(home,userLineupIds).map(p=>p.id):pickStartingXI(home).map(p=>p.id);
- const awayIds=userSide==="away"?pickStartingXI(away,userLineupIds).map(p=>p.id):pickStartingXI(away).map(p=>p.id);
- return{seed,phase:"pre_match",currentMinute:0,userSide,homeLineupIds:homeIds,awayLineupIds:awayIds,homeBenchIds:availableBench(home,homeIds),awayBenchIds:availableBench(away,awayIds),homeTactic:userSide==="home"?userTactic:DEFAULT_TACTIC,awayTactic:userSide==="away"?userTactic:DEFAULT_TACTIC,homeGoals:0,awayGoals:0,possessionHome:50,possessionSamples:0,shotsHome:0,shotsAway:0,events:[{minute:0,type:"kickoff",team:"neutral",text:`Tudo pronto para ${home.name} × ${away.name}.`}],substitutions:[],injuredPlayerIds:[],usedPlayerIds:[...new Set([...homeIds,...awayIds])]};
+export function createLiveMatch(home:LeagueClub,away:LeagueClub,seed:string,userSide:MatchSide,userLineupIds:string[],userTactic:MatchTactic=DEFAULT_TACTIC,userBenchIds?:string[],benchSize=12,maxSubstitutions=5):LiveMatchState{
+ const homeIds=userSide==="home"?pickStartingXI(home,userLineupIds).map(p=>p.id):pickStartingXI(home).map(p=>p.id),awayIds=userSide==="away"?pickStartingXI(away,userLineupIds).map(p=>p.id):pickStartingXI(away).map(p=>p.id);
+ return{seed,phase:"pre_match",currentMinute:0,userSide,homeLineupIds:homeIds,awayLineupIds:awayIds,homeBenchIds:userSide==="home"?selectedBench(home,homeIds,userBenchIds,benchSize):availableBench(home,homeIds,benchSize),awayBenchIds:userSide==="away"?selectedBench(away,awayIds,userBenchIds,benchSize):availableBench(away,awayIds,benchSize),maxSubstitutions,homeTactic:userSide==="home"?userTactic:DEFAULT_TACTIC,awayTactic:userSide==="away"?userTactic:DEFAULT_TACTIC,homeGoals:0,awayGoals:0,possessionHome:50,possessionSamples:0,shotsHome:0,shotsAway:0,events:[{minute:0,type:"kickoff",team:"neutral",text:`Tudo pronto para ${home.name} × ${away.name}.`}],substitutions:[],injuredPlayerIds:[],usedPlayerIds:[...new Set([...homeIds,...awayIds])]};
 }
-
-export function startLiveMatch(state:LiveMatchState,home:LeagueClub):LiveMatchState{
- if(state.phase!=="pre_match")return state;
- return{...state,phase:"first_half",events:[...state.events,{minute:0,type:"kickoff",team:"neutral",text:`Bola rolando. ${home.name} dá a saída.`}]};
-}
-export function resumeSecondHalf(state:LiveMatchState):LiveMatchState{
- if(state.phase!=="halftime"||requiredUserSubstitutions(state).length)return state;
- const talk=state.teamTalk?` A mensagem no vestiário foi: ${state.teamTalk.toLowerCase()}.`:"";
- return{...state,phase:"second_half_window",events:[...state.events,{minute:46,type:"kickoff",team:"neutral",text:`Começa o segundo tempo.${talk}`}]};
-}
-
-function autoReplaceInjuries(state:LiveMatchState,side:MatchSide):LiveMatchState{
- if(side===state.userSide)return state;let next=state;
- const lineup=()=>side==="home"?next.homeLineupIds:next.awayLineupIds,bench=()=>side==="home"?next.homeBenchIds:next.awayBenchIds;
- for(const injured of [...next.injuredPlayerIds]){if(!lineup().includes(injured)||!bench().length)continue;next=makeSubstitution(next,side,injured,bench()[0]);}
- return next;
-}
-
+export function startLiveMatch(state:LiveMatchState,home:LeagueClub):LiveMatchState{if(state.phase!=="pre_match")return state;return{...state,phase:"first_half",events:[...state.events,{minute:0,type:"kickoff",team:"neutral",text:`Bola rolando. ${home.name} dá a saída.`}]};}
+export function resumeSecondHalf(state:LiveMatchState):LiveMatchState{if(state.phase!=="halftime"||requiredUserSubstitutions(state).length)return state;const talk=state.teamTalk?` A mensagem no vestiário foi: ${state.teamTalk.toLowerCase()}.`:"";return{...state,phase:"second_half_window",events:[...state.events,{minute:46,type:"kickoff",team:"neutral",text:`Começa o segundo tempo.${talk}`}]};}
+function autoReplaceInjuries(state:LiveMatchState,side:MatchSide):LiveMatchState{if(side===state.userSide)return state;let next=state;const lineup=()=>side==="home"?next.homeLineupIds:next.awayLineupIds,bench=()=>side==="home"?next.homeBenchIds:next.awayBenchIds;for(const injured of [...next.injuredPlayerIds]){if(!lineup().includes(injured)||!bench().length)continue;next=makeSubstitution(next,side,injured,bench()[0]);}return next;}
 export function advanceLiveMatchMinute(state:LiveMatchState,home:LeagueClub,away:LeagueClub):LiveMatchState{
- if(!activePhase(state)||requiredUserSubstitutions(state).length)return state;
- const minute=state.currentMinute+1;if(minute>90)return state;
- const rng=minuteRng(state,minute),homeLineup=exactLineup(home,state.homeLineupIds),awayLineup=exactLineup(away,state.awayLineupIds);
- const momentum=minute>=46?teamTalkMomentum(state,minute):0;
- const homeStrength=strength(home,state.homeLineupIds,state.homeTactic,state.userSide==="home"?momentum:0)+2;
- const awayStrength=strength(away,state.awayLineupIds,state.awayTactic,state.userSide==="away"?momentum:0);
- const diff=homeStrength-awayStrength,targetPossession=Math.max(34,Math.min(66,50+diff*.72+rng.integer(-5,5)));
- const samples=state.possessionSamples+1,possessionHome=Math.round((state.possessionHome*state.possessionSamples+targetPossession)/samples);
- let homeGoals=state.homeGoals,awayGoals=state.awayGoals,shotsHome=state.shotsHome,shotsAway=state.shotsAway;
- const events:MatchEvent[]=[];const injured=[...state.injuredPlayerIds];
- const simulateAttack=(side:MatchSide)=>{
-  const isHome=side==="home",lineup=isHome?homeLineup:awayLineup,currentClub=isHome?home:away,opponent=isHome?away:home;
-  if(!lineup.length)return;
-  const tactic=isHome?state.homeTactic:state.awayTactic,strengthDiff=isHome?diff:-diff;
-  const shotChance=Math.max(.055,Math.min(.19,.095+strengthDiff*.003+(tactic.tempo-50)*.0008+(tactic.mentality==="Ofensiva"?.018:tactic.mentality==="Defensiva"?-.012:0)));
-  if(rng.next()>=shotChance)return;
-  if(isHome)shotsHome++;else shotsAway++;
-  const player=attackingPlayer(rng,lineup),goalChance=Math.max(.07,Math.min(.27,.125+strengthDiff*.005));
-  if(rng.next()<goalChance){if(isHome)homeGoals++;else awayGoals++;events.push({minute,type:"goal",team:side,playerId:player.id,text:`GOL DO ${currentClub.shortName}! ${player.name} conclui a jogada e vence a defesa do ${opponent.shortName}.`});}
-  else events.push({minute,type:"chance",team:side,playerId:player.id,text:rng.next()<.5?`${player.name} recebe em condição de finalizar, mas a defesa bloqueia.`:`${player.name} finaliza com perigo e a chance passa perto.`});
- };
- simulateAttack("home");simulateAttack("away");
- for(const side of ["home","away"] as const){
-  const lineup=side==="home"?homeLineup:awayLineup;if(!lineup.length)continue;
-  if(rng.next()<.012){const player=rng.pick(lineup);events.push({minute,type:"card",team:side,playerId:player.id,text:`Cartão amarelo para ${player.name} após uma chegada forte.`});}
-  if(rng.next()<.00085){const player=rng.pick(lineup);if(!injured.includes(player.id))injured.push(player.id);events.push({minute,type:"injury",team:side,playerId:player.id,text:`${player.name} sente um problema físico e pede atendimento. O jogo é interrompido.`});}
- }
- if(!events.length&&rng.next()<.055){const side=rng.next()<targetPossession/100?"home":"away",club=side==="home"?home:away;events.push({minute,type:"chance",team:side,text:rng.next()<.5?`${club.shortName} sobe as linhas e mantém pressão no campo de ataque.`:`${club.shortName} troca passes e tenta encontrar espaço entre as linhas.`});}
- let next:LiveMatchState={...state,currentMinute:minute,homeGoals,awayGoals,shotsHome,shotsAway,possessionHome,possessionSamples:samples,injuredPlayerIds:injured,events:[...state.events,...events]};
- next=autoReplaceInjuries(autoReplaceInjuries(next,"home"),"away");
- if(minute===45){next={...next,phase:"halftime",events:[...next.events,{minute:45,type:"halftime",team:"neutral",text:`Intervalo: ${home.name} ${homeGoals} × ${awayGoals} ${away.name}.`}]} ;}
- if(minute===90){next={...next,phase:"fulltime",events:[...next.events,{minute:90,type:"fulltime",team:"neutral",text:`Fim de jogo: ${home.name} ${homeGoals} × ${awayGoals} ${away.name}.`}]} ;}
- return next;
+ if(!activePhase(state)||requiredUserSubstitutions(state).length)return state;const minute=state.currentMinute+1;if(minute>90)return state;const rng=minuteRng(state,minute),homeLineup=exactLineup(home,state.homeLineupIds),awayLineup=exactLineup(away,state.awayLineupIds),momentum=minute>=46?teamTalkMomentum(state,minute):0,homeStrength=strength(home,state.homeLineupIds,state.homeTactic,state.userSide==="home"?momentum:0)+2,awayStrength=strength(away,state.awayLineupIds,state.awayTactic,state.userSide==="away"?momentum:0),diff=homeStrength-awayStrength,targetPossession=Math.max(34,Math.min(66,50+diff*.72+rng.integer(-5,5))),samples=state.possessionSamples+1,possessionHome=Math.round((state.possessionHome*state.possessionSamples+targetPossession)/samples);let homeGoals=state.homeGoals,awayGoals=state.awayGoals,shotsHome=state.shotsHome,shotsAway=state.shotsAway;const events:MatchEvent[]=[],injured=[...state.injuredPlayerIds];
+ const simulateAttack=(side:MatchSide)=>{const isHome=side==="home",lineup=isHome?homeLineup:awayLineup,currentClub=isHome?home:away,opponent=isHome?away:home;if(!lineup.length)return;const tactic=isHome?state.homeTactic:state.awayTactic,strengthDiff=isHome?diff:-diff,shotChance=Math.max(.055,Math.min(.19,.095+strengthDiff*.003+(tactic.tempo-50)*.0008+(tactic.mentality==="Ofensiva"?.018:tactic.mentality==="Defensiva"?-.012:0)));if(rng.next()>=shotChance)return;if(isHome)shotsHome++;else shotsAway++;const player=attackingPlayer(rng,lineup),goalChance=Math.max(.07,Math.min(.27,.125+strengthDiff*.005));if(rng.next()<goalChance){if(isHome)homeGoals++;else awayGoals++;const assist=assistPlayer(rng,lineup,player);events.push({minute,type:"goal",team:side,playerId:player.id,assistPlayerId:assist?.id,text:`GOL DO ${currentClub.shortName}! ${player.name} conclui a jogada${assist?` após passe de ${assist.name}`:""} e vence a defesa do ${opponent.shortName}.`});}else events.push({minute,type:"chance",team:side,playerId:player.id,text:rng.next()<.5?`${player.name} recebe em condição de finalizar, mas a defesa bloqueia.`:`${player.name} finaliza com perigo e a chance passa perto.`});};
+ simulateAttack("home");simulateAttack("away");for(const side of ["home","away"] as const){const lineup=side==="home"?homeLineup:awayLineup;if(!lineup.length)continue;if(rng.next()<.012){const player=rng.pick(lineup);events.push({minute,type:"card",team:side,playerId:player.id,text:`Cartão amarelo para ${player.name} após uma chegada forte.`});}if(rng.next()<.00085){const player=rng.pick(lineup);if(!injured.includes(player.id))injured.push(player.id);events.push({minute,type:"injury",team:side,playerId:player.id,text:`${player.name} sente um problema físico e pede atendimento. O jogo é interrompido.`});}}if(!events.length&&rng.next()<.055){const side=rng.next()<targetPossession/100?"home":"away",club=side==="home"?home:away;events.push({minute,type:"chance",team:side,text:rng.next()<.5?`${club.shortName} sobe as linhas e mantém pressão no campo de ataque.`:`${club.shortName} troca passes e tenta encontrar espaço entre as linhas.`});}
+ let next:LiveMatchState={...state,currentMinute:minute,homeGoals,awayGoals,shotsHome,shotsAway,possessionHome,possessionSamples:samples,injuredPlayerIds:injured,events:[...state.events,...events]};next=autoReplaceInjuries(autoReplaceInjuries(next,"home"),"away");if(minute===45)next={...next,phase:"halftime",events:[...next.events,{minute:45,type:"halftime",team:"neutral",text:`Intervalo: ${home.name} ${homeGoals} × ${awayGoals} ${away.name}.`}]};if(minute===90)next={...next,phase:"fulltime",events:[...next.events,{minute:90,type:"fulltime",team:"neutral",text:`Fim de jogo: ${home.name} ${homeGoals} × ${awayGoals} ${away.name}.`}]};return next;
 }
-
 export function updateLiveTactic(state:LiveMatchState,side:MatchSide,tactic:MatchTactic):LiveMatchState{if(!canDecide(state))return state;return side==="home"?{...state,homeTactic:tactic}:{...state,awayTactic:tactic};}
 export function setTeamTalk(state:LiveMatchState,talk:TeamTalk):LiveMatchState{return state.phase==="halftime"?{...state,teamTalk:talk}:state;}
-export function makeSubstitution(state:LiveMatchState,side:MatchSide,outPlayerId:string,inPlayerId:string):LiveMatchState{
- if(!canDecide(state))return state;const sideSubs=state.substitutions.filter(s=>s.side===side);if(sideSubs.length>=5)return state;
- const lineup=side==="home"?state.homeLineupIds:state.awayLineupIds,bench=side==="home"?state.homeBenchIds:state.awayBenchIds;
- if(!lineup.includes(outPlayerId)||!bench.includes(inPlayerId))return state;
- const nextLineup=lineup.map(id=>id===outPlayerId?inPlayerId:id),nextBench=bench.filter(id=>id!==inPlayerId),minute=state.phase==="halftime"?46:Math.max(1,state.currentMinute);
- const next={...state,substitutions:[...state.substitutions,{side,outPlayerId,inPlayerId,minute}],usedPlayerIds:[...new Set([...state.usedPlayerIds,inPlayerId])],injuredPlayerIds:state.injuredPlayerIds.filter(id=>id!==outPlayerId),events:[...state.events,{minute,type:"chance" as const,team:"neutral" as const,text:`Substituição aos ${minute}': mudança preparada pela comissão técnica.`}]};
- return side==="home"?{...next,homeLineupIds:nextLineup,homeBenchIds:nextBench}:{...next,awayLineupIds:nextLineup,awayBenchIds:nextBench};
-}
+export function makeSubstitution(state:LiveMatchState,side:MatchSide,outPlayerId:string,inPlayerId:string):LiveMatchState{if(!canDecide(state))return state;const sideSubs=state.substitutions.filter(s=>s.side===side);if(sideSubs.length>=(state.maxSubstitutions??5))return state;const lineup=side==="home"?state.homeLineupIds:state.awayLineupIds,bench=side==="home"?state.homeBenchIds:state.awayBenchIds;if(!lineup.includes(outPlayerId)||!bench.includes(inPlayerId))return state;const nextLineup=lineup.map(id=>id===outPlayerId?inPlayerId:id),nextBench=bench.filter(id=>id!==inPlayerId),minute=state.phase==="halftime"?46:Math.max(1,state.currentMinute),next={...state,substitutions:[...state.substitutions,{side,outPlayerId,inPlayerId,minute}],usedPlayerIds:[...new Set([...state.usedPlayerIds,inPlayerId])],injuredPlayerIds:state.injuredPlayerIds.filter(id=>id!==outPlayerId),events:[...state.events,{minute,type:"chance" as const,team:"neutral" as const,text:`Substituição aos ${minute}': mudança preparada pela comissão técnica.`}]};return side==="home"?{...next,homeLineupIds:nextLineup,homeBenchIds:nextBench}:{...next,awayLineupIds:nextLineup,awayBenchIds:nextBench};}
 export function requiredUserSubstitutions(state:LiveMatchState):string[]{const lineup=state.userSide==="home"?state.homeLineupIds:state.awayLineupIds;return state.injuredPlayerIds.filter(id=>lineup.includes(id));}
 export function isLiveMatchRunning(state:LiveMatchState){return activePhase(state)&&state.currentMinute<90;}
-
-function legacyAutoResolve(state:LiveMatchState):LiveMatchState{
- let next=state;for(const id of requiredUserSubstitutions(next)){const bench=next.userSide==="home"?next.homeBenchIds:next.awayBenchIds;if(bench[0])next=makeSubstitution(next,next.userSide,id,bench[0]);}return next;
-}
+function legacyAutoResolve(state:LiveMatchState):LiveMatchState{let next=state;for(const id of requiredUserSubstitutions(next)){const bench=next.userSide==="home"?next.homeBenchIds:next.awayBenchIds;if(bench[0])next=makeSubstitution(next,next.userSide,id,bench[0]);}return next;}
 export function playFirstHalf(state:LiveMatchState,home:LeagueClub,away:LeagueClub):LiveMatchState{let next=startLiveMatch(state,home);while(next.phase==="first_half"){next=legacyAutoResolve(next);next=advanceLiveMatchMinute(next,home,away);}return next;}
 export function playSecondHalf(state:LiveMatchState,home:LeagueClub,away:LeagueClub):LiveMatchState{let next=resumeSecondHalf(legacyAutoResolve(state));while(next.phase==="second_half_window"&&next.currentMinute<70){next=legacyAutoResolve(next);next=advanceLiveMatchMinute(next,home,away);}return next;}
 export function playFinalMinutes(state:LiveMatchState,home:LeagueClub,away:LeagueClub):LiveMatchState{let next=state.phase==="halftime"?resumeSecondHalf(legacyAutoResolve(state)):legacyAutoResolve(state);while(next.phase==="second_half_window"){next=legacyAutoResolve(next);next=advanceLiveMatchMinute(next,home,away);}return next;}
