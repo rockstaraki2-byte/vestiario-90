@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSeason, playCurrentRound, startNextSeason } from "./season";
+import type { MatchResult } from "./match";
 
 describe("season engine",()=>{
   it("conclui uma rodada e atualiza toda a tabela",()=>{
@@ -8,14 +9,19 @@ describe("season engine",()=>{
     expect(new Set(season.league.standings.map(s=>s.played))).toEqual(new Set([1]));
     expect(season.lastUserMatch).toBeTruthy();
   });
-
   it("é determinística para a mesma seed",()=>{
     const a=playCurrentRound(createSeason("deterministica",2026));
     const b=playCurrentRound(createSeason("deterministica",2026));
     expect(a.lastUserMatch?.result).toEqual(b.lastUserMatch?.result);
     expect(a.league.standings).toEqual(b.league.standings);
   });
-
+  it("aceita o resultado jogado de forma interativa",()=>{
+    const initial=createSeason("interativa",2026);
+    const override:MatchResult={homeGoals:4,awayGoals:1,possessionHome:55,shotsHome:14,shotsAway:7,events:[{minute:90,type:"fulltime",team:"neutral",text:"fim"}]};
+    const next=playCurrentRound(initial,undefined,override,initial.lineupIds);
+    expect(next.lastUserMatch?.result.homeGoals).toBe(4);
+    expect(next.lastUserMatch?.result.awayGoals).toBe(1);
+  });
   it("fecha 38 rodadas e permite virar a temporada",()=>{
     let season=createSeason("carreira",2026);
     for(let round=1;round<=38;round++)season=playCurrentRound(season);
