@@ -1,0 +1,56 @@
+name: Fix Sprint 13 Release
+on:
+  push:
+    branches: [feat/sprint13-europe-stats-tactics]
+    paths:
+      - .github/workflows/fix-sprint13-release.yml
+permissions:
+  contents: write
+jobs:
+  fix-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/sprint13-europe-stats-tactics
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply release fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          league=Path('src/game-engine/league.ts')
+          s=league.read_text()
+          s=re.sub(r'function valueOverall\(value:number\|null\)\{', 'function valueOverall(value:number|null):number|null{', s)
+          s=re.sub(r'\breturn(\d+)\b', r'return \1', s)
+          league.write_text(s)
+
+          club=Path('src/game-engine/club-management.ts')
+          s=club.read_text()
+          old='overall:prospect.overall,morale:'
+          new='overall:prospect.overall,potential:Math.max(prospect.overall,prospect.potential),seasonStartOverall:prospect.overall,developmentProgress:0,overallHistory:[{year:state.year,round:state.currentRound,overall:prospect.overall,reason:"início"}],morale:'
+          if old not in s: raise SystemExit('promotion overall marker not found')
+          s=s.replace(old,new,1)
+          old='form:6,goals:0,assists:0,yellowCards:0,'
+          new='form:6,goals:0,assists:0,shots:0,yellowCards:0,redCards:0,wins:0,draws:0,losses:0,cleanSheets:0,ratingTotal:0,ratedMatches:0,averageRating:0,lastRating:0,'
+          if old not in s: raise SystemExit('promotion stats marker not found')
+          s=s.replace(old,new,1)
+          club.write_text(s)
+          PY
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Commit validated fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/game-engine/league.ts src/game-engine/club-management.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix: stabilize Sprint 13 player model"
+          git push origin HEAD:feat/sprint13-europe-stats-tactics
