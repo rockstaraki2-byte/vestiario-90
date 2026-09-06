@@ -165,3 +165,19 @@
 - [ ] ampliar jornalistas e veículos por país/competição europeia
 - [ ] coletivas com repórteres específicos, histórico de relação e linha editorial individual
 - [ ] tendências, hashtags, vídeos virais e ciclos de repercussão de vários dias
+
+
+## M9 — Mundo do Futebol Vivo / Sprint 15
+- [x] relações persistentes treinador-jornalista: respeito, acesso, tensão e histórico
+- [x] coletivas pré e pós-jogo em múltiplas perguntas
+- [x] convites periódicos para programas esportivos
+- [x] perfis reais por competição: Brasil, Premier League, LaLiga e Ligue 1
+- [x] conteúdo associado a nomes reais explicitamente marcado como simulação
+- [x] torcida segmentada em arquibancada, organizadas, sócios e ambiente digital
+- [x] humor dos segmentos reage a resultados e declarações
+- [x] Instagram, X, Threads, TikTok e YouTube geram tendências persistentes
+- [x] hashtags, alcance e sentimento digital ligados ao resultado do clube
+- [x] calendário encaminha o treinador a entrevistas pendentes
+- [x] relações com imprensa sobrevivem à temporada e acompanham a carreira
+- [ ] setoristas específicos por clube com banco amplo de profissionais locais
+- [ ] rádio/podcast e programas ao vivo com mesas completas de debatedores
