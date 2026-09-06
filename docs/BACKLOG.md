@@ -181,3 +181,26 @@
 - [x] relações com imprensa sobrevivem à temporada e acompanham a carreira
 - [ ] setoristas específicos por clube com banco amplo de profissionais locais
 - [ ] rádio/podcast e programas ao vivo com mesas completas de debatedores
+
+
+## M10 — Sprints 16–18: Competições, IA e mercado global
+### Sprint 16 — Competições
+- [x] copas nacionais de Brasil, Inglaterra, Espanha e França
+- [x] Libertadores e Sul-Americana no mundo sul-americano
+- [x] Champions, Europa League e Conference no mundo europeu
+- [x] mata-mata persistente, fases, resultados, campeões e histórico por temporada
+- [x] painel Mundo com compromissos do clube e memória de campeões
+- [ ] partidas de copa totalmente jogáveis no motor ao vivo em vez de simulação paralela
+### Sprint 17 — IA de técnicos e clubes
+- [x] treinador por clube com estilo, formação, pressão, ritmo e tolerância a jovens
+- [x] segurança no cargo e demissões por sequência/posição
+- [x] troca automática de técnico com mudança de identidade tática
+- [x] adversários usam a tática do treinador de IA na simulação
+- [x] histórico de demissões/contratações e painel de técnicos
+### Sprint 18 — Mercado internacional
+- [x] jogadores reais das demais ligas disponíveis no scouting global
+- [x] ofertas internacionais do usuário com clube e termos pessoais
+- [x] propostas estrangeiras pelo elenco do usuário
+- [x] transferências IA x IA entre ligas registradas no mundo
+- [x] janela internacional por calendário e histórico global
+- [ ] contrapropostas multi-etapa, bônus, parcelas, luvas e cláusulas avançadas
