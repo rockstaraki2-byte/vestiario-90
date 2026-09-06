@@ -1,6 +1,6 @@
 "use client";
 
-import{useMemo,useState}from"react";
+import{useState}from"react";
 import{Activity,BarChart3,Goal,Star,TrendingDown,TrendingUp,Users}from"lucide-react";
 import{sortedStandings,type LeagueClub}from"@/game-engine/league";
 import{overallTrend}from"@/game-engine/development";
@@ -9,9 +9,9 @@ import styles from"./statistics-view.module.css";
 
 type Tab="competition"|"clubs"|"players";
 export default function StatisticsView({season}:{season:SeasonState}){
- const[tab,setTab]=useState<Tab>("competition"),league=season.league,played=league.fixtures.filter(f=>f.played),standings=useMemo(()=>sortedStandings(league),[league]);
+ const[tab,setTab]=useState<Tab>("competition"),league=season.league,played=league.fixtures.filter(f=>f.played),standings=sortedStandings(league);
  const goals=played.reduce((sum,f)=>sum+(f.homeGoals??0)+(f.awayGoals??0),0),shots=played.reduce((sum,f)=>sum+(f.homeShots??0)+(f.awayShots??0),0),homeWins=played.filter(f=>(f.homeGoals??0)>(f.awayGoals??0)).length,draws=played.filter(f=>f.homeGoals===f.awayGoals).length,awayWins=played.length-homeWins-draws;
- const players=useMemo(()=>league.clubs.flatMap(club=>club.players.map(player=>({player,club}))),[league.clubs]);
+ const players=league.clubs.flatMap(club=>club.players.map(player=>({player,club})));
  const topScorers=[...players].sort((a,b)=>b.player.goals-a.player.goals||b.player.assists-a.player.assists||b.player.averageRating-a.player.averageRating).slice(0,10),topRatings=[...players].filter(x=>x.player.ratedMatches>0).sort((a,b)=>b.player.averageRating-a.player.averageRating||b.player.goals-a.player.goals).slice(0,10),rising=[...players].sort((a,b)=>overallTrend(b.player)-overallTrend(a.player)||b.player.potential-a.player.potential).slice(0,8);
  const clubStats=standings.map(row=>{const club=league.clubs.find(c=>c.id===row.clubId)!,fixtures=played.filter(f=>f.homeClubId===club.id||f.awayClubId===club.id);let shotsFor=0,shotsAgainst=0,possession=0;for(const f of fixtures){const home=f.homeClubId===club.id;shotsFor+=home?(f.homeShots??0):(f.awayShots??0);shotsAgainst+=home?(f.awayShots??0):(f.homeShots??0);possession+=home?(f.possessionHome??50):100-(f.possessionHome??50);}return{club,row,shotsFor,shotsAgainst,avgPossession:fixtures.length?Math.round(possession/fixtures.length):0};});
  return <div className={styles.wrap}>

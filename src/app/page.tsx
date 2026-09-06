@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { BarChart3, Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Home, Inbox, LayoutGrid, MessageSquareText, Newspaper, Play, RotateCcw, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
 import styles from "./page.module.css";
 import seasonStyles from "./season.module.css";
@@ -30,7 +30,7 @@ const NAV=[["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["V
 export default function Dashboard(){
   const [screen,setScreen]=useState<"menu"|"game">("menu"),[saveId,setSaveId]=useState<string|null>(null),[season,setSeason]=useState<SeasonState>(()=>createSeason("vestiario-90",2026)),[active,setActive]=useState("Visão geral"),[notice,setNotice]=useState(""),[tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC),[match,setMatch]=useState<MatchResult|null>(null),[liveMatch,setLiveMatch]=useState<LiveMatchState|null>(null);
   useEffect(()=>{migrateLegacySeason()},[]);
-  const league=season.league,competition=professionalCompetitionById(season.competitionId??league.competitionId??"BRA1"),totalRounds=league.totalRounds??Math.max(...league.fixtures.map(f=>f.round),38),todayFixture=getTodayUserFixture(season),club=getSelectedClub(season),employed=season.career.status==="Empregado",standings=useMemo(()=>sortedStandings(league),[league]),standing=standings.find(s=>s.clubId===club.id)!,position=standings.findIndex(s=>s.clubId===club.id)+1,squadMorale=Math.round(club.players.reduce((sum,p)=>sum+p.morale,0)/club.players.length),squadCondition=Math.round(club.players.reduce((sum,p)=>sum+p.condition,0)/club.players.length),currentFixture=getCurrentUserFixture(season),opponent=currentFixture?league.clubs.find(c=>c.id===(currentFixture.homeClubId===club.id?currentFixture.awayClubId:currentFixture.homeClubId)):undefined,unavailable=club.players.filter(p=>p.injuryDays>0||p.suspensionMatches>0).length,pendingEvents=pendingWorldEvents(season.livingWorld),unreadEvents=season.livingWorld.inbox.filter(event=>event.unread&&!event.resolved).length,latestNews=season.livingWorld.news.slice(0,3);
+  const league=season.league,competition=professionalCompetitionById(season.competitionId??league.competitionId??"BRA1"),totalRounds=league.totalRounds??Math.max(...league.fixtures.map(f=>f.round),38),todayFixture=getTodayUserFixture(season),club=getSelectedClub(season),employed=season.career.status==="Empregado",standings=sortedStandings(league),standing=standings.find(s=>s.clubId===club.id)!,position=standings.findIndex(s=>s.clubId===club.id)+1,squadMorale=Math.round(club.players.reduce((sum,p)=>sum+p.morale,0)/club.players.length),squadCondition=Math.round(club.players.reduce((sum,p)=>sum+p.condition,0)/club.players.length),currentFixture=getCurrentUserFixture(season),opponent=currentFixture?league.clubs.find(c=>c.id===(currentFixture.homeClubId===club.id?currentFixture.awayClubId:currentFixture.homeClubId)):undefined,unavailable=club.players.filter(p=>p.injuryDays>0||p.suspensionMatches>0).length,pendingEvents=pendingWorldEvents(season.livingWorld),unreadEvents=season.livingWorld.inbox.filter(event=>event.unread&&!event.resolved).length,latestNews=season.livingWorld.news.slice(0,3);
 
   function flash(message:string){setNotice(message);window.setTimeout(()=>setNotice(""),3600)}
   function persist(next:SeasonState){setSeason(next);if(saveId)saveToSlot(saveId,next)}
