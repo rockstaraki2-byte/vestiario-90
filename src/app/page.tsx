@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Bell, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Home, Inbox, LayoutGrid, MessageSquareText, Newspaper, Play, RotateCcw, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
+import { BarChart3, Bell, BriefcaseBusiness, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Home, Inbox, LayoutGrid, MessageSquareText, Newspaper, Play, RotateCcw, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
 import styles from "./page.module.css";
 import seasonStyles from "./season.module.css";
 import LiveMatchView from "./live-match-view";
@@ -10,6 +10,7 @@ import DressingRoomView from "./dressing-room-view";
 import WorldInboxView, { NewsFeedView } from "./world-view";
 import MarketView from "./market-view";
 import TacticsSetupView from "./tactics-setup-view";
+import CareerView from "./career-view";
 import { SOCCERWIKI_COMPETITION } from "@/data/soccerwiki";
 import { BRASILEIRAO_2026_ROSTER_META } from "@/data/brasileirao-2026/rosters";
 import { createInitialWorld, advanceDay, type GameWorld } from "@/game-engine/world";
@@ -18,10 +19,10 @@ import { sortedStandings, type LeagueClub, type LeagueFixture, type LeagueStandi
 import { DEFAULT_TACTIC, type MatchResult, type MatchTactic } from "@/game-engine/match";
 import { createLiveMatch, liveMatchResult, type LiveMatchState } from "@/game-engine/live-match";
 import { talkToPlayer, type ConversationAction } from "@/game-engine/people";
-import { pendingWorldEvents, resolveWorldEvent } from "@/game-engine/world-events";
-import { advanceSeasonDay, createSeason, getCurrentUserFixture, getSelectedClub, getUserFixtures, loadSeasonLocal, playCurrentRound, saveSeasonLocal, startNextSeason, toggleLineupPlayer, type SeasonState } from "@/game-engine/season";
+import { pendingWorldEvents } from "@/game-engine/world-events";
+import { advanceSeasonDay, createSeason, getCurrentUserFixture, getSelectedClub, getUserFixtures, loadSeasonLocal, playCurrentRound, resolveSeasonWorldChoice, saveSeasonLocal, startNextSeason, toggleLineupPlayer, type SeasonState } from "@/game-engine/season";
 
-const NAV=[["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["Vestiário",MessageSquareText],["Táticas",LayoutGrid],["Calendário",CalendarDays],["Classificação",Trophy],["Mercado",BarChart3],["Notícias",Newspaper]] as const;
+const NAV=[["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["Vestiário",MessageSquareText],["Táticas",LayoutGrid],["Calendário",CalendarDays],["Classificação",Trophy],["Mercado",BarChart3],["Carreira",BriefcaseBusiness],["Notícias",Newspaper]] as const;
 
 export default function Dashboard(){
   const [world,setWorld]=useState<GameWorld>(()=>createInitialWorld("vestiario-90-demo"));
@@ -40,6 +41,7 @@ export default function Dashboard(){
 
   const league=season.league;
   const club=getSelectedClub(season);
+  const employed=season.career.status==="Empregado";
   const standings=useMemo(()=>sortedStandings(league),[league]);
   const standing=standings.find(s=>s.clubId===club.id)!;
   const position=standings.findIndex(s=>s.clubId===club.id)+1;
@@ -54,16 +56,14 @@ export default function Dashboard(){
 
   function flash(message:string){setNotice(message);window.setTimeout(()=>setNotice(""),3600)}
   function persist(next:SeasonState){setSeason(next);saveSeasonLocal(next)}
-  function handleAdvance(){const nextWorld=advanceDay(world),nextSeason=advanceSeasonDay(season,nextWorld.day);setWorld(nextWorld);saveLocalWorld(nextWorld);persist(nextSeason);flash(`${nextWorld.lastEvent} • condição física atualizada`)}
+  function handleAdvance(){if(!employed){handleCareerAdvanceRound();return}const nextWorld=advanceDay(world),nextSeason=advanceSeasonDay(season,nextWorld.day);setWorld(nextWorld);saveLocalWorld(nextWorld);persist(nextSeason);flash(`${nextWorld.lastEvent} • condição física atualizada`)}
+  function handleCareerAdvanceRound(){if(season.completed){handleNextSeason();return}const next=playCurrentRound(season);persist(next);flash(`Rodada ${Math.min(38,next.currentRound-1)} simulada • mercado de treinadores atualizado`)}
   function handleToggleLineup(playerId:string){persist(toggleLineupPlayer(season,playerId))}
   function handleConversation(playerId:string,action:ConversationAction){const result=talkToPlayer(season,playerId,action);persist(result.state);flash(result.message)}
-  function handleWorldChoice(eventId:string,choiceId:string){
-    const result=resolveWorldEvent(season.livingWorld,club,eventId,choiceId);
-    const nextLeague={...season.league,clubs:season.league.clubs.map(current=>current.id===club.id?result.club:current)};
-    persist({...season,league:nextLeague,livingWorld:result.world});flash(result.message);
-  }
+  function handleWorldChoice(eventId:string,choiceId:string){const result=resolveSeasonWorldChoice(season,eventId,choiceId);persist(result.state);flash(result.message)}
 
   function handlePlay(){
+    if(!employed){flash("Você precisa assumir um clube antes de voltar ao banco de reservas.");return}
     if(season.lineupIds.length!==11){flash("Selecione exatamente 11 titulares antes de entrar em campo.");return}
     if(!currentFixture){flash("Não há partida pendente nesta rodada.");return}
     const home=league.clubs.find(c=>c.id===currentFixture.homeClubId),away=league.clubs.find(c=>c.id===currentFixture.awayClubId);
@@ -92,26 +92,26 @@ export default function Dashboard(){
     <aside className={styles.sidebar}>
       <div className={styles.brand}><span>V90</span><div><b>VESTIÁRIO</b><small>90</small></div></div>
       <nav>{NAV.map(([label,Icon])=><button key={label} onClick={()=>{setActive(label);setMatch(null)}} className={active===label?styles.activeNav:""}><Icon size={18}/><span>{label}</span>{label==="Caixa de entrada"&&pendingEvents.length>0&&<i>{Math.min(99,pendingEvents.length)}</i>}</button>)}</nav>
-      <div className={styles.clubCard}><ClubLogo club={club} size={38}/><div><b>{club.name}</b><small>{SOCCERWIKI_COMPETITION.name} • {season.year}</small></div><ChevronRight size={17}/></div>
+      <div className={styles.clubCard}>{employed?<ClubLogo club={club} size={38}/>:<BriefcaseBusiness size={28}/>}<div><b>{employed?club.name:"Sem clube"}</b><small>{employed?`${SOCCERWIKI_COMPETITION.name} • ${season.year}`:"Disponível no mercado"}</small></div><ChevronRight size={17}/></div>
       <button className={styles.settings}><Settings size={18}/> Configurações</button>
-      <div className={styles.manager}><CircleUserRound/><div><b>Raul Soares</b><small>Treinador principal</small></div></div>
+      <div className={styles.manager}><CircleUserRound/><div><b>Raul Soares</b><small>{employed?"Treinador principal":"Sem clube • mercado aberto"}</small></div></div>
     </aside>
 
     <main className={styles.main}>
-      <header className={styles.topbar}><div className={styles.mobileBrand}>V90</div><div className={styles.season}><span>{SOCCERWIKI_COMPETITION.name} • Temporada {season.year}</span><b>{season.completed?"TEMPORADA ENCERRADA":`RODADA ${season.currentRound} DE 38`} • {world.day} SET</b></div><div className={styles.topActions}><button aria-label="Mensagens" onClick={()=>setActive("Caixa de entrada")}><MessageSquareText size={19}/>{unreadEvents>0&&<i/>}</button><button aria-label="Notificações"><Bell size={19}/><i/></button><button className={styles.advance} onClick={handleAdvance}>AVANÇAR <Play size={15} fill="currentColor"/></button></div></header>
+      <header className={styles.topbar}><div className={styles.mobileBrand}>V90</div><div className={styles.season}><span>{employed?SOCCERWIKI_COMPETITION.name:"Mercado de Treinadores"} • Temporada {season.year}</span><b>{season.completed?"TEMPORADA ENCERRADA":`RODADA ${season.currentRound} DE 38`} • {world.day} SET</b></div><div className={styles.topActions}><button aria-label="Mensagens" onClick={()=>setActive("Caixa de entrada")}><MessageSquareText size={19}/>{unreadEvents>0&&<i/>}</button><button aria-label="Notificações"><Bell size={19}/><i/></button><button className={styles.advance} onClick={handleAdvance}>{employed?"AVANÇAR":"AVANÇAR RODADA"} <Play size={15} fill="currentColor"/></button></div></header>
       {notice&&<div className={styles.toast}><Zap size={17}/>{notice}</div>}
 
       <section className={styles.content}>
-        <div className={styles.welcome}><div><p>{season.completed?"FIM DE TEMPORADA":`RODADA ${season.currentRound} • ${SOCCERWIKI_COMPETITION.name.toUpperCase()}`}</p><h1>{active==="Visão geral"?"Bom dia, Raul.":active}</h1><span>{active==="Visão geral"?(season.completed?"O campeonato terminou. Hora de avaliar a temporada e preparar a próxima.":`${opponent?`Próximo adversário: ${opponent.name}.`:"Sem partida pendente"} ${unavailable?`${unavailable} jogador(es) indisponível(is).`:"Elenco completo à disposição."}`):`Temporada ${season.year} • ${club.name}`}</span></div><button onClick={()=>setActive("Calendário")}><ClipboardList size={17}/> Ver calendário</button></div>
+        <div className={styles.welcome}><div><p>{season.completed?"FIM DE TEMPORADA":`RODADA ${season.currentRound} • ${SOCCERWIKI_COMPETITION.name.toUpperCase()}`}</p><h1>{active==="Visão geral"?"Bom dia, Raul.":active}</h1><span>{active==="Visão geral"?(!employed?"Você está sem clube. Avance as rodadas, responda entrevistas e escolha o próximo projeto.":season.completed?"O campeonato terminou. Hora de avaliar a temporada e preparar a próxima.":`${opponent?`Próximo adversário: ${opponent.name}.`:"Sem partida pendente"} ${unavailable?`${unavailable} jogador(es) indisponível(is).`:"Elenco completo à disposição."}`):`Temporada ${season.year} • ${employed?club.name:"Sem clube"}`}</span></div><button onClick={()=>setActive("Calendário")}><ClipboardList size={17}/> Ver calendário</button></div>
 
         {active==="Elenco"?<SquadView club={club} lineupIds={season.lineupIds} onToggle={handleToggleLineup}/>:
         active==="Vestiário"?<DressingRoomView season={season} onConversation={handleConversation}/>:
         active==="Caixa de entrada"?<WorldInboxView world={season.livingWorld} club={club} onResolve={handleWorldChoice}/>:
-        active==="Notícias"?<NewsFeedView world={season.livingWorld} club={club}/>:active==="Mercado"?<MarketView season={season} onResult={({state:next,message})=>{persist(next);flash(message)}}/>:
+        active==="Notícias"?<NewsFeedView world={season.livingWorld} club={club}/>:active==="Carreira"?<CareerView season={season} onOpenInbox={()=>setActive("Caixa de entrada")} onAdvanceRound={handleCareerAdvanceRound}/>:active==="Mercado"?<MarketView season={season} onResult={({state:next,message})=>{persist(next);flash(message)}}/>:
         active==="Táticas"?(liveMatch&&liveHome&&liveAway?<LiveMatchView session={liveMatch} home={liveHome} away={liveAway} onChange={handleLiveChange} onFinish={handleLiveFinish}/>:match&&matchHome&&matchAway?<MatchCenter home={matchHome} away={matchAway} result={match} onContinue={()=>{setMatch(null);setActive("Visão geral")}}/>:season.completed?<SeasonEnd season={season} standings={standings} clubs={league.clubs} onNext={handleNextSeason}/>:opponent?<TacticsView club={club} opponent={opponent} tactic={tactic} onChange={setTactic} lineupIds={season.lineupIds} onToggle={handleToggleLineup} onPlay={handlePlay}/>:<ComingSoon title="Partida"/>):
         active==="Classificação"?<TableView clubs={league.clubs} standings={standings} selectedClubId={club.id}/>:
         active==="Calendário"?<CalendarView season={season}/>:
-        active!=="Visão geral"?<ComingSoon title={active}/>:
+        active!=="Visão geral"?<ComingSoon title={active}/>:!employed?<CareerView season={season} onOpenInbox={()=>setActive("Caixa de entrada")} onAdvanceRound={handleCareerAdvanceRound}/>:
         <>
           <div className={styles.kpis}><Metric label="POSIÇÃO" value={`${position}º`} detail={`${standing.points} pontos • ${standing.played} jogos`} icon={<Trophy/>} tone="green"/><Metric label="CONDIÇÃO DO ELENCO" value={`${squadCondition}%`} detail={`Moral ${squadMorale}%`} icon={<Users/>} tone="blue"/><Metric label="DISPONIBILIDADE" value={`${club.players.length-unavailable}/${club.players.length}`} detail={unavailable?`${unavailable} fora`:"Todos disponíveis"} icon={<Shield/>} tone="gold"/><Metric label="FORMA RECENTE" value="" detail="Últimos 5 jogos" icon={<BarChart3/>} tone="purple" formValues={season.recentForm}/></div>
           {season.completed?<SeasonEnd season={season} standings={standings} clubs={league.clubs} onNext={handleNextSeason}/>:<div className={styles.grid}><div className={styles.leftCol}>{currentFixture&&opponent&&<NextMatchCard fixture={currentFixture} club={club} opponent={opponent} standings={standings} tactic={tactic} onPrepare={()=>setActive("Táticas")}/>}<Agenda fixtures={getUserFixtures(season)} league={league.clubs} currentRound={season.currentRound}/></div><div className={styles.rightCol}><section className={`${styles.card} ${styles.inboxCard}`}><div className={styles.cardHead}><div>PRECISA DA SUA ATENÇÃO {pendingEvents.length>0&&<i>{pendingEvents.length}</i>}</div><button onClick={()=>setActive("Caixa de entrada")}>Ver inbox <ChevronRight size={15}/></button></div>{pendingEvents.slice(0,3).map((event,index)=><InboxItem key={event.id} urgent={index===0} icon={event.kind.slice(0,2).toUpperCase()} title={event.title} text={event.body} time={`R${event.round}`} onClick={()=>setActive("Caixa de entrada")}/>) }{pendingEvents.length===0&&<InboxItem icon="OK" title="Sem decisões pendentes" text="O mundo está calmo por enquanto. Jogue ou avance para gerar novas situações." time="agora" onClick={()=>setActive("Caixa de entrada")}/>}</section><section className={styles.card}><div className={styles.cardHead}><div>MUNDO VIVO</div><button onClick={()=>setActive("Notícias")}>Ver notícias <ChevronRight size={15}/></button></div>{latestNews[0]?<article className={styles.featureNews}><div><span>{latestNews[0].source.toUpperCase()}</span><b>{latestNews[0].headline}</b><small>Rodada {latestNews[0].round}</small></div></article>:<article className={styles.featureNews}><div><span>FUTEBOL AGORA</span><b>O mundo ainda está esperando sua primeira decisão.</b><small>Temporada {season.year}</small></div></article>}{latestNews.slice(1).map(item=><News key={item.id} initials={item.source.slice(0,2).toUpperCase()} source={item.source} text={item.headline} time={`R${item.round}`}/>)}</section></div></div>}

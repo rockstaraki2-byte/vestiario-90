@@ -2,9 +2,10 @@ import { SeededRng } from "./rng";
 import { createLeague, generateFixtures, sortedStandings, type LeagueClub, type LeagueFixture, type LeaguePlayer, type LeagueWorld } from "./league";
 import { DEFAULT_TACTIC, pickStartingXI, simulateMatch, type MatchResult, type MatchTactic } from "./match";
 import { applyPeopleAfterMatch } from "./people";
-import { createLivingWorld, worldAfterDay, worldAfterMatch, type LivingWorldState } from "./world-events";
+import { createLivingWorld, resolveWorldEvent, worldAfterDay, worldAfterMatch, type LivingWorldState } from "./world-events";
 import { createMarketState, prepareNextMarketSeason, processMarketRound, type MarketState } from "./market";
 import { applyNarrativeDay } from "./narrative";
+import { applyCareerChoice, careerAfterRound, createManagerCareer, type ManagerCareerState } from "./career";
 
 export const SEASON_SAVE_KEY="vestiario90:season:v5";
 export const TOTAL_ROUNDS=38;
@@ -22,6 +23,7 @@ export type SeasonState={
   completed:boolean;
   livingWorld:LivingWorldState;
   market:MarketState;
+  career:ManagerCareerState;
   championClubId?:string;
   lastUserMatch?:StoredUserMatch;
 };
@@ -47,12 +49,13 @@ export function createSeason(baseSeed:string,year=2026,selectedClubId="club-1"):
   const club=league.clubs.find(c=>c.id===selectedClubId)??league.clubs[0];
   const lineupIds=defaultLineup(club);
   club.players.forEach(player=>refreshStatus(player,lineupIds.includes(player.id)));
-  return{baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,recentForm:[],completed:false,livingWorld:createLivingWorld(club.name),market:createMarketState()};
+  return{baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,recentForm:[],completed:false,livingWorld:createLivingWorld(club.name),market:createMarketState(),career:createManagerCareer(club,year)};
 }
 
 export function getSelectedClub(state:SeasonState):LeagueClub{return state.league.clubs.find(c=>c.id===state.selectedClubId)??state.league.clubs[0];}
 
 export function getCurrentUserFixture(state:SeasonState):LeagueFixture|undefined{
+  if(state.career?.status==="Sem clube")return undefined;
   return state.league.fixtures.find(f=>f.round===state.currentRound&&(f.homeClubId===state.selectedClubId||f.awayClubId===state.selectedClubId));
 }
 
@@ -113,12 +116,13 @@ export function playCurrentRound(
 ):SeasonState{
   if(state.completed)return state;
   const league=cloneLeague(state.league);
+  const managerEmployed=state.career?.status!=="Sem clube";
   const roundFixtures=league.fixtures.filter(f=>f.round===state.currentRound&&!f.played);
   let lastUserMatch:StoredUserMatch|undefined;
   for(const fixture of roundFixtures){
     const home=league.clubs.find(c=>c.id===fixture.homeClubId)!;
     const away=league.clubs.find(c=>c.id===fixture.awayClubId)!;
-    const userHome=home.id===state.selectedClubId,userAway=away.id===state.selectedClubId;
+    const userHome=managerEmployed&&home.id===state.selectedClubId,userAway=managerEmployed&&away.id===state.selectedClubId;
     const isUserFixture=userHome||userAway;
     const result=isUserFixture&&userMatchOverride?userMatchOverride:simulateMatch(
       home,
@@ -160,8 +164,10 @@ export function playCurrentRound(
     if(player.injuryDays===0&&player.suspensionMatches===0&&!lineupIds.includes(player.id))lineupIds.push(player.id);
   }
   selectedClub.players.forEach(player=>refreshStatus(player,lineupIds.includes(player.id)));
-  const livingWorld=userResult?worldAfterMatch(state.livingWorld??createLivingWorld(selectedClub.name),selectedClub,state.currentRound,gf,ga):(state.livingWorld??createLivingWorld(selectedClub.name));
-  const nextState={...state,league,currentRound:nextRound,lineupIds,recentForm,completed,championClubId,lastUserMatch,livingWorld};
+  let livingWorld=userResult?worldAfterMatch(state.livingWorld??createLivingWorld(selectedClub.name),selectedClub,state.currentRound,gf,ga):(state.livingWorld??createLivingWorld(selectedClub.name));
+  const careerResult=careerAfterRound(state.career??createManagerCareer(selectedClub,state.year),league,livingWorld,state.currentRound,state.year,state.baseSeed,userResult?{goalsFor:gf,goalsAgainst:ga}:undefined);
+  livingWorld=careerResult.world;
+  const nextState={...state,league,currentRound:nextRound,lineupIds,recentForm,completed,championClubId,lastUserMatch,livingWorld,career:careerResult.career};
   return processMarketRound(nextState);
 }
 
@@ -177,9 +183,28 @@ export function advanceSeasonDay(state:SeasonState,calendarDay=1):SeasonState{
     }
   }
   club.players.forEach(player=>refreshStatus(player,state.lineupIds.includes(player.id)));
-  let livingWorld=worldAfterDay(state.livingWorld??createLivingWorld(club.name),club,state.currentRound,state.baseSeed);
-  livingWorld=applyNarrativeDay(livingWorld,{day:calendarDay,round:state.currentRound,selectedClubId:state.selectedClubId,seed:state.baseSeed,league});
+  let livingWorld=state.livingWorld??createLivingWorld(club.name);
+  if(state.career?.status!=="Sem clube"){
+    livingWorld=worldAfterDay(livingWorld,club,state.currentRound,state.baseSeed);
+    livingWorld=applyNarrativeDay(livingWorld,{day:calendarDay,round:state.currentRound,selectedClubId:state.selectedClubId,seed:state.baseSeed,league});
+  }
   return processMarketRound({...state,league,livingWorld});
+}
+
+export function resolveSeasonWorldChoice(state:SeasonState,eventId:string,choiceId:string){
+  const club=getSelectedClub(state);
+  const event=state.livingWorld.inbox.find(item=>item.id===eventId),choice=event?.choices.find(item=>item.id===choiceId);
+  const resolved=resolveWorldEvent(state.livingWorld,club,eventId,choiceId);
+  const league={...state.league,clubs:state.league.clubs.map(current=>current.id===club.id?resolved.club:current)};
+  let next:SeasonState={...state,league,livingWorld:resolved.world};
+  if(!choice?.careerAction)return{state:next,message:resolved.message};
+  const careerResult=applyCareerChoice(state.career??createManagerCareer(club,state.year),league,resolved.world,choice,state.currentRound,state.year,state.baseSeed);
+  next={...next,career:careerResult.career,livingWorld:careerResult.world};
+  if(careerResult.nextClubId){
+    const newClub=league.clubs.find(current=>current.id===careerResult.nextClubId);
+    if(newClub){const lineupIds=defaultLineup(newClub);newClub.players.forEach(player=>refreshStatus(player,lineupIds.includes(player.id)));next={...next,selectedClubId:newClub.id,lineupIds,recentForm:[],lastUserMatch:undefined};}
+  }
+  return{state:next,message:careerResult.message};
 }
 
 export function toggleLineupPlayer(state:SeasonState,playerId:string):SeasonState{
@@ -205,8 +230,8 @@ export function startNextSeason(state:SeasonState):SeasonState{
   prepared.league.standings=prepared.league.clubs.map(c=>({clubId:c.id,played:0,won:0,drawn:0,lost:0,goalsFor:0,goalsAgainst:0,points:0}));
   const club=prepared.league.clubs.find(c=>c.id===state.selectedClubId)??prepared.league.clubs[0];
   const lineupIds=defaultLineup(club);club.players.forEach(player=>refreshStatus(player,lineupIds.includes(player.id)));
-  const livingWorld=createLivingWorld(club.name);livingWorld.managerReputation=state.livingWorld?.managerReputation??livingWorld.managerReputation;
-  return{...state,year:nextYear,league:prepared.league,currentRound:1,lineupIds,recentForm:[],completed:false,championClubId:undefined,lastUserMatch:undefined,livingWorld,market:prepared.market};
+  const livingWorld=state.career?.status==="Sem clube"?{...state.livingWorld,lastDailyRound:undefined,lastNarrativeDay:undefined}:createLivingWorld(club.name);livingWorld.managerReputation=state.livingWorld?.managerReputation??livingWorld.managerReputation;
+  return{...state,year:nextYear,league:prepared.league,currentRound:1,lineupIds,recentForm:[],completed:false,championClubId:undefined,lastUserMatch:undefined,livingWorld,market:prepared.market,career:state.career??createManagerCareer(club,nextYear)};
 }
 
 export function saveSeasonLocal(state:SeasonState):void{if(typeof window!=="undefined")window.localStorage.setItem(SEASON_SAVE_KEY,JSON.stringify(state));}
@@ -218,6 +243,7 @@ export function loadSeasonLocal():SeasonState|null{
     if(!raw)return null;
     const parsed=JSON.parse(raw) as SeasonState;
     if(!parsed?.baseSeed||!parsed.league?.clubs?.length||!Array.isArray(parsed.lineupIds)||!parsed.livingWorld||!parsed.market)return null;
+    if(!parsed.career){const club=parsed.league.clubs.find(c=>c.id===parsed.selectedClubId)??parsed.league.clubs[0];parsed.career=createManagerCareer(club,parsed.year??2026);}
     return parsed;
   }catch{return null;}
 }
