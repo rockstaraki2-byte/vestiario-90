@@ -120,7 +120,7 @@ function addTask(state:ManagedSeason,task:Omit<DepartmentTask,"id">):ClubActionR
   const {league,clubManagement}=copies(state),club=selectedClub(state,league),profile=getProfile(clubManagement,club.id);
   const duplicate=profile.tasks.some(existing=>existing.status==="Em andamento"&&existing.kind===task.kind&&existing.targetPlayerId===task.targetPlayerId&&existing.targetClubId===task.targetClubId);
   if(duplicate)return{state,message:"Já existe uma solicitação equivalente em andamento."};
-  const full:{...DepartmentTask}={...task,id:nextId(clubManagement,"task")};
+  const full:DepartmentTask={...task,id:nextId(clubManagement,"task")};
   profile.tasks.unshift(full);
   return{state:{...state,league,clubManagement} as SeasonState,message:`Solicitação enviada para ${profile.departments[task.department].label}. Prazo: rodada ${task.dueRound}.`};
 }
