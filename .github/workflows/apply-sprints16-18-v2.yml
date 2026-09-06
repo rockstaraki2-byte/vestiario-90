@@ -1,0 +1,69 @@
+name: Apply Sprints 16-18 v2
+on:
+  push:
+    branches: [feat/sprints16-18-world-competitions-ai-market]
+    paths: [.github/workflows/apply-sprints16-18-v2.yml]
+permissions:
+  contents: write
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/sprints16-18-world-competitions-ai-market
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Integrate world systems
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          def rep(path,old,new,count=1):
+              p=Path(path);s=p.read_text()
+              if old not in s: raise SystemExit(f'marker not found {path}: {old[:120]}')
+              p.write_text(s.replace(old,new,count))
+          p=Path('src/game-engine/world-competitions.ts');p.write_text(p.read_text().replace('  return rng.shuffle?selected:selected.sort(()=>0);','  return selected;'))
+          p=Path('src/game-engine/international-market.ts');p.write_text(p.read_text().replace('import { PROFESSIONAL_COMPETITIONS, type CompetitionClubRoster, type ProfessionalCompetitionId }','import { PROFESSIONAL_COMPETITIONS, type ProfessionalCompetitionId }'))
+
+          path='src/game-engine/season.ts'
+          rep(path,'import { competitionStartDate, professionalCompetitionById, type ProfessionalCompetitionId } from "../data/brazil-2026/competitions";\n','import { competitionStartDate, professionalCompetitionById, type ProfessionalCompetitionId } from "../data/brazil-2026/competitions";\nimport { createClubAiState, hydrateClubAi, prepareClubAiNextSeason, processClubAiRound, tacticForClub, type ClubAiState } from "./club-ai";\nimport { createWorldCompetitions, hydrateWorldCompetitions, prepareWorldCompetitionsNextSeason, processWorldCompetitions, type WorldCompetitionsState } from "./world-competitions";\nimport { createInternationalMarket, hydrateInternationalMarket, prepareInternationalMarketNextSeason, processInternationalMarketRound, type InternationalMarketState } from "./international-market";\n')
+          rep(path,'  clubManagement:ClubManagementState;\n  competitionId:ProfessionalCompetitionId;','  clubManagement:ClubManagementState;\n  clubAi:ClubAiState;\n  worldCompetitions:WorldCompetitionsState;\n  internationalMarket:InternationalMarketState;\n  competitionId:ProfessionalCompetitionId;')
+          rep(path,'clubManagement:createClubManagementState(league,baseSeed,year),competitionId,currentDate','clubManagement:createClubManagementState(league,baseSeed,year),clubAi:createClubAiState(league,baseSeed),worldCompetitions:createWorldCompetitions(competitionId,league,year,baseSeed),internationalMarket:createInternationalMarket(),competitionId,currentDate')
+          rep(path,'const result=isUserFixture&&userMatchOverride?userMatchOverride:simulateMatch(home,away,`${state.baseSeed}:${state.year}:r${state.currentRound}:${fixture.id}`,userHome?userTactic:DEFAULT_TACTIC,userAway?userTactic:DEFAULT_TACTIC,homeStarters,awayStarters);','const homeAiTactic=tacticForClub(state.clubAi,home.id),awayAiTactic=tacticForClub(state.clubAi,away.id),result=isUserFixture&&userMatchOverride?userMatchOverride:simulateMatch(home,away,`${state.baseSeed}:${state.year}:r${state.currentRound}:${fixture.id}`,userHome?userTactic:homeAiTactic,userAway?userTactic:awayAiTactic,homeStarters,awayStarters);')
+          rep(path,'const nextState:SeasonState={...state,league,currentRound:nextRound,lineupIds:selection.lineupIds,benchIds:selection.benchIds,recentForm,completed,championClubId,lastUserMatch,livingWorld,mediaWorld,career:careerResult.career};return processMarketRound(processClubManagementRound(nextState));','const clubAi=processClubAiRound(hydrateClubAi(state.clubAi,league,state.baseSeed),league,state.currentRound,state.baseSeed),worldCompetitions=processWorldCompetitions(hydrateWorldCompetitions(state.worldCompetitions,state.competitionId,league,state.year,state.baseSeed),state.currentRound,state.baseSeed),internationalMarket=hydrateInternationalMarket(state.internationalMarket);\n  const nextState:SeasonState={...state,league,currentRound:nextRound,lineupIds:selection.lineupIds,benchIds:selection.benchIds,recentForm,completed,championClubId,lastUserMatch,livingWorld,mediaWorld,career:careerResult.career,clubAi,worldCompetitions,internationalMarket};return processInternationalMarketRound(processMarketRound(processClubManagementRound(nextState)));')
+          rep(path,'const clubManagement=prepareNextClubManagementSeason(state,nextYear,prepared.league),firstDate=','const clubManagement=prepareNextClubManagementSeason(state,nextYear,prepared.league),clubAi=prepareClubAiNextSeason(hydrateClubAi(state.clubAi,prepared.league,state.baseSeed),prepared.league,state.baseSeed),worldCompetitions=prepareWorldCompetitionsNextSeason(hydrateWorldCompetitions(state.worldCompetitions,competitionId,prepared.league,state.year,state.baseSeed),competitionId,prepared.league,nextYear,state.baseSeed),internationalMarket=prepareInternationalMarketNextSeason(state.internationalMarket),firstDate=')
+          rep(path,'career:state.career??createManagerCareer(club,nextYear),clubManagement,competitionId,currentDate','career:state.career??createManagerCareer(club,nextYear),clubManagement,clubAi,worldCompetitions,internationalMarket,competitionId,currentDate')
+          rep(path,'if(!parsed.clubManagement)parsed.clubManagement=hydrateClubManagement(parsed);parsed.mediaWorld=hydrateMediaWorld(parsed.mediaWorld,competitionId);const club=getSelectedClub(parsed),selection=normalizeMatchdaySelection(parsed,club);','if(!parsed.clubManagement)parsed.clubManagement=hydrateClubManagement(parsed);parsed.mediaWorld=hydrateMediaWorld(parsed.mediaWorld,competitionId);parsed.clubAi=hydrateClubAi(parsed.clubAi,parsed.league,parsed.baseSeed);parsed.worldCompetitions=hydrateWorldCompetitions(parsed.worldCompetitions,competitionId,parsed.league,year,parsed.baseSeed);parsed.internationalMarket=hydrateInternationalMarket(parsed.internationalMarket);const club=getSelectedClub(parsed),selection=normalizeMatchdaySelection(parsed,club);')
+
+          path='src/app/market-view.tsx'
+          rep(path,'import styles from "./market.module.css";','import styles from "./market.module.css";\nimport InternationalMarketPanel from "./international-market-panel";')
+          rep(path,'useState<"Elenco"|"Oportunidades"|"Propostas"|"Histórico">','useState<"Elenco"|"Oportunidades"|"Internacional"|"Propostas"|"Histórico">')
+          rep(path,'(["Elenco","Oportunidades","Propostas","Histórico"] as const)','(["Elenco","Oportunidades","Internacional","Propostas","Histórico"] as const)')
+          rep(path,'    {tab==="Propostas"&&<div className={styles.proposalGrid}>','    {tab==="Internacional"&&<InternationalMarketPanel season={season} onResult={onResult}/>}\n    {tab==="Propostas"&&<div className={styles.proposalGrid}>')
+
+          path='src/app/page.tsx'
+          rep(path,'ClipboardList, Home, Inbox','ClipboardList, Globe2, Home, Inbox')
+          rep(path,'import MainMenu from "./main-menu";','import MainMenu from "./main-menu";\nimport FootballWorldView from "./football-world-view";')
+          rep(path,'["Mídia & Redes",Megaphone],["Mercado",BarChart3]','["Mídia & Redes",Megaphone],["Mundo",Globe2],["Mercado",BarChart3]')
+          rep(path,'        active==="Mercado"?<MarketView season={season} onResult={({state:next,message})=>{persist(next);flash(message)}}/>:','        active==="Mercado"?<MarketView season={season} onResult={({state:next,message})=>{persist(next);flash(message)}}/>:\n        active==="Mundo"?<FootballWorldView season={season}/>:')
+
+          p=Path('docs/BACKLOG.md');s=p.read_text()
+          if '## M10 — Sprints 16–18' not in s:
+              s+='''\n\n## M10 — Sprints 16–18: Competições, IA e mercado global\n### Sprint 16 — Competições\n- [x] copas nacionais de Brasil, Inglaterra, Espanha e França\n- [x] Libertadores e Sul-Americana no mundo sul-americano\n- [x] Champions, Europa League e Conference no mundo europeu\n- [x] mata-mata persistente, fases, resultados, campeões e histórico por temporada\n- [x] painel Mundo com compromissos do clube e memória de campeões\n- [ ] partidas de copa totalmente jogáveis no motor ao vivo em vez de simulação paralela\n### Sprint 17 — IA de técnicos e clubes\n- [x] treinador por clube com estilo, formação, pressão, ritmo e tolerância a jovens\n- [x] segurança no cargo e demissões por sequência/posição\n- [x] troca automática de técnico com mudança de identidade tática\n- [x] adversários usam a tática do treinador de IA na simulação\n- [x] histórico de demissões/contratações e painel de técnicos\n### Sprint 18 — Mercado internacional\n- [x] jogadores reais das demais ligas disponíveis no scouting global\n- [x] ofertas internacionais do usuário com clube e termos pessoais\n- [x] propostas estrangeiras pelo elenco do usuário\n- [x] transferências IA x IA entre ligas registradas no mundo\n- [x] janela internacional por calendário e histórico global\n- [ ] contrapropostas multi-etapa, bônus, parcelas, luvas e cláusulas avançadas\n'''
+              p.write_text(s)
+          PY
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Commit validated integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src docs
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: connect Sprints 16-18 football world"
+          git push origin HEAD:feat/sprints16-18-world-competitions-ai-market
