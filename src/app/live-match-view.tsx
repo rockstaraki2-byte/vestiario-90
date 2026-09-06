@@ -28,7 +28,7 @@ export default function LiveMatchView({session,home,away,onChange,onFinish}:{ses
       <div><b>{home.name}</b><strong>{session.homeGoals} <i>×</i> {session.awayGoals}</strong><b>{away.name}</b></div>
       <small>Posse {session.possessionHome}%–{100-session.possessionHome}% • Finalizações {session.shotsHome}–{session.shotsAway}</small>
       {session.phase==="pre_match"&&<button className={liveStyles.primary} onClick={()=>onChange(playFirstHalf(session,home,away))}><Play size={16} fill="currentColor"/> JOGAR 1º TEMPO</button>}
-      {session.phase==="halftime"&&<button className={liveStyles.primary} disabled={required.length>0} onClick={()=>onChange(playSecondHalf(session,home,away))}><Play size={16} fill="currentColor"/> {required.length?"RESOLVA A LESÃO":"JOGAR ATÉ 70'"}</button>}
+      {session.phase==="halftime"&&<button className={liveStyles.primary} disabled={required.length>0} onClick={()=>onChange(playSecondHalf(session,home,away))}><Play size={16} fill="currentColor"/> {required.length?"RESOLVA A LESÃO":"JOGAR ATÉ 70 MIN"}</button>}
       {session.phase==="second_half_window"&&<button className={liveStyles.primary} disabled={required.length>0} onClick={()=>onChange(playFinalMinutes(session,home,away))}><Play size={16} fill="currentColor"/> {required.length?"RESOLVA A LESÃO":"JOGAR RETA FINAL"}</button>}
       {session.phase==="fulltime"&&<button className={liveStyles.primary} onClick={()=>onFinish(session)}>ENCERRAR RODADA <ChevronRight size={16}/></button>}
     </section>
@@ -47,7 +47,7 @@ export default function LiveMatchView({session,home,away,onChange,onFinish}:{ses
           <label>ENTRA<select value={inId} onChange={e=>setInId(e.target.value)}><option value="">Selecione</option>{userBenchIds.map(id=>{const p=playerById.get(id);return <option key={id} value={id}>{p?.position} • {p?.name} • OVR {p?.overall}</option>})}</select></label>
           <button disabled={!outId||!inId||substitutions.length>=5} onClick={substitute}>TROCAR</button>
         </div>
-        {substitutions.length>0&&<div className={liveStyles.subHistory}>{substitutions.map((sub,i)=><span key={`${sub.outPlayerId}-${i}`}><small>{sub.minute}'</small> {playerById.get(sub.outPlayerId)?.name} → <b>{playerById.get(sub.inPlayerId)?.name}</b></span>)}</div>}
+        {substitutions.length>0&&<div className={liveStyles.subHistory}>{substitutions.map((sub,i)=><span key={`${sub.outPlayerId}-${i}`}><small>{sub.minute} min</small> {playerById.get(sub.outPlayerId)?.name} → <b>{playerById.get(sub.inPlayerId)?.name}</b></span>)}</div>}
       </div>
 
       <div className={liveStyles.panel}>
