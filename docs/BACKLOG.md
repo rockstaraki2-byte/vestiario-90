@@ -49,7 +49,7 @@
 - [x] conversas individuais: ouvir, elogiar e cobrar, com reação por personalidade
 - [x] promessa de mais minutos com prazo, progresso, cumprimento e quebra
 - [x] tela Vestiário com clima do grupo, líderes, questões ativas e histórico humano
-- [ ] contratos e renovação
+- [x] contratos, salários simulados e renovação por agente
 - [ ] rede de relações jogador-jogador, panelinhas e influência dos líderes
 
 ## M3 — Mundo vivo / Sprint 5
@@ -65,8 +65,22 @@
 - [ ] entrevistas/TV com árvores longas de perguntas
 - [ ] vazamentos, redes sociais e conflitos entre jogadores
 
-## M4 — Mercado
-- [ ] IA de necessidades, propostas, empréstimos e contratos
+## M4 — Mercado / Sprint 6
+- [x] orçamento de transferências e teto salarial por clube
+- [x] contratos com salário, duração, agente e cláusula simulados
+- [x] lista de transferências e pedido de saída por insatisfação
+- [x] propostas de compra e empréstimo
+- [x] negociação com clube vendedor e termos pessoais com jogador/agente
+- [x] IA identifica posições e gera propostas pelo elenco do treinador
+- [x] janelas de 2026 mapeadas às rodadas 1–6 e 19–26
+- [x] limite doméstico de 12 jogos para troca entre clubes da Série A
+- [x] agentes livres após fim de contrato
+- [x] empréstados retornam ao clube de origem na temporada seguinte
+- [x] transferências e contratos sobrevivem à virada da temporada
+- [x] histórico persistente de transferências
+- [x] tela Mercado funcional: elenco, oportunidades, propostas e histórico
+- [ ] contrapropostas em múltiplas rodadas e bônus/cláusulas avançadas
+- [ ] mercado internacional e clubes fora da Série A
 
 ## M5 — Narrativa avançada
 - [ ] viagens, conflitos externos e `NarrativeProvider`
