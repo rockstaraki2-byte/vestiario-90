@@ -8,6 +8,7 @@ import seasonStyles from "./season.module.css";
 import LiveMatchView from "./live-match-view";
 import DressingRoomView from "./dressing-room-view";
 import WorldInboxView, { NewsFeedView } from "./world-view";
+import MarketView from "./market-view";
 import { SOCCERWIKI_COMPETITION } from "@/data/soccerwiki";
 import { BRASILEIRAO_2026_ROSTER_META } from "@/data/brasileirao-2026/rosters";
 import { createInitialWorld, advanceDay, type GameWorld } from "@/game-engine/world";
@@ -105,7 +106,7 @@ export default function Dashboard(){
         {active==="Elenco"?<SquadView club={club} lineupIds={season.lineupIds} onToggle={handleToggleLineup}/>:
         active==="Vestiário"?<DressingRoomView season={season} onConversation={handleConversation}/>:
         active==="Caixa de entrada"?<WorldInboxView world={season.livingWorld} club={club} onResolve={handleWorldChoice}/>:
-        active==="Notícias"?<NewsFeedView world={season.livingWorld} club={club}/>:
+        active==="Notícias"?<NewsFeedView world={season.livingWorld} club={club}/>:active==="Mercado"?<MarketView season={season} onResult={({state:next,message})=>{persist(next);flash(message)}}/>:
         active==="Táticas"?(liveMatch&&liveHome&&liveAway?<LiveMatchView session={liveMatch} home={liveHome} away={liveAway} onChange={handleLiveChange} onFinish={handleLiveFinish}/>:match&&matchHome&&matchAway?<MatchCenter home={matchHome} away={matchAway} result={match} onContinue={()=>{setMatch(null);setActive("Visão geral")}}/>:season.completed?<SeasonEnd season={season} standings={standings} clubs={league.clubs} onNext={handleNextSeason}/>:opponent?<TacticsView club={club} opponent={opponent} tactic={tactic} onChange={setTactic} lineupIds={season.lineupIds} onToggle={handleToggleLineup} onPlay={handlePlay}/>:<ComingSoon title="Partida"/>):
         active==="Classificação"?<TableView clubs={league.clubs} standings={standings} selectedClubId={club.id}/>:
         active==="Calendário"?<CalendarView season={season}/>:
