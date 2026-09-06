@@ -1,8 +1,9 @@
 import { SeededRng } from "./rng";
 import { createLeague, sortedStandings, type LeagueClub, type LeagueFixture, type LeaguePlayer, type LeagueWorld } from "./league";
 import { DEFAULT_TACTIC, pickStartingXI, simulateMatch, type MatchResult, type MatchTactic } from "./match";
+import { applyPeopleAfterMatch } from "./people";
 
-export const SEASON_SAVE_KEY="vestiario90:season:v2";
+export const SEASON_SAVE_KEY="vestiario90:season:v3";
 export const TOTAL_ROUNDS=38;
 
 export type RecentResult="V"|"E"|"D";
@@ -22,7 +23,7 @@ export type SeasonState={
 
 function cloneLeague(league:LeagueWorld):LeagueWorld{
   return{
-    clubs:league.clubs.map(club=>({...club,players:club.players.map(player=>({...player}))})),
+    clubs:league.clubs.map(club=>({...club,players:club.players.map(player=>({...player,promises:(player.promises??[]).map(promise=>({...promise}))}))})),
     fixtures:league.fixtures.map(fixture=>({...fixture})),
     standings:league.standings.map(standing=>({...standing})),
   };
@@ -31,7 +32,7 @@ function cloneLeague(league:LeagueWorld):LeagueWorld{
 function refreshStatus(player:LeaguePlayer,isSelected:boolean){
   if(player.injuryDays>0)player.status=`Lesionado (${player.injuryDays}d)`;
   else if(player.suspensionMatches>0)player.status=`Suspenso (${player.suspensionMatches})`;
-  else player.status=isSelected?"Titular":player.status==="Titular"?"Rotação":player.status;
+  else player.status=isSelected?"Titular":player.squadRole??"Rotação";
 }
 
 function defaultLineup(club:LeagueClub):string[]{return pickStartingXI(club).map(p=>p.id);}
@@ -127,7 +128,11 @@ export function playCurrentRound(
     updateStanding(league,fixture,result);
     applyPlayerEffects(home,result,"home",userHome?(userParticipantIds??state.lineupIds):undefined,`${fixture.id}:home`);
     applyPlayerEffects(away,result,"away",userAway?(userParticipantIds??state.lineupIds):undefined,`${fixture.id}:away`);
-    if(isUserFixture)lastUserMatch={fixtureId:fixture.id,homeClubId:home.id,awayClubId:away.id,result};
+    if(isUserFixture){
+      const userClub=userHome?home:away;
+      applyPeopleAfterMatch(userClub,userParticipantIds??state.lineupIds,state.lineupIds,state.currentRound);
+      lastUserMatch={fixtureId:fixture.id,homeClubId:home.id,awayClubId:away.id,result};
+    }
   }
   const userResult=lastUserMatch?.result;
   const userHome=lastUserMatch?.homeClubId===state.selectedClubId;
