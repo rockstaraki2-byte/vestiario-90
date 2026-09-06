@@ -1,0 +1,103 @@
+name: Apply Sprint 15
+on:
+  push:
+    branches: [feat/sprint15-football-world-live]
+    paths: [.github/workflows/apply-sprint15.yml]
+permissions:
+  contents: write
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/sprint15-football-world-live
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Integrate Sprint 15
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=1):
+              p=Path(path); s=p.read_text()
+              if old not in s:
+                  raise SystemExit(f"marker not found in {path}: {old[:130]}")
+              p.write_text(s.replace(old,new,count))
+
+          # season engine
+          path='src/game-engine/season.ts'
+          replace(path,
+            'import { applySportingStatsAndDevelopment, preparePlayerDevelopmentNextSeason } from "./development";\n',
+            'import { applySportingStatsAndDevelopment, preparePlayerDevelopmentNextSeason } from "./development";\nimport { answerMediaSession, createMediaWorld, hydrateMediaWorld, mediaAfterMatch, mediaBeforeRound, pendingMediaSessions, type MediaWorldState } from "./media-world";\n')
+          replace(path,
+            '  livingWorld:LivingWorldState;\n  market:MarketState;',
+            '  livingWorld:LivingWorldState;\n  mediaWorld:MediaWorldState;\n  market:MarketState;')
+          replace(path,
+            'return{baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,benchIds,recentForm:[],completed:false,livingWorld:createLivingWorld(club.name),market:createMarketState(),career:createManagerCareer(club,year),clubManagement:createClubManagementState(league,baseSeed,year),competitionId,currentDate:addIsoDays(firstDate,-7)};',
+            'return{baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,benchIds,recentForm:[],completed:false,livingWorld:createLivingWorld(club.name,competitionId),mediaWorld:createMediaWorld(competitionId),market:createMarketState(),career:createManagerCareer(club,year),clubManagement:createClubManagementState(league,baseSeed,year),competitionId,currentDate:addIsoDays(firstDate,-7)};')
+          replace(path,
+            'const selection=normalizeMatchdaySelection({...state,league} as SeasonState,selectedClub),livingWorldBase=state.livingWorld??createLivingWorld(selectedClub.name);let livingWorld=userResult?worldAfterMatch(livingWorldBase,selectedClub,state.currentRound,gf,ga):livingWorldBase;const careerResult=careerAfterRound(state.career??createManagerCareer(selectedClub,state.year),league,livingWorld,state.currentRound,state.year,state.baseSeed,userResult?{goalsFor:gf,goalsAgainst:ga}:undefined);livingWorld=careerResult.world;\n  const nextState:SeasonState={...state,league,currentRound:nextRound,lineupIds:selection.lineupIds,benchIds:selection.benchIds,recentForm,completed,championClubId,lastUserMatch,livingWorld,career:careerResult.career};',
+            'const selection=normalizeMatchdaySelection({...state,league} as SeasonState,selectedClub),livingWorldBase=state.livingWorld??createLivingWorld(selectedClub.name,state.competitionId);let livingWorld=userResult?worldAfterMatch(livingWorldBase,selectedClub,state.currentRound,gf,ga,state.competitionId):livingWorldBase;const careerResult=careerAfterRound(state.career??createManagerCareer(selectedClub,state.year),league,livingWorld,state.currentRound,state.year,state.baseSeed,userResult?{goalsFor:gf,goalsAgainst:ga}:undefined);livingWorld=careerResult.world;const mediaWorld=userResult?mediaAfterMatch(state.mediaWorld,state.competitionId,selectedClub,state.currentRound,gf,ga,state.baseSeed):hydrateMediaWorld(state.mediaWorld,state.competitionId);\n  const nextState:SeasonState={...state,league,currentRound:nextRound,lineupIds:selection.lineupIds,benchIds:selection.benchIds,recentForm,completed,championClubId,lastUserMatch,livingWorld,mediaWorld,career:careerResult.career};')
+          replace(path,
+            'const selection=normalizeMatchdaySelection({...state,league} as SeasonState,club);let livingWorld=state.livingWorld??createLivingWorld(club.name);if(state.career?.status!=="Sem clube"){livingWorld=worldAfterDay(livingWorld,club,state.currentRound,state.baseSeed);livingWorld=applyNarrativeDay(livingWorld,{day:calendarDay,round:state.currentRound,selectedClubId:state.selectedClubId,seed:state.baseSeed,league});}return processMarketRound({...state,league,lineupIds:selection.lineupIds,benchIds:selection.benchIds,livingWorld});',
+            'const selection=normalizeMatchdaySelection({...state,league} as SeasonState,club);let livingWorld=state.livingWorld??createLivingWorld(club.name,state.competitionId),mediaWorld=hydrateMediaWorld(state.mediaWorld,state.competitionId);if(state.career?.status!=="Sem clube"){livingWorld=worldAfterDay(livingWorld,club,state.currentRound,state.baseSeed,state.competitionId);livingWorld=applyNarrativeDay(livingWorld,{day:calendarDay,round:state.currentRound,selectedClubId:state.selectedClubId,seed:state.baseSeed,league});mediaWorld=mediaBeforeRound(mediaWorld,state.competitionId,club,state.currentRound,state.baseSeed,livingWorld.mediaPressure);}return processMarketRound({...state,league,lineupIds:selection.lineupIds,benchIds:selection.benchIds,livingWorld,mediaWorld});')
+          replace(path,
+            'export type CalendarRoute="matchday"|"inbox"|"club"|null;',
+            'export type CalendarRoute="matchday"|"inbox"|"club"|"media"|null;')
+          replace(path,
+            'if(pending?.kind==="Diretoria")return{state:next,route:"club",reason:`A diretoria precisa de você: ${pending.title}.`};if(pending)return{state:next,route:"inbox",reason:`Há uma decisão pendente: ${pending.title}.`};return{state:next,route:null,reason:"Dia avançado. Nenhuma decisão obrigatória surgiu."};}',
+            'if(pending?.kind==="Diretoria")return{state:next,route:"club",reason:`A diretoria precisa de você: ${pending.title}.`};const mediaPending=pendingMediaSessions(next.mediaWorld,next.competitionId)[0];if(mediaPending)return{state:next,route:"media",reason:`A imprensa aguarda você: ${mediaPending.format}.`};if(pending)return{state:next,route:"inbox",reason:`Há uma decisão pendente: ${pending.title}.`};return{state:next,route:null,reason:"Dia avançado. Nenhuma decisão obrigatória surgiu."};}')
+          insert='''\nexport function resolveMediaSessionChoice(state:SeasonState,sessionId:string,choiceId:string){\n const result=answerMediaSession(state.mediaWorld,state.competitionId,sessionId,choiceId),effect=result.effect,clamp=(value:number)=>Math.max(0,Math.min(100,Math.round(value))),world={...state.livingWorld};\n world.mediaPressure=clamp(world.mediaPressure+(effect.mediaPressure??0));world.fanSupport=clamp(world.fanSupport+(effect.fanSupport??0));world.managerReputation=clamp(world.managerReputation+(effect.managerReputation??0));world.boardConfidence=clamp(world.boardConfidence+(effect.boardConfidence??0));\n return{state:{...state,livingWorld:world,mediaWorld:result.mediaWorld},message:result.message};\n}\n'''
+          replace(path,'\nexport function setMatchdayRole(state:SeasonState,playerId:string,role:MatchdayRole):SeasonState{',insert+'\nexport function setMatchdayRole(state:SeasonState,playerId:string,role:MatchdayRole):SeasonState{')
+          replace(path,
+            'const club=prepared.league.clubs.find(c=>c.id===state.selectedClubId)??prepared.league.clubs[0],lineupIds=defaultLineup(club),benchIds=defaultBench(club,lineupIds,competition.benchSize);club.players.forEach(player=>refreshStatus(player,lineupIds.includes(player.id),benchIds.includes(player.id)));const livingWorld=state.career?.status==="Sem clube"?{...state.livingWorld,lastDailyRound:undefined,lastNarrativeDay:undefined}:createLivingWorld(club.name);',
+            'const club=prepared.league.clubs.find(c=>c.id===state.selectedClubId)??prepared.league.clubs[0],lineupIds=defaultLineup(club),benchIds=defaultBench(club,lineupIds,competition.benchSize);club.players.forEach(player=>refreshStatus(player,lineupIds.includes(player.id),benchIds.includes(player.id)));const livingWorld=state.career?.status==="Sem clube"?{...state.livingWorld,lastDailyRound:undefined,lastNarrativeDay:undefined}:createLivingWorld(club.name,competitionId);')
+          replace(path,
+            'return{...state,year:nextYear,league:prepared.league,currentRound:1,lineupIds,benchIds,recentForm:[],completed:false,championClubId:undefined,lastUserMatch:undefined,livingWorld,market:prepared.market,career:state.career??createManagerCareer(club,nextYear),clubManagement,competitionId,currentDate:addIsoDays(firstDate,-7)};',
+            'const previousMedia=hydrateMediaWorld(state.mediaWorld,competitionId),mediaWorld=hydrateMediaWorld({...previousMedia,lastPreMatchRound:undefined,lastPostMatchRound:undefined,lastProgramRound:undefined,sessions:previousMedia.sessions.filter(session=>session.status==="Concluída").slice(0,12),trends:[]},competitionId);return{...state,year:nextYear,league:prepared.league,currentRound:1,lineupIds,benchIds,recentForm:[],completed:false,championClubId:undefined,lastUserMatch:undefined,livingWorld,mediaWorld,market:prepared.market,career:state.career??createManagerCareer(club,nextYear),clubManagement,competitionId,currentDate:addIsoDays(firstDate,-7)};')
+          replace(path,
+            'if(!parsed.clubManagement)parsed.clubManagement=hydrateClubManagement(parsed);const club=getSelectedClub(parsed),selection=normalizeMatchdaySelection(parsed,club);',
+            'if(!parsed.clubManagement)parsed.clubManagement=hydrateClubManagement(parsed);parsed.mediaWorld=hydrateMediaWorld(parsed.mediaWorld,competitionId);const club=getSelectedClub(parsed),selection=normalizeMatchdaySelection(parsed,club);')
+
+          # world events use media matching the active league
+          path='src/game-engine/world-events.ts'
+          replace(path,'import type { LeagueClub } from "./league";\n','import type { LeagueClub } from "./league";\nimport type { ProfessionalCompetitionId } from "../data/brazil-2026/competitions";\n')
+          replace(path,'export function createLivingWorld(clubName:string):LivingWorldState{','export function createLivingWorld(clubName:string,competitionId:ProfessionalCompetitionId="BRA1"):LivingWorldState{')
+          replace(path,'source:simulatedMediaCredit(0),round:1,tone:"neutral"','source:simulatedMediaCredit(0,competitionId),round:1,tone:"neutral"')
+          replace(path,'export function worldAfterMatch(world:LivingWorldState,club:LeagueClub,round:number,goalsFor:number,goalsAgainst:number):LivingWorldState{','export function worldAfterMatch(world:LivingWorldState,club:LeagueClub,round:number,goalsFor:number,goalsAgainst:number,competitionId:ProfessionalCompetitionId="BRA1"):LivingWorldState{')
+          replace(path,'source:simulatedMediaCredit(round+next.sequence),round,tone:won?"positive":lost?"negative":"neutral"','source:simulatedMediaCredit(round+next.sequence,competitionId),round,tone:won?"positive":lost?"negative":"neutral"')
+          replace(path,'export function worldAfterDay(world:LivingWorldState,club:LeagueClub,round:number,seed:string):LivingWorldState{','export function worldAfterDay(world:LivingWorldState,club:LeagueClub,round:number,seed:string,competitionId:ProfessionalCompetitionId="BRA1"):LivingWorldState{')
+          replace(path,'source:simulatedMediaCredit(round+next.sequence),round,tone:"negative"','source:simulatedMediaCredit(round+next.sequence,competitionId),round,tone:"negative"')
+
+          # dashboard wiring
+          path='src/app/page.tsx'
+          replace(path,'import { pendingWorldEvents } from "@/game-engine/world-events";\n','import { pendingWorldEvents } from "@/game-engine/world-events";\nimport { pendingMediaSessions } from "@/game-engine/media-world";\n')
+          replace(path,'resolveSeasonWorldChoice, setMatchdayRole','resolveMediaSessionChoice, resolveSeasonWorldChoice, setMatchdayRole')
+          replace(path,'unreadEvents=season.livingWorld.inbox.filter(event=>event.unread&&!event.resolved).length,latestNews=', 'unreadEvents=season.livingWorld.inbox.filter(event=>event.unread&&!event.resolved).length,pendingMedia=pendingMediaSessions(season.mediaWorld,season.competitionId),latestNews=')
+          replace(path,'else if(result.route==="club")setActive("Clube");else if(result.route==="inbox")setActive("Caixa de entrada");','else if(result.route==="club")setActive("Clube");else if(result.route==="media")setActive("Mídia & Redes");else if(result.route==="inbox")setActive("Caixa de entrada");')
+          replace(path,'function handleWorldChoice(eventId:string,choiceId:string){const result=resolveSeasonWorldChoice(season,eventId,choiceId);persist(result.state);flash(result.message)}','function handleWorldChoice(eventId:string,choiceId:string){const result=resolveSeasonWorldChoice(season,eventId,choiceId);persist(result.state);flash(result.message)}\n  function handleMediaChoice(sessionId:string,choiceId:string){const result=resolveMediaSessionChoice(season,sessionId,choiceId);persist(result.state);flash(result.message)}')
+          replace(path,'{label==="Caixa de entrada"&&pendingEvents.length>0&&<i>{Math.min(99,pendingEvents.length)}</i>}','{label==="Caixa de entrada"&&pendingEvents.length>0&&<i>{Math.min(99,pendingEvents.length)}</i>}{label==="Mídia & Redes"&&pendingMedia.length>0&&<i>{Math.min(9,pendingMedia.length)}</i>}')
+          replace(path,'active==="Mídia & Redes"?<MediaCenterView world={season.livingWorld} club={club}/>', 'active==="Mídia & Redes"?<MediaCenterView season={season} onAnswer={handleMediaChoice}/>')
+
+          # backlog
+          path='docs/BACKLOG.md'; p=Path(path); s=p.read_text()
+          if '## M9 — Mundo do Futebol Vivo / Sprint 15' not in s:
+              s += '''\n\n## M9 — Mundo do Futebol Vivo / Sprint 15\n- [x] relações persistentes treinador-jornalista: respeito, acesso, tensão e histórico\n- [x] coletivas pré e pós-jogo em múltiplas perguntas\n- [x] convites periódicos para programas esportivos\n- [x] perfis reais por competição: Brasil, Premier League, LaLiga e Ligue 1\n- [x] conteúdo associado a nomes reais explicitamente marcado como simulação\n- [x] torcida segmentada em arquibancada, organizadas, sócios e ambiente digital\n- [x] humor dos segmentos reage a resultados e declarações\n- [x] Instagram, X, Threads, TikTok e YouTube geram tendências persistentes\n- [x] hashtags, alcance e sentimento digital ligados ao resultado do clube\n- [x] calendário encaminha o treinador a entrevistas pendentes\n- [x] relações com imprensa sobrevivem à temporada e acompanham a carreira\n- [ ] setoristas específicos por clube com banco amplo de profissionais locais\n- [ ] rádio/podcast e programas ao vivo com mesas completas de debatedores\n'''
+              p.write_text(s)
+          PY
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Commit validated Sprint 15
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src docs
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: connect Sprint 15 living football world"
+          git push origin HEAD:feat/sprint15-football-world-live
