@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ArrowRightLeft, BadgeDollarSign, BriefcaseBusiness, CircleDollarSign, FileSignature, Handshake, Search, UsersRound } from "lucide-react";
 import type { SeasonState } from "@/game-engine/season";
 import { clubWageSpend, concludeAcceptedOffer, formatBrl, formatEur, isTransferWindowOpen, makeOfferForPlayer, recommendedOffer, renewPlayerContract, respondToIncomingOffer, signFreeAgent, toggleTransferList, type MarketActionResult } from "@/game-engine/market";
@@ -15,7 +15,8 @@ export default function MarketView({season,onResult}:{season:SeasonState;onResul
   const wageSpend=clubWageSpend(club);
   const incoming=market.offers.filter(o=>o.sellerClubId===club.id&&o.status==="Pendente");
   const outgoing=market.offers.filter(o=>o.buyerClubId===club.id).slice(0,20);
-  const opportunities=useMemo(()=>season.league.clubs.flatMap(c=>c.id===club.id?[]:c.players.map(player=>({club:c,player}))).filter(({player})=>!search||player.name.toLowerCase().includes(search.toLowerCase())||player.position.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>(Number(b.player.transferListed)+Number(b.player.wantsToLeave))*1e10-(Number(a.player.transferListed)+Number(a.player.wantsToLeave))*1e10+recommendedOffer(b.player)-recommendedOffer(a.player)).slice(0,80),[season.league.clubs,club.id,search]);
+  const query=search.toLowerCase();
+  const opportunities=season.league.clubs.flatMap(c=>c.id===club.id?[]:c.players.map(player=>({club:c,player}))).filter(({player})=>!query||player.name.toLowerCase().includes(query)||player.position.toLowerCase().includes(query)).sort((a,b)=>(Number(b.player.transferListed)+Number(b.player.wantsToLeave))*1e10-(Number(a.player.transferListed)+Number(a.player.wantsToLeave))*1e10+recommendedOffer(b.player)-recommendedOffer(a.player)).slice(0,80);
   return <div className={styles.shell}>
     <div className={styles.metrics}>
       <Metric icon={<CircleDollarSign/>} label="ORÇAMENTO" value={formatEur(club.transferBudgetEur)} detail="para taxas de transferência"/>
