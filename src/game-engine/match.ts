@@ -7,7 +7,7 @@ export type Mentality = "Defensiva" | "Equilibrada" | "Ofensiva";
 export type MatchTactic = { formation:Formation; mentality:Mentality; pressing:number; tempo:number; positions?:Record<string,TacticalPoint> };
 export type MatchEventType = "kickoff" | "chance" | "goal" | "card" | "injury" | "halftime" | "fulltime";
 export type MatchEvent = { minute:number; type:MatchEventType; team:"home"|"away"|"neutral"; text:string; playerId?:string; assistPlayerId?:string };
-export type MatchResult = { homeGoals:number; awayGoals:number; possessionHome:number; shotsHome:number; shotsAway:number; events:MatchEvent[]; playerRatings?:Record<string,number>; playerConditionAfter?:Record<string,number>; playerFatigueAfter?:Record<string,number> };
+export type MatchResult = { homeGoals:number; awayGoals:number; possessionHome:number; shotsHome:number; shotsAway:number; events:MatchEvent[]; playerRatings?:Record<string,number>; playerConditionAfter?:Record<string,number>; playerFatigueAfter?:Record<string,number>; playerMinutes?:Record<string,number> };
 
 export const DEFAULT_TACTIC:MatchTactic={formation:"4-2-3-1",mentality:"Equilibrada",pressing:62,tempo:58};
 

@@ -1,0 +1,8 @@
+import { describe,expect,it } from "vitest";
+import { createLeague } from "./league";
+import { advanceLiveMatchMinute,createLiveMatch,startLiveMatch,liveMatchResult } from "./live-match";
+
+describe("Sprint 14 live performance",()=>{
+ it("degrades condition and raises fatigue while clock runs",()=>{const league=createLeague("live-performance",2026,"BRA1"),home=league.clubs[0],away=league.clubs[1],ids=home.players.slice(0,11).map(p=>p.id);let match=startLiveMatch(createLiveMatch(home,away,"perf", "home",ids),home);const playerId=match.homeLineupIds[0],before={...match.playerStates[playerId]};for(let i=0;i<10;i++)match=advanceLiveMatchMinute(match,home,away);expect(match.playerStates[playerId].condition).toBeLessThan(before.condition);expect(match.playerStates[playerId].fatigue).toBeGreaterThan(before.fatigue);expect(match.playerStates[playerId].minutes).toBe(10);});
+ it("exports ratings physical state and exact minutes at full time",()=>{const league=createLeague("live-result",2026,"BRA1"),home=league.clubs[0],away=league.clubs[1],ids=home.players.slice(0,11).map(p=>p.id);let match=startLiveMatch(createLiveMatch(home,away,"result", "home",ids),home);while(match.currentMinute<90){match=advanceLiveMatchMinute(match,home,away);if(match.phase==="halftime")match={...match,phase:"second_half_window"};}const result=liveMatchResult(match);expect(result).not.toBeNull();const id=match.homeLineupIds[0];expect(result?.playerRatings?.[id]).toBeGreaterThanOrEqual(4);expect(result?.playerMinutes?.[id]).toBe(90);expect(result?.playerConditionAfter?.[id]).toBeLessThanOrEqual(home.players.find(p=>p.id===id)!.condition);});
+});
