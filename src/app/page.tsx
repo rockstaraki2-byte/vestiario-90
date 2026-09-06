@@ -1,49 +1,142 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Bell, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Home, Inbox, LayoutGrid, MessageSquareText, Newspaper, Play, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
+import { BarChart3, Bell, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Home, Inbox, LayoutGrid, MessageSquareText, Newspaper, Play, RotateCcw, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
 import styles from "./page.module.css";
+import seasonStyles from "./season.module.css";
 import { createInitialWorld, advanceDay, type GameWorld } from "@/game-engine/world";
 import { loadLocalSave, saveLocalWorld } from "@/game-engine/save";
-import { createLeague, sortedStandings, type LeagueClub, type LeagueStanding } from "@/game-engine/league";
-import { DEFAULT_TACTIC, simulateMatch, type Formation, type MatchResult, type MatchTactic, type Mentality } from "@/game-engine/match";
+import { sortedStandings, type LeagueClub, type LeagueFixture, type LeagueStanding } from "@/game-engine/league";
+import { DEFAULT_TACTIC, type Formation, type MatchResult, type MatchTactic, type Mentality } from "@/game-engine/match";
+import { advanceSeasonDay, createSeason, getCurrentUserFixture, getSelectedClub, getUserFixtures, loadSeasonLocal, playCurrentRound, saveSeasonLocal, startNextSeason, toggleLineupPlayer, type SeasonState } from "@/game-engine/season";
 
 const NAV = [["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["Táticas",LayoutGrid],["Calendário",CalendarDays],["Classificação",Trophy],["Mercado",BarChart3],["Notícias",Newspaper]] as const;
-const form=["V","V","E","D","V"];
-const fixtures=[{date:"18 SET",home:"Aurora FC",away:"Ferroviário Azul",venue:"Estádio do Farol",tag:"PRÓXIMO"},{date:"22 SET",home:"União Serrana",away:"Aurora FC",venue:"Arena da Serra",tag:"FORA"},{date:"29 SET",home:"Aurora FC",away:"Nacional do Vale",venue:"Estádio do Farol",tag:"CASA"}];
 
 export default function Dashboard(){
- const [world,setWorld]=useState<GameWorld>(()=>createInitialWorld("vestiario-90-demo")); const [active,setActive]=useState("Visão geral"); const [notice,setNotice]=useState("");
- const [tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC);const [match,setMatch]=useState<MatchResult|null>(null);
- useEffect(()=>{const saved=loadLocalSave();if(saved)queueMicrotask(()=>setWorld(saved.world))},[]);
- const squadMorale=useMemo(()=>Math.round(world.players.reduce((s,p)=>s+p.morale,0)/world.players.length),[world]);
- const league=useMemo(()=>createLeague("liga-nacional-2026"),[]);
- function handleAdvance(){const next=advanceDay(world);setWorld(next);saveLocalWorld(next);setNotice(`${next.lastEvent} • Jogo salvo`);window.setTimeout(()=>setNotice(""),3600)}
- return <div className={styles.shell}>
-  <aside className={styles.sidebar}><div className={styles.brand}><span>V90</span><div><b>VESTIÁRIO</b><small>90</small></div></div><nav>{NAV.map(([label,Icon])=><button key={label} onClick={()=>setActive(label)} className={active===label?styles.activeNav:""}><Icon size={18}/><span>{label}</span>{label==="Caixa de entrada"&&<i>3</i>}</button>)}</nav><div className={styles.clubCard}><div className={styles.crest}>A</div><div><b>Aurora FC</b><small>Liga Nacional</small></div><ChevronRight size={17}/></div><button className={styles.settings}><Settings size={18}/> Configurações</button><div className={styles.manager}><CircleUserRound/><div><b>Raul Soares</b><small>Treinador principal</small></div></div></aside>
-  <main className={styles.main}><header className={styles.topbar}><div className={styles.mobileBrand}>V90</div><div className={styles.season}><span>Temporada 2026</span><b>{world.day} SET • QUINTA</b></div><div className={styles.topActions}><button aria-label="Mensagens"><MessageSquareText size={19}/><i/></button><button aria-label="Notificações"><Bell size={19}/><i/></button><button className={styles.advance} onClick={handleAdvance}>AVANÇAR <Play size={15} fill="currentColor"/></button></div></header>
-  {notice&&<div className={styles.toast}><Zap size={17}/>{notice}</div>}
-  <section className={styles.content}><div className={styles.welcome}><div><p>QUINTA-FEIRA, {world.day} DE SETEMBRO</p><h1>{active==="Visão geral"?"Bom dia, Raul.":active}</h1><span>{active==="Visão geral"?"O elenco se reapresenta às 09:00. Há 3 assuntos esperando sua decisão.":"Temporada 2026 • Aurora FC"}</span></div><button><ClipboardList size={17}/> Ver agenda do dia</button></div>
-  {active==="Elenco"?<SquadView club={league.clubs[0]}/>:active==="Táticas"?<TacticsView club={league.clubs[0]} opponent={league.clubs[1]} tactic={tactic} onChange={setTactic} match={match} onPlay={()=>setMatch(simulateMatch(league.clubs[0],league.clubs[1],`${world.seed}:match:${world.tick}`,tactic))}/>:active==="Classificação"?<TableView clubs={league.clubs} standings={sortedStandings(league)}/>:active!=="Visão geral"?<ComingSoon title={active}/>:<>
-  <div className={styles.kpis}><Metric label="POSIÇÃO" value="4º" detail="32 pontos" icon={<Trophy/>} tone="green" trend="↑ 2"/><Metric label="MORAL DO ELENCO" value={`${squadMorale}%`} detail="Ambiente positivo" icon={<Users/>} tone="blue" trend="↑ 4"/><Metric label="DIRETORIA" value="Seguro" detail="Confiança: 74%" icon={<Shield/>} tone="gold"/><Metric label="FORMA RECENTE" value="" detail="Últimos 5 jogos" icon={<BarChart3/>} tone="purple" hasForm/></div>
-  <div className={styles.grid}><div className={styles.leftCol}><section className={`${styles.card} ${styles.nextMatch}`}><div className={styles.cardHead}><div><span className={styles.liveDot}/> PRÓXIMA PARTIDA</div><button onClick={()=>setActive("Táticas")}>Ver detalhes <ChevronRight size={15}/></button></div><div className={styles.competition}>LIGA NACIONAL • RODADA 16 <b>AMANHÃ • 20:30</b></div><div className={styles.versus}><div><div className={`${styles.bigCrest} ${styles.aurora}`}>A</div><b>Aurora FC</b><small>4º lugar</small></div><div className={styles.vs}><strong>VS</strong><span>Estádio do Farol</span><small>Casa • 21°C</small></div><div><div className={`${styles.bigCrest} ${styles.ferro}`}>F</div><b>Ferroviário Azul</b><small>9º lugar</small></div></div><div className={styles.matchFooter}><span><Shirt size={16}/> {tactic.formation} • {tactic.mentality}</span><button onClick={()=>setActive("Táticas")}>PREPARAR PARTIDA <ChevronRight size={16}/></button></div></section>
-  <section className={styles.card}><div className={styles.cardHead}><div>AGENDA</div><button>Calendário completo <ChevronRight size={15}/></button></div><div className={styles.fixtures}>{fixtures.map((f,i)=><div className={styles.fixture} key={f.date}><div className={styles.dateBox}><b>{f.date.split(" ")[0]}</b><span>{f.date.split(" ")[1]}</span></div><div className={styles.fixtureInfo}><b>{f.home} <span>×</span> {f.away}</b><small>{f.venue} • Liga Nacional</small></div><em className={i===0?styles.nextTag:""}>{f.tag}</em></div>)}</div></section></div>
-  <div className={styles.rightCol}><section className={`${styles.card} ${styles.inboxCard}`}><div className={styles.cardHead}><div>PRECISA DA SUA ATENÇÃO <i>3</i></div><button>Ver inbox <ChevronRight size={15}/></button></div><InboxItem urgent icon="JP" title="João Pedro quer conversar" text="O atacante está insatisfeito com o tempo no banco." time="12 min"/><InboxItem icon="MR" title="Empresário pede reunião" text="Marcelo Reis quer discutir o futuro de seu cliente." time="1 h"/><InboxItem icon="CE" title="Coletiva pré-jogo" text="A imprensa aguarda sua participação antes da partida." time="2 h"/></section>
-  <section className={styles.card}><div className={styles.cardHead}><div>ÚLTIMAS NOTÍCIAS</div><button>Ver todas <ChevronRight size={15}/></button></div><article className={styles.featureNews}><div><span>FUTEBOL AGORA</span><b>Aurora embala e já mira o G-3 da Liga Nacional</b><small>Há 38 min • 24 comentários</small></div></article><News initials="MC" source="Mercado FC" text="Clubes monitoram jovem destaque do Aurora" time="1 h"/><News initials="AB" source="Arquibancada" text="Torcida aprova mudanças no meio-campo" time="3 h"/></section></div></div></>}</section></main>
-  <nav className={styles.mobileNav}>{NAV.slice(0,5).map(([label,Icon])=><button key={label} onClick={()=>setActive(label)} className={active===label?styles.mobileActive:""}><Icon size={20}/><span>{label.split(" ")[0]}</span></button>)}</nav>
- </div>
+  const [world,setWorld]=useState<GameWorld>(()=>createInitialWorld("vestiario-90-demo"));
+  const [season,setSeason]=useState<SeasonState>(()=>createSeason("liga-nacional",2026));
+  const [active,setActive]=useState("Visão geral");
+  const [notice,setNotice]=useState("");
+  const [tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC);
+  const [match,setMatch]=useState<MatchResult|null>(null);
+
+  useEffect(()=>{
+    const saved=loadLocalSave();
+    const savedSeason=loadSeasonLocal();
+    queueMicrotask(()=>{
+      if(saved)setWorld(saved.world);
+      if(savedSeason)setSeason(savedSeason);
+    });
+  },[]);
+
+  const league=season.league;
+  const club=getSelectedClub(season);
+  const standings=useMemo(()=>sortedStandings(league),[league]);
+  const standing=standings.find(s=>s.clubId===club.id)!;
+  const position=standings.findIndex(s=>s.clubId===club.id)+1;
+  const squadMorale=Math.round(club.players.reduce((sum,p)=>sum+p.morale,0)/club.players.length);
+  const squadCondition=Math.round(club.players.reduce((sum,p)=>sum+p.condition,0)/club.players.length);
+  const currentFixture=getCurrentUserFixture(season);
+  const opponent=currentFixture?league.clubs.find(c=>c.id===(currentFixture.homeClubId===club.id?currentFixture.awayClubId:currentFixture.homeClubId)):undefined;
+  const unavailable=club.players.filter(p=>p.injuryDays>0||p.suspensionMatches>0).length;
+
+  function flash(message:string){
+    setNotice(message);
+    window.setTimeout(()=>setNotice(""),3600);
+  }
+
+  function persist(next:SeasonState){
+    setSeason(next);
+    saveSeasonLocal(next);
+  }
+
+  function handleAdvance(){
+    const nextWorld=advanceDay(world);
+    const nextSeason=advanceSeasonDay(season);
+    setWorld(nextWorld);
+    saveLocalWorld(nextWorld);
+    persist(nextSeason);
+    flash(`${nextWorld.lastEvent} • condição física atualizada`);
+  }
+
+  function handleToggleLineup(playerId:string){persist(toggleLineupPlayer(season,playerId));}
+
+  function handlePlay(){
+    if(season.lineupIds.length!==11){flash("Selecione exatamente 11 titulares antes de entrar em campo.");return;}
+    const next=playCurrentRound(season,tactic);
+    persist(next);
+    setMatch(next.lastUserMatch?.result??null);
+  }
+
+  function handleNextSeason(){
+    const next=startNextSeason(season);
+    persist(next);
+    setMatch(null);
+    flash(`Temporada ${next.year} iniciada. Nova tabela, novas histórias.`);
+  }
+
+  const matchHome=season.lastUserMatch?league.clubs.find(c=>c.id===season.lastUserMatch?.homeClubId):undefined;
+  const matchAway=season.lastUserMatch?league.clubs.find(c=>c.id===season.lastUserMatch?.awayClubId):undefined;
+
+  return <div className={styles.shell}>
+    <aside className={styles.sidebar}>
+      <div className={styles.brand}><span>V90</span><div><b>VESTIÁRIO</b><small>90</small></div></div>
+      <nav>{NAV.map(([label,Icon])=><button key={label} onClick={()=>{setActive(label);setMatch(null)}} className={active===label?styles.activeNav:""}><Icon size={18}/><span>{label}</span>{label==="Caixa de entrada"&&<i>3</i>}</button>)}</nav>
+      <div className={styles.clubCard}><div className={styles.crest}>A</div><div><b>{club.name}</b><small>Liga Nacional • {season.year}</small></div><ChevronRight size={17}/></div>
+      <button className={styles.settings}><Settings size={18}/> Configurações</button>
+      <div className={styles.manager}><CircleUserRound/><div><b>Raul Soares</b><small>Treinador principal</small></div></div>
+    </aside>
+
+    <main className={styles.main}>
+      <header className={styles.topbar}>
+        <div className={styles.mobileBrand}>V90</div>
+        <div className={styles.season}><span>Temporada {season.year}</span><b>{season.completed?"TEMPORADA ENCERRADA":`RODADA ${season.currentRound} DE 38`} • {world.day} SET</b></div>
+        <div className={styles.topActions}><button aria-label="Mensagens"><MessageSquareText size={19}/><i/></button><button aria-label="Notificações"><Bell size={19}/><i/></button><button className={styles.advance} onClick={handleAdvance}>AVANÇAR <Play size={15} fill="currentColor"/></button></div>
+      </header>
+
+      {notice&&<div className={styles.toast}><Zap size={17}/>{notice}</div>}
+
+      <section className={styles.content}>
+        <div className={styles.welcome}><div><p>{season.completed?"FIM DE TEMPORADA":`RODADA ${season.currentRound} • LIGA NACIONAL`}</p><h1>{active==="Visão geral"?"Bom dia, Raul.":active}</h1><span>{active==="Visão geral"?(season.completed?"O campeonato terminou. Hora de avaliar a temporada e preparar a próxima.":`${opponent?`Próximo adversário: ${opponent.name}.`:"Sem partida pendente"} ${unavailable?`${unavailable} jogador(es) indisponível(is).`:"Elenco completo à disposição."}`):`Temporada ${season.year} • ${club.name}`}</span></div><button onClick={()=>setActive("Calendário")}><ClipboardList size={17}/> Ver calendário</button></div>
+
+        {active==="Elenco"?<SquadView club={club} lineupIds={season.lineupIds} onToggle={handleToggleLineup}/>:
+        active==="Táticas"?(match&&matchHome&&matchAway?<MatchCenter home={matchHome} away={matchAway} result={match} onContinue={()=>{setMatch(null);setActive("Visão geral")}}/>:season.completed?<SeasonEnd season={season} standings={standings} clubs={league.clubs} onNext={handleNextSeason}/>:opponent?<TacticsView club={club} opponent={opponent} tactic={tactic} onChange={setTactic} lineupIds={season.lineupIds} onToggle={handleToggleLineup} onPlay={handlePlay}/>:<ComingSoon title="Partida"/>):
+        active==="Classificação"?<TableView clubs={league.clubs} standings={standings} selectedClubId={club.id}/>:
+        active==="Calendário"?<CalendarView season={season}/>:
+        active!=="Visão geral"?<ComingSoon title={active}/>:
+        <>
+          <div className={styles.kpis}><Metric label="POSIÇÃO" value={`${position}º`} detail={`${standing.points} pontos • ${standing.played} jogos`} icon={<Trophy/>} tone="green"/><Metric label="CONDIÇÃO DO ELENCO" value={`${squadCondition}%`} detail={`Moral ${squadMorale}%`} icon={<Users/>} tone="blue"/><Metric label="DISPONIBILIDADE" value={`${30-unavailable}/30`} detail={unavailable?`${unavailable} fora`:"Todos disponíveis"} icon={<Shield/>} tone="gold"/><Metric label="FORMA RECENTE" value="" detail="Últimos 5 jogos" icon={<BarChart3/>} tone="purple" formValues={season.recentForm}/></div>
+          {season.completed?<SeasonEnd season={season} standings={standings} clubs={league.clubs} onNext={handleNextSeason}/>:<div className={styles.grid}><div className={styles.leftCol}>{currentFixture&&opponent&&<NextMatchCard fixture={currentFixture} club={club} opponent={opponent} standings={standings} tactic={tactic} onPrepare={()=>setActive("Táticas")}/>}<Agenda fixtures={getUserFixtures(season)} league={league.clubs} currentRound={season.currentRound}/></div><div className={styles.rightCol}><section className={`${styles.card} ${styles.inboxCard}`}><div className={styles.cardHead}><div>PRECISA DA SUA ATENÇÃO <i>3</i></div><button>Ver inbox <ChevronRight size={15}/></button></div><InboxItem urgent icon="DM" title="Departamento médico" text={unavailable?`${unavailable} atleta(s) exigem acompanhamento antes da próxima rodada.`:"Nenhuma lesão ativa no elenco."} time="agora"/><InboxItem icon="CT" title="Comissão técnica" text={`Condição média em ${squadCondition}%. Ajuste descanso, pressão e ritmo.`} time="25 min"/><InboxItem icon="CB" title="Classificação atualizada" text={`${club.name} ocupa a ${position}ª posição com ${standing.points} pontos.`} time="1 h"/></section><section className={styles.card}><div className={styles.cardHead}><div>MUNDO VIVO</div><button>Ver notícias <ChevronRight size={15}/></button></div><article className={styles.featureNews}><div><span>FUTEBOL AGORA</span><b>{position<=4?`${club.name} entra forte na briga pelas primeiras posições`:`${club.name} busca reação na Liga Nacional`}</b><small>Temporada {season.year} • rodada {Math.min(season.currentRound,38)}</small></div></article><News initials="DM" source="Departamento Médico" text={unavailable?`${unavailable} atletas estão indisponíveis`:"Elenco sem baixas médicas"} time="agora"/><News initials="TC" source="Tática & Campo" text={`${tactic.formation} com mentalidade ${tactic.mentality.toLowerCase()}`} time="hoje"/></section></div></div>}
+        </>}
+      </section>
+    </main>
+    <nav className={styles.mobileNav}>{NAV.slice(0,5).map(([label,Icon])=><button key={label} onClick={()=>{setActive(label);setMatch(null)}} className={active===label?styles.mobileActive:""}><Icon size={20}/><span>{label.split(" ")[0]}</span></button>)}</nav>
+  </div>;
 }
-function Metric({label,value,detail,icon,tone,trend,hasForm}:{label:string;value:string;detail:string;icon:React.ReactNode;tone:string;trend?:string;hasForm?:boolean}){return <div className={styles.metric}><div className={`${styles.metricIcon} ${styles[tone]}`}>{icon}</div><div><span>{label}</span>{hasForm?<div className={styles.form}>{form.map((x,i)=><b key={i} className={x==="V"?styles.win:x==="D"?styles.loss:styles.draw}>{x}</b>)}</div>:<strong>{value}</strong>}<small>{detail}</small></div>{trend&&<em>{trend}</em>}</div>}
+
+function Metric({label,value,detail,icon,tone,formValues}:{label:string;value:string;detail:string;icon:React.ReactNode;tone:string;formValues?:string[]}){return <div className={styles.metric}><div className={`${styles.metricIcon} ${styles[tone]}`}>{icon}</div><div><span>{label}</span>{formValues?<div className={styles.form}>{formValues.length?formValues.map((x,i)=><b key={i} className={x==="V"?styles.win:x==="D"?styles.loss:styles.draw}>{x}</b>):<small>— — — — —</small>}</div>:<strong>{value}</strong>}<small>{detail}</small></div></div>}
+
+function NextMatchCard({fixture,club,opponent,standings,tactic,onPrepare}:{fixture:LeagueFixture;club:LeagueClub;opponent:LeagueClub;standings:LeagueStanding[];tactic:MatchTactic;onPrepare:()=>void}){const isHome=fixture.homeClubId===club.id;const clubPosition=standings.findIndex(s=>s.clubId===club.id)+1;const opponentPosition=standings.findIndex(s=>s.clubId===opponent.id)+1;return <section className={styles.card}><div className={styles.cardHead}><div><span className={styles.liveDot}/> PRÓXIMA PARTIDA</div><button onClick={onPrepare}>Ver detalhes <ChevronRight size={15}/></button></div><div className={styles.competition}>LIGA NACIONAL • RODADA {fixture.round} <b>{isHome?"CASA":"FORA"}</b></div><div className={styles.versus}><div><div className={`${styles.bigCrest} ${styles.aurora}`}>{isHome?"A":opponent.shortName[0]}</div><b>{isHome?club.name:opponent.name}</b><small>{isHome?`${clubPosition}º lugar`:`${opponentPosition}º lugar`}</small></div><div className={styles.vs}><strong>VS</strong><span>Rodada {fixture.round}</span><small>{isHome?"Seu estádio":"Jogo fora"}</small></div><div><div className={`${styles.bigCrest} ${styles.ferro}`}>{isHome?opponent.shortName[0]:"A"}</div><b>{isHome?opponent.name:club.name}</b><small>{isHome?`${opponentPosition}º lugar`:`${clubPosition}º lugar`}</small></div></div><div className={styles.matchFooter}><span><Shirt size={16}/> {tactic.formation} • {tactic.mentality}</span><button onClick={onPrepare}>PREPARAR PARTIDA <ChevronRight size={16}/></button></div></section>}
+
+function Agenda({fixtures,league,currentRound}:{fixtures:LeagueFixture[];league:LeagueClub[];currentRound:number}){const visible=fixtures.filter(f=>f.round>=Math.max(1,currentRound-1)&&f.round<=Math.min(38,currentRound+2)).slice(0,4);return <section className={styles.card}><div className={styles.cardHead}><div>AGENDA</div><button>38 rodadas</button></div><div className={styles.fixtures}>{visible.map(f=>{const home=league.find(c=>c.id===f.homeClubId)!,away=league.find(c=>c.id===f.awayClubId)!;return <div className={styles.fixture} key={f.id}><div className={styles.dateBox}><b>{f.round}</b><span>ROD</span></div><div className={styles.fixtureInfo}><b>{home.name} <span>×</span> {away.name}</b><small>{f.played?`${f.homeGoals} × ${f.awayGoals}`:"Liga Nacional"}</small></div><em className={f.round===currentRound?styles.nextTag:""}>{f.played?"FIM":f.round===currentRound?"PRÓXIMO":"AGENDADO"}</em></div>})}</div></section>}
+
 function InboxItem({icon,title,text,time,urgent}:{icon:string;title:string;text:string;time:string;urgent?:boolean}){return <button className={styles.inboxItem}><span className={urgent?styles.urgentAvatar:""}>{icon}</span><div><b>{title}</b><p>{text}</p><small>{time}{urgent&&" • Decisão necessária"}</small></div><ChevronRight size={17}/></button>}
 function News({initials,source,text,time}:{initials:string;source:string;text:string;time:string}){return <div className={styles.newsLine}><span>{initials}</span><div><b>{source}</b><p>{text}</p></div><small>{time}</small></div>}
-function SquadView({club}:{club:LeagueClub}){return <section className={`${styles.card} ${styles.dataCard}`}><div className={styles.cardHead}><div>30 JOGADORES</div><button>Overall médio: {Math.round(club.players.reduce((s,p)=>s+p.overall,0)/club.players.length)}</button></div><div className={styles.tableScroll}><table className={styles.dataTable}><thead><tr><th>Jogador</th><th>Pos.</th><th>Idade</th><th>OVR</th><th>Condição</th><th>Moral</th><th>Forma</th><th>G</th><th>A</th><th>Status</th></tr></thead><tbody>{club.players.map(p=><tr key={p.id}><td><b>{p.name}</b></td><td><span className={styles.position}>{p.position}</span></td><td>{p.age}</td><td><strong>{p.overall}</strong></td><td><Progress value={p.condition}/></td><td><Progress value={p.morale}/></td><td>{p.form.toFixed(1)}</td><td>{p.goals}</td><td>{p.assists}</td><td><em>{p.status}</em></td></tr>)}</tbody></table></div></section>}
-function TableView({clubs,standings}:{clubs:LeagueClub[];standings:LeagueStanding[]}){return <section className={`${styles.card} ${styles.dataCard}`}><div className={styles.cardHead}><div>LIGA NACIONAL</div><button>38 rodadas • pontos corridos</button></div><div className={styles.tableScroll}><table className={styles.dataTable}><thead><tr><th>#</th><th>Clube</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{standings.map((s,i)=>{const club=clubs.find(c=>c.id===s.clubId)!;return <tr key={s.clubId}><td><b>{i+1}</b></td><td><span className={styles.clubName}><i style={{background:club.color}}/>{club.name}</span></td><td>{s.played}</td><td>{s.won}</td><td>{s.drawn}</td><td>{s.lost}</td><td>{s.goalsFor}</td><td>{s.goalsAgainst}</td><td>{s.goalsFor-s.goalsAgainst}</td><td><strong>{s.points}</strong></td></tr>})}</tbody></table></div></section>}
+
+function SquadView({club,lineupIds,onToggle}:{club:LeagueClub;lineupIds:string[];onToggle:(id:string)=>void}){return <section className={`${styles.card} ${styles.dataCard}`}><div className={styles.cardHead}><div>30 JOGADORES • {lineupIds.length}/11 TITULARES</div><button>Overall médio: {Math.round(club.players.reduce((s,p)=>s+p.overall,0)/club.players.length)}</button></div><div className={styles.tableScroll}><table className={styles.dataTable}><thead><tr><th>XI</th><th>Jogador</th><th>Pos.</th><th>Idade</th><th>OVR</th><th>Condição</th><th>Fadiga</th><th>Moral</th><th>Forma</th><th>G</th><th>CA</th><th>Status</th></tr></thead><tbody>{club.players.map(p=>{const selected=lineupIds.includes(p.id),blocked=p.injuryDays>0||p.suspensionMatches>0;return <tr key={p.id}><td><button className={`${seasonStyles.xiButton} ${selected?seasonStyles.xiSelected:""}`} disabled={blocked} onClick={()=>onToggle(p.id)}>{selected?"✓":"+"}</button></td><td><b>{p.name}</b></td><td><span className={styles.position}>{p.position}</span></td><td>{p.age}</td><td><strong>{p.overall}</strong></td><td><Progress value={p.condition}/></td><td>{p.fatigue}%</td><td><Progress value={p.morale}/></td><td>{p.form.toFixed(1)}</td><td>{p.goals}</td><td>{p.yellowCards}</td><td><em className={blocked?seasonStyles.dangerStatus:""}>{p.status}</em></td></tr>})}</tbody></table></div></section>}
+
+function TableView({clubs,standings,selectedClubId}:{clubs:LeagueClub[];standings:LeagueStanding[];selectedClubId:string}){return <section className={`${styles.card} ${styles.dataCard}`}><div className={styles.cardHead}><div>LIGA NACIONAL</div><button>38 rodadas • pontos corridos</button></div><div className={styles.tableScroll}><table className={styles.dataTable}><thead><tr><th>#</th><th>Clube</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>PTS</th></tr></thead><tbody>{standings.map((s,i)=>{const club=clubs.find(c=>c.id===s.clubId)!;return <tr key={s.clubId} className={s.clubId===selectedClubId?seasonStyles.myClubRow:""}><td><b>{i+1}</b></td><td><span className={styles.clubName}><i style={{background:club.color}}/>{club.name}</span></td><td>{s.played}</td><td>{s.won}</td><td>{s.drawn}</td><td>{s.lost}</td><td>{s.goalsFor}</td><td>{s.goalsAgainst}</td><td>{s.goalsFor-s.goalsAgainst}</td><td><strong>{s.points}</strong></td></tr>})}</tbody></table></div></section>}
+
 function Progress({value}:{value:number}){return <span className={styles.progress}><i style={{width:`${value}%`}}/><small>{value}%</small></span>}
-function TacticsView({club,opponent,tactic,onChange,match,onPlay}:{club:LeagueClub;opponent:LeagueClub;tactic:MatchTactic;onChange:(t:MatchTactic)=>void;match:MatchResult|null;onPlay:()=>void}){
- const starters=club.players.slice().sort((a,b)=>b.overall-a.overall).slice(0,11);
- if(match)return <MatchCenter home={club} away={opponent} result={match}/>;
- return <div className={styles.tacticsGrid}><section className={`${styles.card} ${styles.pitchCard}`}><div className={styles.cardHead}><div>ESCALAÇÃO INICIAL</div><button>OVR {Math.round(starters.reduce((s,p)=>s+p.overall,0)/11)}</button></div><div className={styles.pitch}>{starters.map((p,i)=><div className={styles.pitchPlayer} key={p.id} style={{left:`${[50,18,40,62,82,34,66,20,50,80,50][i]}%`,top:`${[88,68,72,72,68,50,50,31,35,31,10][i]}%`}}><span>{p.position}</span><b>{p.name.split(" ")[0]}</b><small>{p.overall}</small></div>)}</div></section><section className={`${styles.card} ${styles.tacticPanel}`}><div className={styles.cardHead}><div>PLANO DE JOGO</div></div><label>Formação</label><div className={styles.optionRow}>{(["4-2-3-1","4-3-3","4-4-2"] as Formation[]).map(x=><button className={tactic.formation===x?styles.optionActive:""} key={x} onClick={()=>onChange({...tactic,formation:x})}>{x}</button>)}</div><label>Mentalidade</label><div className={styles.optionRow}>{(["Defensiva","Equilibrada","Ofensiva"] as Mentality[]).map(x=><button className={tactic.mentality===x?styles.optionActive:""} key={x} onClick={()=>onChange({...tactic,mentality:x})}>{x}</button>)}</div><Range label="Pressão" value={tactic.pressing} onChange={pressing=>onChange({...tactic,pressing})}/><Range label="Ritmo" value={tactic.tempo} onChange={tempo=>onChange({...tactic,tempo})}/><div className={styles.tacticReadout}><b>IDENTIDADE</b><span>{tactic.mentality} • pressão {tactic.pressing>=65?"alta":tactic.pressing>=45?"média":"baixa"} • ritmo {tactic.tempo>=65?"acelerado":tactic.tempo>=45?"controlado":"cadenciado"}</span></div><button className={styles.playMatch} onClick={onPlay}><Play size={16} fill="currentColor"/> SIMULAR PARTIDA</button></section></div>
-}
+
+function TacticsView({club,opponent,tactic,onChange,lineupIds,onToggle,onPlay}:{club:LeagueClub;opponent:LeagueClub;tactic:MatchTactic;onChange:(t:MatchTactic)=>void;lineupIds:string[];onToggle:(id:string)=>void;onPlay:()=>void}){const starters=lineupIds.map(id=>club.players.find(p=>p.id===id)).filter((p):p is NonNullable<typeof p>=>Boolean(p));const sorted=[...club.players].sort((a,b)=>b.overall-a.overall);return <div className={styles.tacticsGrid}><section className={`${styles.card} ${styles.pitchCard}`}><div className={styles.cardHead}><div>ESCALAÇÃO INICIAL • {lineupIds.length}/11</div><button>vs {opponent.shortName}</button></div><div className={styles.pitch}>{starters.map((p,i)=><div className={styles.pitchPlayer} key={p.id} style={{left:`${[50,18,40,62,82,34,66,20,50,80,50][i]??50}%`,top:`${[88,68,72,72,68,50,50,31,35,31,10][i]??50}%`}}><span>{p.position}</span><b>{p.name.split(" ")[0]}</b><small>{p.overall}</small></div>)}</div></section><section className={`${styles.card} ${styles.tacticPanel}`}><div className={styles.cardHead}><div>PLANO DE JOGO</div><button>{lineupIds.length}/11</button></div><label>Formação</label><div className={styles.optionRow}>{(["4-2-3-1","4-3-3","4-4-2"] as Formation[]).map(x=><button className={tactic.formation===x?styles.optionActive:""} key={x} onClick={()=>onChange({...tactic,formation:x})}>{x}</button>)}</div><label>Mentalidade</label><div className={styles.optionRow}>{(["Defensiva","Equilibrada","Ofensiva"] as Mentality[]).map(x=><button className={tactic.mentality===x?styles.optionActive:""} key={x} onClick={()=>onChange({...tactic,mentality:x})}>{x}</button>)}</div><Range label="Pressão" value={tactic.pressing} onChange={pressing=>onChange({...tactic,pressing})}/><Range label="Ritmo" value={tactic.tempo} onChange={tempo=>onChange({...tactic,tempo})}/><div className={seasonStyles.lineupPicker}><b>ESCOLHA DOS TITULARES</b><span>Clique para entrar/sair do XI. Lesionados e suspensos ficam bloqueados.</span><div>{sorted.map(p=>{const selected=lineupIds.includes(p.id),blocked=p.injuryDays>0||p.suspensionMatches>0;return <button key={p.id} disabled={blocked} className={selected?seasonStyles.playerSelected:""} onClick={()=>onToggle(p.id)}><i>{p.position}</i><strong>{p.name}</strong><small>{blocked?p.status:`OVR ${p.overall} • Cond. ${p.condition}%`}</small></button>})}</div></div><button className={styles.playMatch} disabled={lineupIds.length!==11} onClick={onPlay}><Play size={16} fill="currentColor"/> {lineupIds.length===11?"JOGAR RODADA":"SELECIONE 11 TITULARES"}</button></section></div>}
+
 function Range({label,value,onChange}:{label:string;value:number;onChange:(value:number)=>void}){return <label className={styles.rangeLabel}><span>{label}<b>{value}</b></span><input type="range" min="20" max="90" value={value} onChange={e=>onChange(Number(e.target.value))}/></label>}
-function MatchCenter({home,away,result}:{home:LeagueClub;away:LeagueClub;result:MatchResult}){return <div className={styles.matchCenter}><section className={`${styles.card} ${styles.scoreboard}`}><span>ENCERRADO • LIGA NACIONAL</span><div><b>{home.name}</b><strong>{result.homeGoals} <i>×</i> {result.awayGoals}</strong><b>{away.name}</b></div><small>Posse {result.possessionHome}%–{100-result.possessionHome}% • Finalizações {result.shotsHome}–{result.shotsAway}</small></section><section className={`${styles.card} ${styles.commentary}`}><div className={styles.cardHead}><div>NARRAÇÃO DA PARTIDA</div></div>{result.events.map((event,i)=><article key={`${event.minute}-${i}`} className={event.type==="goal"?styles.goalEvent:""}><time>{event.minute===0?"00'":`${event.minute}'`}</time><span>{event.type==="goal"?"⚽":event.type==="card"?"🟨":"•"}</span><p>{event.text}</p></article>)}</section></div>}
-function ComingSoon({title}:{title:string}){return <section className={`${styles.card} ${styles.coming}`}><Zap/><h2>{title}</h2><p>Este módulo já está previsto no backlog e será conectado aos sistemas da engine nas próximas entregas.</p></section>}
+
+function MatchCenter({home,away,result,onContinue}:{home:LeagueClub;away:LeagueClub;result:MatchResult;onContinue:()=>void}){return <div className={styles.matchCenter}><section className={`${styles.card} ${styles.scoreboard}`}><span>ENCERRADO • RODADA CONCLUÍDA</span><div><b>{home.name}</b><strong>{result.homeGoals} <i>×</i> {result.awayGoals}</strong><b>{away.name}</b></div><small>Posse {result.possessionHome}%–{100-result.possessionHome}% • Finalizações {result.shotsHome}–{result.shotsAway}</small><button className={seasonStyles.continueButton} onClick={onContinue}>CONTINUAR TEMPORADA <ChevronRight size={16}/></button></section><section className={`${styles.card} ${styles.commentary}`}><div className={styles.cardHead}><div>NARRAÇÃO DA PARTIDA</div></div>{result.events.map((event,i)=><article key={`${event.minute}-${i}`} className={event.type==="goal"?styles.goalEvent:""}><time>{event.minute===0?"00'":`${event.minute}'`}</time><span>{event.type==="goal"?"⚽":event.type==="card"?"🟨":event.type==="injury"?"🩺":"•"}</span><p>{event.text}</p></article>)}</section></div>}
+
+function CalendarView({season}:{season:SeasonState}){const fixtures=getUserFixtures(season),clubs=season.league.clubs;return <section className={`${styles.card} ${styles.dataCard}`}><div className={styles.cardHead}><div>CALENDÁRIO • {season.year}</div><button>{fixtures.filter(f=>f.played).length}/38 jogados</button></div><div className={seasonStyles.calendarList}>{fixtures.map(f=>{const home=clubs.find(c=>c.id===f.homeClubId)!,away=clubs.find(c=>c.id===f.awayClubId)!;return <article key={f.id} className={f.round===season.currentRound?seasonStyles.currentFixture:""}><span>R{f.round}</span><div><b>{home.name} × {away.name}</b><small>{f.played?`Final • ${f.homeGoals} × ${f.awayGoals}`:f.round===season.currentRound?"Próxima partida":"Agendado"}</small></div><em>{f.played?"✓":f.homeClubId===season.selectedClubId?"CASA":"FORA"}</em></article>})}</div></section>}
+
+function SeasonEnd({season,standings,clubs,onNext}:{season:SeasonState;standings:LeagueStanding[];clubs:LeagueClub[];onNext:()=>void}){const champion=clubs.find(c=>c.id===season.championClubId);const myPosition=standings.findIndex(s=>s.clubId===season.selectedClubId)+1;const myStanding=standings.find(s=>s.clubId===season.selectedClubId)!;return <section className={`${styles.card} ${seasonStyles.seasonEnd}`}><Trophy/><span>TEMPORADA {season.year} CONCLUÍDA</span><h2>{champion?.name} é o campeão</h2><p>Você terminou em <b>{myPosition}º</b>, com <b>{myStanding.points} pontos</b>. O mundo foi persistido e a próxima temporada já pode começar.</p><button onClick={onNext}><RotateCcw size={17}/> INICIAR TEMPORADA {season.year+1}</button></section>}
+
+function ComingSoon({title}:{title:string}){return <section className={`${styles.card} ${styles.coming}`}><Zap/><h2>{title}</h2><p>Este módulo permanece no roadmap. A prioridade desta entrega foi fechar o loop esportivo da temporada antes de expandir o mundo humano e midiático.</p></section>}
