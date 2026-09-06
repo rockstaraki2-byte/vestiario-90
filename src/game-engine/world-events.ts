@@ -71,7 +71,7 @@ export function worldAfterMatch(world:LivingWorldState,club:LeagueClub,round:num
 export function worldAfterDay(world:LivingWorldState,club:LeagueClub,round:number,seed:string):LivingWorldState{
  if(world.lastDailyRound===round)return world;
  const rng=new SeededRng(`${seed}:world-day:r${round}:${world.sequence}`);
- let next:{[K in keyof LivingWorldState]:LivingWorldState[K]}={...world,lastDailyRound:round};
+ let next:LivingWorldState={...world,lastDailyRound:round};
  const concerned=club.players.filter(p=>playerConcern(p,round));
  if(concerned.length&&rng.integer(1,100)<=55){
   const player=rng.pick(concerned);
