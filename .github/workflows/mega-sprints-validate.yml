@@ -1,0 +1,34 @@
+name: Validate mega sprint package
+on:
+  push:
+    branches: [feat/mega-sprints-20-29-competitions2]
+    paths:
+      - scripts/apply-mega-sprints.py
+      - .github/workflows/mega-sprints-validate.yml
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/mega-sprints-20-29-competitions2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply implementation
+        run: python scripts/apply-mega-sprints.py
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Commit validated implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src docs
+          git commit -m "feat: Sprints 20 21 23 24 28 29 and Competitions 2.0"
+          git push origin HEAD:feat/mega-sprints-20-29-competitions2
