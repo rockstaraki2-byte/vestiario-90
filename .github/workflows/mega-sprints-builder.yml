@@ -1,0 +1,40 @@
+name: Build mega sprints package
+on:
+  push:
+    branches: [builder/mega-sprints-20-29]
+    paths:
+      - scripts/mega_*.py
+      - .github/workflows/mega-sprints-builder.yml
+permissions:
+  contents: write
+jobs:
+  build-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: builder/mega-sprints-20-29
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply engine modules
+        run: python scripts/mega_1_modules.py
+      - name: Apply competitions and match engine
+        run: python scripts/mega_2_match_competitions.py
+      - name: Apply season, UI and tests
+        run: python scripts/mega_3_integration.py
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Publish validated product branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f scripts/mega_1_modules.py scripts/mega_2_match_competitions.py scripts/mega_3_integration.py .github/workflows/mega-sprints-builder.yml
+          git add src docs
+          git commit -m "feat: Sprints 20, 21, 23, 24, 28, 29 and Competitions 2.0"
+          git push --force origin HEAD:feat/mega-sprints-20-29-competitions2
