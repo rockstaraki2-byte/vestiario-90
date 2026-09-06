@@ -1,6 +1,9 @@
 import { SeededRng } from "./rng";
-import { SOCCERWIKI_CLUBS, SOCCERWIKI_PLAYERS } from "../data/soccerwiki";
+import { BRASILEIRAO_2026_CLUBS } from "../data/brasileirao-2026/rosters";
 
+export type PlayerPersonality="Profissional"|"Ambicioso"|"Competitivo"|"Leal"|"Reservado"|"Temperamental";
+export type SquadRole="Líder"|"Titular"|"Rotação"|"Reserva"|"Promessa";
+export type PlayerPromise={id:string;type:"Mais minutos";createdRound:number;deadlineRound:number;targetAppearances:number;progressAppearances:number;status:"Ativa"|"Cumprida"|"Quebrada"};
 export type LeaguePlayer = {
   id:string;
   sourceId?:number;
@@ -18,47 +21,63 @@ export type LeaguePlayer = {
   injuryDays:number;
   suspensionMatches:number;
   status:string;
+  personality:PlayerPersonality;
+  squadRole:SquadRole;
+  happiness:number;
+  managerTrust:number;
+  appearances:number;
+  starts:number;
+  minutes:number;
+  promises:PlayerPromise[];
+  lastConversationRound?:number;
 };
 export type LeagueClub = { id:string; sourceId:number; name:string; shortName:string; imageUrl:string; color:string; reputation:number; players:LeaguePlayer[] };
 export type LeagueFixture = { id:string; round:number; homeClubId:string; awayClubId:string; played:boolean; homeGoals?:number; awayGoals?:number };
 export type LeagueStanding = { clubId:string; played:number; won:number; drawn:number; lost:number; goalsFor:number; goalsAgainst:number; points:number };
 export type LeagueWorld = { clubs:LeagueClub[]; fixtures:LeagueFixture[]; standings:LeagueStanding[] };
 
-const POSITIONS=["GOL","GOL","GOL","LD","LD","ZAG","ZAG","ZAG","ZAG","LE","LE","VOL","VOL","VOL","MC","MC","MC","MEI","MEI","PD","PD","PE","PE","ATA","ATA","ATA","ATA","ZAG","MC","ATA"];
-const COLORS=["#159447","#d33e34","#151515","#d43832","#ececec","#4a78d0","#d84137","#2b6fdd","#111111","#222222","#6c1f35","#171717","#2b78c5","#1f5cc4","#111111","#d42d2d","#e9e9e9","#d43b2d","#d73b2d","#4b7b35"];
+const COLORS=["#159447","#d33e34","#151515","#d43832","#ececec","#4a78d0","#d84137","#2b6fdd","#111111","#222222","#6c1f35","#171717","#2b78c5","#d42d2d","#e9e9e9","#d43b2d","#208251","#d5e7e2","#e0bd2b","#1e4ea3"];
+const PERSONALITIES:PlayerPersonality[]=["Profissional","Ambicioso","Competitivo","Leal","Reservado","Temperamental"];
 
-function generatedIdentity(slot:number){
-  const first=SOCCERWIKI_PLAYERS[slot%SOCCERWIKI_PLAYERS.length];
-  const second=SOCCERWIKI_PLAYERS[(slot*7+31)%SOCCERWIKI_PLAYERS.length];
-  const forename=first.name.split(" ")[0];
-  const surname=second.name.split(" ").at(-1)??"Silva";
-  return{name:`${forename} ${surname}`};
+function assignRoles(players:LeaguePlayer[]){
+  const ranked=[...players].sort((a,b)=>b.overall-a.overall);
+  ranked.forEach((player,index)=>{
+    const role:SquadRole=player.age<=21&&index>10?"Promessa":index<3?"Líder":index<11?"Titular":index<18?"Rotação":index<25?"Reserva":"Promessa";
+    player.squadRole=role;
+    player.status=role;
+    if(role==="Líder")player.managerTrust=Math.min(100,player.managerTrust+8);
+  });
 }
 
 function generatePlayers(clubId:string,clubIndex:number,rng:SeededRng):LeaguePlayer[]{
-  return POSITIONS.map((position,index)=>{
-    const slot=clubIndex*POSITIONS.length+index;
-    const source=SOCCERWIKI_PLAYERS[slot];
-    const identity=source??generatedIdentity(slot);
-    return{
-      id:`${clubId}-p${index+1}`,
-      sourceId:source?.sourceId,
-      name:identity.name,
-      position,
-      age:rng.integer(17,35),
-      overall:rng.integer(60,86),
-      morale:rng.integer(62,86),
-      condition:rng.integer(86,100),
-      fatigue:rng.integer(0,10),
-      form:rng.integer(5,8),
-      goals:0,
-      assists:0,
-      yellowCards:0,
-      injuryDays:0,
-      suspensionMatches:0,
-      status:index<11?"Titular":index<18?"Rotação":"Reserva",
-    };
-  });
+  const roster=BRASILEIRAO_2026_CLUBS[clubIndex].players;
+  const players=roster.map((identity,index):LeaguePlayer=>({
+    id:`${clubId}-p${index+1}`,
+    name:identity.name,
+    position:identity.position,
+    age:rng.integer(18,36),
+    overall:rng.integer(61,86),
+    morale:rng.integer(66,86),
+    condition:rng.integer(88,100),
+    fatigue:rng.integer(0,9),
+    form:rng.integer(5,8),
+    goals:0,
+    assists:0,
+    yellowCards:0,
+    injuryDays:0,
+    suspensionMatches:0,
+    status:"Reserva",
+    personality:rng.pick(PERSONALITIES),
+    squadRole:"Reserva",
+    happiness:rng.integer(64,88),
+    managerTrust:rng.integer(54,76),
+    appearances:0,
+    starts:0,
+    minutes:0,
+    promises:[],
+  }));
+  assignRoles(players);
+  return players;
 }
 
 export function generateFixtures(clubIds:string[]):LeagueFixture[]{
@@ -82,7 +101,7 @@ export function generateFixtures(clubIds:string[]):LeagueFixture[]{
 
 export function createLeague(seed:string):LeagueWorld{
   const rng=new SeededRng(seed);
-  const clubs=SOCCERWIKI_CLUBS.map((identity,index)=>{
+  const clubs=BRASILEIRAO_2026_CLUBS.map((identity,index)=>{
     const id=`club-${index+1}`;
     return{
       id,
