@@ -1,6 +1,7 @@
 import { SeededRng } from "./rng";
 import type { LeagueClub, LeaguePlayer, LeagueWorld } from "./league";
 import type { SeasonState } from "./season";
+import { applyArrivalImpact, applyDepartureImpact } from "./social";
 
 export type TransferOfferType="Compra"|"Empréstimo";
 export type TransferOfferStatus="Pendente"|"Aceita"|"Recusada"|"Concluída"|"Expirada";
@@ -93,10 +94,13 @@ export function concludeAcceptedOffer(state:SeasonState,offerId:string):MarketAc
   const mood=(player.happiness<55?18:0)+(player.wantsToLeave?20:0);
   const chance=Math.max(15,Math.min(96,58+prestige+raise+mood+(player.personality==="Ambicioso"?8:0)));
   if(rng.integer(1,100)>chance){offer.status="Recusada";offer.message=`${player.name} e ${player.contract.agentName} recusaram os termos pessoais.`;return{state:{...state,league,market},message:offer.message};}
+  const departureNote=applyDepartureImpact(seller,player.id);
   seller.players.splice(index,1);buyer.players.push(player);buyer.transferBudgetEur-=offer.feeEur;seller.transferBudgetEur+=offer.feeEur;
   player.contract={...player.contract,salaryBrlMonthly:offer.salaryBrlMonthly,startYear:state.year,endYear:state.year+(offer.type==="Compra"?3:1)};player.transferListed=false;player.wantsToLeave=false;player.happiness=Math.min(100,player.happiness+6);player.managerTrust=60;
   if(offer.type==="Empréstimo"){const loanPlayer=player as LeaguePlayer&{loanFromClubId?:string;loanReturnYear?:number};loanPlayer.loanFromClubId=seller.id;loanPlayer.loanReturnYear=state.year+1;}
-  offer.status="Concluída";offer.message=`${player.name} é reforço do ${buyer.name}.`;
+  const arrivalNote=applyArrivalImpact(buyer,player.id);
+  const socialNote=buyer.id===state.selectedClubId?arrivalNote:seller.id===state.selectedClubId?departureNote:"";
+  offer.status="Concluída";offer.message=`${player.name} é reforço do ${buyer.name}.${socialNote?` ${socialNote}`:""}`;
   market.history.unshift({id:nextRecordId(market),playerName:player.name,fromClubId:seller.id,toClubId:buyer.id,type:offer.type,feeEur:offer.feeEur,round:state.currentRound,year:state.year});
   const lineupIds=state.lineupIds.filter(id=>buyer.id===state.selectedClubId||id!==player.id);
   return{state:{...state,league,market,lineupIds},message:offer.message};
@@ -151,8 +155,9 @@ export function signFreeAgent(state:SeasonState,playerId:string):MarketActionRes
   const salary=Math.round(Math.max(player.contract.salaryBrlMonthly,estimatedPlayerValue(player)*.03)/5_000)*5_000;
   if(clubWageSpend(club)+salary>club.wageBudgetBrlMonthly)return{state,message:`O teto salarial não comporta a pedida de ${formatBrl(salary)}/mês.`};
   market.freeAgents.splice(index,1);player.contract={...player.contract,salaryBrlMonthly:salary,startYear:state.year,endYear:state.year+2};player.happiness=72;player.managerTrust=60;player.wantsToLeave=false;club.players.push(player);
+  const socialNote=applyArrivalImpact(club,player.id);
   market.history.unshift({id:nextRecordId(market),playerName:player.name,fromClubId:"free-agent",toClubId:club.id,type:"Compra",feeEur:0,round:state.currentRound,year:state.year});
-  return{state:{...state,league,market},message:`${player.name} assinou como agente livre até ${state.year+2}.`};
+  return{state:{...state,league,market},message:`${player.name} assinou como agente livre até ${state.year+2}. ${socialNote}`};
 }
 
 export function formatEur(value:number){return value>=1_000_000?`€ ${(value/1_000_000).toLocaleString("pt-BR",{maximumFractionDigits:2})} mi`:`€ ${Math.round(value/1_000).toLocaleString("pt-BR")} mil`;}
