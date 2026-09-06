@@ -5,14 +5,16 @@ import type{SeasonState}from"@/game-engine/season";
 import{clubOperationsProfile,promoteYouthProspect,requestBoardAction,requestExternalScout,requestOpponentAnalysis,observeYouthProspect,scoutingTargets,type ClubActionResult,type DepartmentKey}from"@/game-engine/club-management";
 import styles from"./club-management-view.module.css";
 
-export default function ClubManagementView({season,onResult}:{season:SeasonState;onResult:(result:ClubActionResult)=>void}){
+export default function ClubManagementView({season,onResult,onOpenInbox}:{season:SeasonState;onResult:(result:ClubActionResult)=>void;onOpenInbox?:()=>void}){
  const club=season.league.clubs.find(item=>item.id===season.selectedClubId)??season.league.clubs[0];
  const profile=clubOperationsProfile(season);
  const targets=scoutingTargets(season,8);
  const activeTasks=profile.tasks.filter(task=>task.status==="Em andamento");
  const finished=profile.tasks.filter(task=>task.status==="Concluída");
  const board=season.livingWorld.boardConfidence;
+ const boardMeeting=season.livingWorld.inbox.find(event=>event.kind==="Diretoria"&&event.unread&&!event.resolved);
  return <div className={styles.shell}>
+  {boardMeeting&&<section className={styles.panel}><header><div><span>AGENDA DA DIRETORIA</span><h3>{boardMeeting.title}</h3></div><Building2/></header><p className={styles.intro}>{boardMeeting.body}</p><button className={styles.bigAction} onClick={onOpenInbox}><ClipboardList/> ABRIR PAUTA E RESPONDER <ChevronRight/></button></section>}
   <section className={styles.hero}><div><span>ESTRUTURA DO CLUBE</span><h2>{club.name}</h2><p>Você é o treinador. Cada área tem seu responsável, sua estrutura e decisões que precisam passar pelos canais corretos.</p></div><div className={styles.heroMetrics}><HeroMetric label="DIRETORIA" value={`${board}%`} detail={board>=70?"confiança alta":board>=45?"relação estável":"relação pressionada"}/><HeroMetric label="ORÇ. TRANSF." value={eur(club.transferBudgetEur)} detail="disponível"/><HeroMetric label="TETO SALARIAL" value={brl(club.wageBudgetBrlMonthly)} detail="por mês"/></div></section>
 
   <section className={styles.departments}><DepartmentCard icon={<BriefcaseBusiness/>} department={profile.departments.Futebol}/><DepartmentCard icon={<Search/>} department={profile.departments.Observação}/><DepartmentCard icon={<GraduationCap/>} department={profile.departments.Base}/><DepartmentCard icon={<BarChart3/>} department={profile.departments.Análise}/><DepartmentCard icon={<HeartPulse/>} department={profile.departments.Médico}/></section>
