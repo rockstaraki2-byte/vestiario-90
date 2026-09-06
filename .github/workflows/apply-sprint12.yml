@@ -19,6 +19,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Adapt integration script to current Sprint 11 signature
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/apply-sprint12-integration.mjs')
+          s=p.read_text()
+          s=s.replace('export function resolveSeasonWorldChoice(state:SeasonState,eventId:string,choiceId:string):WorldActionResult{','export function resolveSeasonWorldChoice(state:SeasonState,eventId:string,choiceId:string){')
+          p.write_text(s)
+          PY
       - run: node scripts/apply-sprint12-integration.mjs
       - run: npm ci
       - run: npm run lint
