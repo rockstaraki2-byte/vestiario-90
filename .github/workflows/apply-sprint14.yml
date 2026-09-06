@@ -1,0 +1,133 @@
+name: Apply Sprint 14
+on:
+  push:
+    branches: [feat/sprint14-data-media-live-ratings]
+    paths:
+      - .github/workflows/apply-sprint14.yml
+permissions:
+  contents: write
+jobs:
+  apply-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/sprint14-data-media-live-ratings
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Connect Sprint 14
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=1):
+              p=Path(path); s=p.read_text()
+              if old not in s: raise SystemExit(f'marker not found in {path}: {old[:100]}')
+              p.write_text(s.replace(old,new,count))
+
+          # Match result can persist minute-accurate live metrics.
+          replace('src/game-engine/match.ts',
+            'playerFatigueAfter?:Record<string,number> };',
+            'playerFatigueAfter?:Record<string,number>; playerMinutes?:Record<string,number> };')
+
+          # Export live minutes together with ratings and physical state.
+          replace('src/game-engine/live-match.ts',
+            'const playerRatings:Record<string,number>={},playerConditionAfter:Record<string,number>={},playerFatigueAfter:Record<string,number>={};',
+            'const playerRatings:Record<string,number>={},playerConditionAfter:Record<string,number>={},playerFatigueAfter:Record<string,number>={},playerMinutes:Record<string,number>={};')
+          replace('src/game-engine/live-match.ts',
+            'playerFatigueAfter[id]=round1(live.fatigue);}',
+            'playerFatigueAfter[id]=round1(live.fatigue);playerMinutes[id]=live.minutes;}')
+          replace('src/game-engine/live-match.ts',
+            'playerRatings,playerConditionAfter,playerFatigueAfter};}',
+            'playerRatings,playerConditionAfter,playerFatigueAfter,playerMinutes};}')
+
+          # Final sporting stats use the actual live rating/minutes when available.
+          replace('src/game-engine/development.ts',
+            'function matchRating(player:LeaguePlayer,result:MatchResult,side:"home"|"away",started:boolean){const{gf,ga}=teamScore(result,side),counts=eventCounts(player,result,side);',
+            'function matchRating(player:LeaguePlayer,result:MatchResult,side:"home"|"away",started:boolean){const liveRating=result.playerRatings?.[player.id];if(liveRating!==undefined)return clamp(Math.round(liveRating*100)/100,4.5,10);const{gf,ga}=teamScore(result,side),counts=eventCounts(player,result,side);')
+          replace('src/game-engine/development.ts',
+            'player.minutes=(player.minutes??0)+(started?75:25);',
+            'player.minutes=(player.minutes??0)+(result.playerMinutes?.[player.id]??(started?75:25));')
+
+          # The physical state from the minute-by-minute match survives into the season.
+          replace('src/game-engine/season.ts',
+            'if(participantIds.has(player.id)){player.condition=Math.max(45,player.condition-rng.integer(6,14));player.fatigue=Math.min(100,player.fatigue+rng.integer(8,16));player.morale=Math.max(0,Math.min(100,player.morale+moraleDelta+rng.integer(-1,1)));}',
+            'if(participantIds.has(player.id)){const liveCondition=result.playerConditionAfter?.[player.id],liveFatigue=result.playerFatigueAfter?.[player.id];player.condition=liveCondition!==undefined?Math.max(35,Math.round(liveCondition)):Math.max(45,player.condition-rng.integer(6,14));player.fatigue=liveFatigue!==undefined?Math.min(100,Math.round(liveFatigue)):Math.min(100,player.fatigue+rng.integer(8,16));player.morale=Math.max(0,Math.min(100,player.morale+moraleDelta+rng.integer(-1,1)));}')
+
+          # Sidebar: dedicated Data Center plus Media & Social hub.
+          replace('src/app/page.tsx',
+            'MessageSquareText, Newspaper, Play,',
+            'MessageSquareText, Megaphone, Newspaper, Play,')
+          replace('src/app/page.tsx',
+            'import StatisticsView from "./statistics-view";',
+            'import StatisticsView from "./statistics-view";\nimport MediaCenterView from "./media-center-view";')
+          replace('src/app/page.tsx',
+            '["Estatísticas",BarChart3],["Mercado",BarChart3]',
+            '["Central de Dados",BarChart3],["Mídia & Redes",Megaphone],["Mercado",BarChart3]')
+          replace('src/app/page.tsx',
+            'active==="Estatísticas"?<StatisticsView season={season}/>:',
+            'active==="Central de Dados"?<StatisticsView season={season}/>:\n        active==="Mídia & Redes"?<MediaCenterView world={season.livingWorld} club={club}/>:' )
+
+          # Real editorial references with explicit simulation labeling.
+          replace('src/game-engine/world-events.ts',
+            'import type { LeagueClub } from "./league";',
+            'import type { LeagueClub } from "./league";\nimport { simulatedMediaCredit } from "./media-realism";')
+          replace('src/game-engine/world-events.ts',
+            'source:"Futebol Agora",round:1,tone:"neutral"',
+            'source:simulatedMediaCredit(0),round:1,tone:"neutral"')
+          replace('src/game-engine/world-events.ts',
+            'source:"Futebol Agora",round,tone:won?"positive":lost?"negative":"neutral"',
+            'source:simulatedMediaCredit(round+next.sequence),round,tone:won?"positive":lost?"negative":"neutral"')
+          replace('src/game-engine/world-events.ts',
+            'source:"Redes sociais",round,tone:"positive"',
+            'source:"Instagram • perfil do jogador (simulação)",round,tone:"positive"')
+          replace('src/game-engine/world-events.ts',
+            'source:"Central da Bola",round,tone:"negative"',
+            'source:simulatedMediaCredit(round+next.sequence),round,tone:"negative"')
+
+          # Live UI: show changing condition/fatigue/rating on the field, squad list and selectors.
+          replace('src/app/live-match-view.tsx',
+            '<i>{player.position}</i><b>{player.name.split(" ")[0]}</b></div>)}',
+            '<i>{player.position}</i><b>{player.name.split(" ")[0]}</b><small>{session.playerStates[player.id]?.rating.toFixed(1)??"6.0"}</small></div>)}',2)
+          replace('src/app/live-match-view.tsx',
+            '{p?.position} • {p?.name}</option>',
+            '{p?.position} • {p?.name} • {session.playerStates[id]?.condition.toFixed(0)??p?.condition}% • N {session.playerStates[id]?.rating.toFixed(1)??"6.0"}</option>')
+          replace('src/app/live-match-view.tsx',
+            '{p?.position} • {p?.name} • OVR {p?.overall}</option>',
+            '{p?.position} • {p?.name} • OVR {p?.overall} • COND {session.playerStates[id]?.condition.toFixed(0)??p?.condition}%</option>')
+          replace('src/app/live-match-view.tsx',
+            '<small>{p?.condition}%</small></span>})',
+            '<small>COND {session.playerStates[id]?.condition.toFixed(0)??p?.condition}% • FAD {session.playerStates[id]?.fatigue.toFixed(0)??p?.fatigue}% • N {session.playerStates[id]?.rating.toFixed(1)??"6.0"}</small></span>})')
+
+          # Add small rating badge styling without changing the visual identity.
+          css=Path('src/app/live-match.module.css')
+          s=css.read_text()
+          if '.pitchPlayer small{' not in s:
+              s += '\n.pitchPlayer small{font-size:9px;font-weight:900;background:rgba(0,0,0,.72);color:#fff;border-radius:4px;padding:1px 4px;margin-top:2px}\n'
+          css.write_text(s)
+
+          # Backlog records the newly completed slice and next gaps.
+          backlog=Path('docs/BACKLOG.md')
+          s=backlog.read_text()
+          if '## M8 — Central de Dados, Mídia realista e partida viva / Sprint 14' not in s:
+              s += '''\n\n## M8 — Central de Dados, Mídia realista e partida viva / Sprint 14\n- [x] menu dedicado `Central de Dados` para estatísticas\n- [x] minutagem real de titulares e substitutos nas partidas interativas\n- [x] condição e fadiga evoluem minuto a minuto conforme pressão, ritmo, idade e carga\n- [x] notas de atuação dinâmicas durante a partida\n- [x] gols, assistências, finalizações, cartões e gols sofridos alteram a nota ao vivo\n- [x] nota, minutagem, condição e fadiga ao vivo alimentam o pós-jogo e as estatísticas persistentes\n- [x] central `Mídia & Redes` separada da caixa de entrada/notícias\n- [x] veículos e jornalistas reais como perfis editoriais, com conteúdo do jogo explicitamente marcado como simulação\n- [x] Instagram, X, Threads, TikTok e YouTube modelados como canais distintos\n- [ ] ampliar jornalistas e veículos por país/competição europeia\n- [ ] coletivas com repórteres específicos, histórico de relação e linha editorial individual\n- [ ] tendências, hashtags, vídeos virais e ciclos de repercussão de vários dias\n'''
+          backlog.write_text(s)
+
+          test=Path('src/game-engine/live-match-performance.test.ts')
+          test.write_text('''import { describe,expect,it } from "vitest";\nimport { createLeague } from "./league";\nimport { advanceLiveMatchMinute,createLiveMatch,startLiveMatch,liveMatchResult } from "./live-match";\n\ndescribe("Sprint 14 live performance",()=>{\n it("degrades condition and raises fatigue while clock runs",()=>{const league=createLeague("live-performance",2026,"BRA1"),home=league.clubs[0],away=league.clubs[1],ids=home.players.slice(0,11).map(p=>p.id);let match=startLiveMatch(createLiveMatch(home,away,"perf", "home",ids),home);const playerId=match.homeLineupIds[0],before={...match.playerStates[playerId]};for(let i=0;i<10;i++)match=advanceLiveMatchMinute(match,home,away);expect(match.playerStates[playerId].condition).toBeLessThan(before.condition);expect(match.playerStates[playerId].fatigue).toBeGreaterThan(before.fatigue);expect(match.playerStates[playerId].minutes).toBe(10);});\n it("exports ratings physical state and exact minutes at full time",()=>{const league=createLeague("live-result",2026,"BRA1"),home=league.clubs[0],away=league.clubs[1],ids=home.players.slice(0,11).map(p=>p.id);let match=startLiveMatch(createLiveMatch(home,away,"result", "home",ids),home);while(match.currentMinute<90){match=advanceLiveMatchMinute(match,home,away);if(match.phase==="halftime")match={...match,phase:"second_half_window"};}const result=liveMatchResult(match);expect(result).not.toBeNull();const id=match.homeLineupIds[0];expect(result?.playerRatings?.[id]).toBeGreaterThanOrEqual(4);expect(result?.playerMinutes?.[id]).toBe(90);expect(result?.playerConditionAfter?.[id]).toBeLessThanOrEqual(home.players.find(p=>p.id===id)!.condition);});\n});\n''')
+          PY
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Commit validated Sprint 14 integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src docs
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: connect Sprint 14 data media and live performance"
+          git push origin HEAD:feat/sprint14-data-media-live-ratings
