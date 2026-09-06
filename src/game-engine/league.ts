@@ -6,10 +6,12 @@ export type SquadRole="Líder"|"Titular"|"Rotação"|"Reserva"|"Promessa";
 export type PlayerPromise={id:string;type:"Mais minutos";createdRound:number;deadlineRound:number;targetAppearances:number;progressAppearances:number;status:"Ativa"|"Cumprida"|"Quebrada"};
 export type LeaguePlayer = {
   id:string;
-  sourceId?:number;
+  transfermarktId:string;
   name:string;
   position:string;
   age:number;
+  marketValueEur:number|null;
+  marketValueUpdated?:string;
   overall:number;
   morale:number;
   condition:number;
@@ -31,7 +33,18 @@ export type LeaguePlayer = {
   promises:PlayerPromise[];
   lastConversationRound?:number;
 };
-export type LeagueClub = { id:string; sourceId:number; name:string; shortName:string; imageUrl:string; color:string; reputation:number; players:LeaguePlayer[] };
+export type LeagueClub = {
+  id:string;
+  sourceId:number;
+  transfermarktId:number;
+  name:string;
+  shortName:string;
+  imageUrl:string;
+  color:string;
+  reputation:number;
+  marketValueEur:number;
+  players:LeaguePlayer[];
+};
 export type LeagueFixture = { id:string; round:number; homeClubId:string; awayClubId:string; played:boolean; homeGoals?:number; awayGoals?:number };
 export type LeagueStanding = { clubId:string; played:number; won:number; drawn:number; lost:number; goalsFor:number; goalsAgainst:number; points:number };
 export type LeagueWorld = { clubs:LeagueClub[]; fixtures:LeagueFixture[]; standings:LeagueStanding[] };
@@ -53,9 +66,12 @@ function generatePlayers(clubId:string,clubIndex:number,rng:SeededRng):LeaguePla
   const roster=BRASILEIRAO_2026_CLUBS[clubIndex].players;
   const players=roster.map((identity,index):LeaguePlayer=>({
     id:`${clubId}-p${index+1}`,
+    transfermarktId:identity.transfermarktId,
     name:identity.name,
     position:identity.position,
-    age:rng.integer(18,36),
+    age:identity.age,
+    marketValueEur:identity.marketValueEur,
+    marketValueUpdated:identity.marketValueUpdated,
     overall:rng.integer(61,86),
     morale:rng.integer(66,86),
     condition:rng.integer(88,100),
@@ -106,11 +122,13 @@ export function createLeague(seed:string):LeagueWorld{
     return{
       id,
       sourceId:identity.sourceId,
+      transfermarktId:identity.transfermarktId,
       name:identity.name,
       shortName:identity.shortName,
       imageUrl:identity.imageUrl,
       color:COLORS[index%COLORS.length],
       reputation:rng.integer(58,88),
+      marketValueEur:identity.marketValueEur,
       players:generatePlayers(id,index,rng),
     };
   });
