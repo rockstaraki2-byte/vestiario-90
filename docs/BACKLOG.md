@@ -150,3 +150,18 @@
 - [x] cooldown impede pedidos repetidos à diretoria a cada rodada
 - [x] solicitações de departamentos têm prazo e relatórios chegam ao inbox
 - [x] estrutura dos departamentos e base acompanha a carreira e vira a temporada
+
+
+## M8 — Central de Dados, Mídia realista e partida viva / Sprint 14
+- [x] menu dedicado `Central de Dados` para estatísticas
+- [x] minutagem real de titulares e substitutos nas partidas interativas
+- [x] condição e fadiga evoluem minuto a minuto conforme pressão, ritmo, idade e carga
+- [x] notas de atuação dinâmicas durante a partida
+- [x] gols, assistências, finalizações, cartões e gols sofridos alteram a nota ao vivo
+- [x] nota, minutagem, condição e fadiga ao vivo alimentam o pós-jogo e as estatísticas persistentes
+- [x] central `Mídia & Redes` separada da caixa de entrada/notícias
+- [x] veículos e jornalistas reais como perfis editoriais, com conteúdo do jogo explicitamente marcado como simulação
+- [x] Instagram, X, Threads, TikTok e YouTube modelados como canais distintos
+- [ ] ampliar jornalistas e veículos por país/competição europeia
+- [ ] coletivas com repórteres específicos, histórico de relação e linha editorial individual
+- [ ] tendências, hashtags, vídeos virais e ciclos de repercussão de vários dias

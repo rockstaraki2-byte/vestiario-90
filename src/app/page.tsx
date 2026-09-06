@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { BarChart3, Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Home, Inbox, LayoutGrid, MessageSquareText, Newspaper, Play, RotateCcw, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
+import { BarChart3, Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Home, Inbox, LayoutGrid, MessageSquareText, Megaphone, Newspaper, Play, RotateCcw, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
 import styles from "./page.module.css";
 import seasonStyles from "./season.module.css";
 import LiveMatchView from "./live-match-view";
@@ -11,6 +11,7 @@ import WorldInboxView, { NewsFeedView } from "./world-view";
 import MarketView from "./market-view";
 import TacticsSetupView from "./tactics-setup-view";
 import StatisticsView from "./statistics-view";
+import MediaCenterView from "./media-center-view";
 import CareerView from "./career-view";
 import PlayerManagementView from "./player-management-view";
 import ClubManagementView from "./club-management-view";
@@ -25,7 +26,7 @@ import { talkToPlayer, type ConversationAction } from "@/game-engine/people";
 import { pendingWorldEvents } from "@/game-engine/world-events";
 import { advanceCalendarDay, createSeason, getCurrentUserFixture, getSelectedClub, getTodayUserFixture, getUserFixtures, hydrateSeasonState, matchdaySelectionReady, playCurrentRound, resolveSeasonWorldChoice, setMatchdayRole, startNextSeason, toggleLineupPlayer, type MatchdayRole, type SeasonState } from "@/game-engine/season";
 
-const NAV=[["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["Vestiário",MessageSquareText],["Clube",Building2],["Táticas",LayoutGrid],["Calendário",CalendarDays],["Classificação",Trophy],["Estatísticas",BarChart3],["Mercado",BarChart3],["Carreira",BriefcaseBusiness],["Notícias",Newspaper]] as const;
+const NAV=[["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["Vestiário",MessageSquareText],["Clube",Building2],["Táticas",LayoutGrid],["Calendário",CalendarDays],["Classificação",Trophy],["Central de Dados",BarChart3],["Mídia & Redes",Megaphone],["Mercado",BarChart3],["Carreira",BriefcaseBusiness],["Notícias",Newspaper]] as const;
 
 export default function Dashboard(){
   const [screen,setScreen]=useState<"menu"|"game">("menu"),[saveId,setSaveId]=useState<string|null>(null),[season,setSeason]=useState<SeasonState>(()=>createSeason("vestiario-90",2026)),[active,setActive]=useState("Visão geral"),[notice,setNotice]=useState(""),[tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC),[match,setMatch]=useState<MatchResult|null>(null),[liveMatch,setLiveMatch]=useState<LiveMatchState|null>(null);
@@ -71,7 +72,8 @@ export default function Dashboard(){
         active==="Notícias"?<NewsFeedView world={season.livingWorld} club={club}/>:
         active==="Carreira"?<CareerView season={season} onOpenInbox={()=>setActive("Caixa de entrada")} onAdvanceRound={handleCareerAdvanceRound}/>:
         active==="Mercado"?<MarketView season={season} onResult={({state:next,message})=>{persist(next);flash(message)}}/>:
-        active==="Estatísticas"?<StatisticsView season={season}/>:
+        active==="Central de Dados"?<StatisticsView season={season}/>:
+        active==="Mídia & Redes"?<MediaCenterView world={season.livingWorld} club={club}/>:
         active==="Táticas"?(liveMatch&&liveHome&&liveAway?<LiveMatchView session={liveMatch} home={liveHome} away={liveAway} onChange={handleLiveChange} onFinish={handleLiveFinish}/>:match&&matchHome&&matchAway?<MatchCenter home={matchHome} away={matchAway} result={match} onContinue={()=>{setMatch(null);setActive("Visão geral")}}/>:season.completed?<SeasonEnd season={season} standings={standings} clubs={league.clubs} onNext={handleNextSeason}/>:opponent?<TacticsView club={club} opponent={opponent} tactic={tactic} onChange={setTactic} lineupIds={season.lineupIds} benchIds={season.benchIds} benchSize={competition.benchSize} onSetRole={handleMatchdayRole} onPlay={handlePlay}/>:<ComingSoon title="Partida"/>):
         active==="Classificação"?<TableView clubs={league.clubs} standings={standings} selectedClubId={club.id} competitionName={competition.name} totalRounds={totalRounds}/>:
         active==="Calendário"?<CalendarView season={season}/>:
