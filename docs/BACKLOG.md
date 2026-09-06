@@ -11,7 +11,7 @@
 - [x] 20 clubes e 600 jogadores por seed
 - [x] calendário determinístico de 38 rodadas
 - [x] telas funcionais de elenco e classificação
-- [ ] escalação, tática e match engine textual
+- [x] escalação, tática e match engine textual (vertical slice determinístico)
 - [ ] classificação, lesões, suspensões e virada de temporada
 
 ## M2 — Pessoas
