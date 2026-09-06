@@ -2,6 +2,7 @@ import { SeededRng } from "./rng";
 import { playerConcern } from "./people";
 import { buildDressingRoomNetwork, playerInfluence, playerSocialContext } from "./social";
 import type { LeagueClub } from "./league";
+import type { ProfessionalCompetitionId } from "../data/brazil-2026/competitions";
 import { simulatedMediaCredit } from "./media-realism";
 
 export type WorldEventKind="Jogador"|"Empresário"|"Imprensa"|"Diretoria"|"Coletiva"|"Conflito"|"Vazamento"|"Rede social"|"Logística"|"Comissão técnica"|"Compromisso"|"Carreira";
@@ -35,21 +36,21 @@ function addNews(world:LivingWorldState,news:Omit<WorldNews,"createdOrder">):Liv
  const order=nextOrder(world);return{...world,sequence:order,news:[{...news,createdOrder:order},...world.news].slice(0,100)};
 }
 
-export function createLivingWorld(clubName:string):LivingWorldState{
+export function createLivingWorld(clubName:string,competitionId:ProfessionalCompetitionId="BRA1"):LivingWorldState{
  let world:LivingWorldState={boardConfidence:72,fanSupport:74,mediaPressure:38,managerReputation:55,sequence:0,inbox:[],news:[]};
  world=addEvent(world,{id:"board-welcome",kind:"Diretoria",title:"As expectativas da diretoria",body:`A diretoria do ${clubName} espera competitividade, evolução do elenco e uma comunicação que proteja o clube.`,round:1,unread:true,resolved:false,choices:[
   {id:"ambition",label:"Assumir a responsabilidade",outcome:"A diretoria gostou da ambição pública do treinador.",effect:{boardConfidence:4,mediaPressure:4,managerReputation:2}},
   {id:"balance",label:"Prometer trabalho consistente",outcome:"A mensagem equilibrada foi bem recebida internamente.",effect:{boardConfidence:2,mediaPressure:-1}},
   {id:"protect",label:"Evitar metas públicas",outcome:"A diretoria entendeu a cautela, mas esperava mais convicção.",effect:{boardConfidence:-2,mediaPressure:-3}},
  ]});
- world=addNews(world,{id:"news-season-start",headline:`${clubName} inicia um novo ciclo`,summary:"O treinador começa a temporada sob expectativa da torcida e acompanhamento próximo da imprensa.",source:simulatedMediaCredit(0),round:1,tone:"neutral"});
+ world=addNews(world,{id:"news-season-start",headline:`${clubName} inicia um novo ciclo`,summary:"O treinador começa a temporada sob expectativa da torcida e acompanhamento próximo da imprensa.",source:simulatedMediaCredit(0,competitionId),round:1,tone:"neutral"});
  return world;
 }
 
-export function worldAfterMatch(world:LivingWorldState,club:LeagueClub,round:number,goalsFor:number,goalsAgainst:number):LivingWorldState{
+export function worldAfterMatch(world:LivingWorldState,club:LeagueClub,round:number,goalsFor:number,goalsAgainst:number,competitionId:ProfessionalCompetitionId="BRA1"):LivingWorldState{
  const won=goalsFor>goalsAgainst,lost=goalsFor<goalsAgainst;
  let next={...world};
- next=addNews(next,{id:`result-r${round}-${next.sequence}`,headline:won?`${club.name} vence e ambiente ganha força`:lost?`Derrota aumenta a pressão sobre ${club.name}`:`${club.name} empata e deixa debate aberto`,summary:`Placar: ${goalsFor}–${goalsAgainst}. O resultado já repercute no vestiário, na torcida e na imprensa.`,source:simulatedMediaCredit(round+next.sequence),round,tone:won?"positive":lost?"negative":"neutral"});
+ next=addNews(next,{id:`result-r${round}-${next.sequence}`,headline:won?`${club.name} vence e ambiente ganha força`:lost?`Derrota aumenta a pressão sobre ${club.name}`:`${club.name} empata e deixa debate aberto`,summary:`Placar: ${goalsFor}–${goalsAgainst}. O resultado já repercute no vestiário, na torcida e na imprensa.`,source:simulatedMediaCredit(round+next.sequence,competitionId),round,tone:won?"positive":lost?"negative":"neutral"});
  next=addEvent(next,{id:`press-r${round}-${next.sequence}`,kind:"Coletiva",title:"Coletiva pós-jogo",body:won?"A imprensa quer saber se a equipe entrou de vez na briga pelos objetivos.":lost?"Repórteres questionam desempenho, escolhas e reação do elenco.":"A imprensa cobra uma avaliação sobre os pontos positivos e o que faltou para vencer.",round,unread:true,resolved:false,choices:[
   {id:"protect",label:"Proteger o elenco",outcome:"O grupo percebeu que o treinador assumiu a pressão para si.",effect:{playerTrust:3,playerHappiness:2,mediaPressure:2,boardConfidence:-1}},
   {id:"demand",label:"Cobrar resposta",outcome:"A fala aumentou a cobrança pública, mas reforçou o padrão de exigência.",effect:{playerMorale:lost?-2:1,mediaPressure:5,managerReputation:2}},
@@ -86,7 +87,7 @@ export function worldAfterMatch(world:LivingWorldState,club:LeagueClub,round:num
  return next;
 }
 
-export function worldAfterDay(world:LivingWorldState,club:LeagueClub,round:number,seed:string):LivingWorldState{
+export function worldAfterDay(world:LivingWorldState,club:LeagueClub,round:number,seed:string,competitionId:ProfessionalCompetitionId="BRA1"):LivingWorldState{
  if(world.lastDailyRound===round)return world;
  const rng=new SeededRng(`${seed}:world-day:r${round}:${world.sequence}`);
  let next:LivingWorldState={...world,lastDailyRound:round};
@@ -107,7 +108,7 @@ export function worldAfterDay(world:LivingWorldState,club:LeagueClub,round:numbe
 
  if((network.unity<65||concerned.length>=2)&&rng.integer(1,100)<=62){
   const source=concerned[0]??club.players.sort((a,b)=>playerInfluence(b)-playerInfluence(a))[0];
-  next=addNews(next,{id:`leak-news-r${round}-${next.sequence}`,headline:"Bastidores do vestiário chegam à imprensa",summary:"Um relato sobre insatisfação e divisão interna circulou fora do clube. A origem ainda não está confirmada.",source:simulatedMediaCredit(round+next.sequence),round,tone:"negative"});
+  next=addNews(next,{id:`leak-news-r${round}-${next.sequence}`,headline:"Bastidores do vestiário chegam à imprensa",summary:"Um relato sobre insatisfação e divisão interna circulou fora do clube. A origem ainda não está confirmada.",source:simulatedMediaCredit(round+next.sequence,competitionId),round,tone:"negative"});
   next=addEvent(next,{id:`leak-${source.id}-r${round}-${next.sequence}`,kind:"Vazamento",title:"Informação interna vazou para a imprensa",body:`Detalhes de conversas do vestiário apareceram em uma matéria. Internamente, existe suspeita de que a informação saiu de alguém próximo ao núcleo de ${source.name.split(" ")[0]}.`,round,playerId:source.id,unread:true,resolved:false,choices:[
    {id:"quiet",label:"Investigar discretamente",outcome:"A investigação reservada acalmou o grupo e evitou transformar suspeitas em acusação pública.",effect:{playerTrust:2,groupTrust:2,groupHappiness:1,boardConfidence:1,mediaPressure:-2}},
    {id:"deny",label:"Negar tudo publicamente",outcome:"A negativa ganhou manchetes, mas novas versões dos bastidores mantiveram o assunto vivo.",effect:{managerReputation:-2,fanSupport:-1,mediaPressure:5}},
