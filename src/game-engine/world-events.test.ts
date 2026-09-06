@@ -1,0 +1,9 @@
+import{describe,expect,it}from"vitest";import{createSeason,playCurrentRound}from"./season";import{createLivingWorld,pendingWorldEvents,resolveWorldEvent,worldAfterDay,worldAfterMatch}from"./world-events";
+
+describe("Mundo Vivo",()=>{
+ it("inicia com expectativa da diretoria e notícia",()=>{const world=createLivingWorld("Palmeiras");expect(pendingWorldEvents(world)).toHaveLength(1);expect(world.inbox[0].kind).toBe("Diretoria");expect(world.news[0].headline).toContain("Palmeiras")});
+ it("uma decisão altera métricas e gera repercussão",()=>{const season=createSeason("world-choice"),club=season.league.clubs[0],world=season.livingWorld,before=world.boardConfidence;const result=resolveWorldEvent(world,club,"board-welcome","ambition");expect(result.world.boardConfidence).toBeGreaterThan(before);expect(result.world.inbox.find(e=>e.id==="board-welcome")?.resolved).toBe(true);expect(result.world.news.length).toBeGreaterThan(world.news.length)});
+ it("resultado gera coletiva e notícia contextual",()=>{const season=createSeason("world-match"),club=season.league.clubs[0];const world=worldAfterMatch(season.livingWorld,club,1,2,0);expect(world.news.some(n=>n.headline.includes("vence"))).toBe(true);expect(world.inbox.some(e=>e.kind==="Coletiva"&&!e.resolved)).toBe(true)});
+ it("avançar o mesmo dia lógico não duplica evento da rodada",()=>{const season=createSeason("world-day"),club=season.league.clubs[0],once=worldAfterDay(season.livingWorld,club,1,"seed"),twice=worldAfterDay(once,club,1,"seed");expect(twice).toEqual(once)});
+ it("o loop da temporada persiste repercussão após uma rodada",()=>{let season=createSeason("world-season");const before=season.livingWorld.news.length;season=playCurrentRound(season);expect(season.currentRound).toBe(2);expect(season.livingWorld.news.length).toBeGreaterThan(before);expect(season.livingWorld.inbox.some(e=>e.kind==="Coletiva")).toBe(true)});
+});
