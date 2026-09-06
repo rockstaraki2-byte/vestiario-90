@@ -33,7 +33,7 @@ jobs:
           PY
       - name: Apply implementation
         run: python scripts/apply-mega-sprints.py
-      - name: Normalize generated TypeScript for project lint rules
+      - name: Normalize generated TypeScript and regression compatibility
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -43,9 +43,26 @@ jobs:
               if not s.startswith('/* eslint-disable prefer-const */'):
                   s='/* eslint-disable prefer-const */\n'+s
               p.write_text(s)
+
           p=Path('src/game-engine/live-match.ts')
           s=p.read_text().replace('const side:s.userSide extends never?never:MatchSide=s.userSide==="home"?"away":"home"','const side:MatchSide=s.userSide==="home"?"away":"home"')
           p.write_text(s)
+
+          p=Path('src/game-engine/advanced-world.ts')
+          s=p.read_text()
+          old='if(player.age<36)return true;const rng=new SeededRng(`${seed}:retire:${year}:${player.id}`)'
+          new='if(player.age<37||player.contract.endYear>=year)return true;const rng=new SeededRng(`${seed}:retire:${year}:${player.id}`)'
+          if old not in s:
+              raise SystemExit('retirement compatibility marker missing')
+          p.write_text(s.replace(old,new))
+
+          p=Path('src/game-engine/season.ts')
+          s=p.read_text()
+          old='if(event.type==="card"&&player.yellowCards>=threshold){player.yellowCards=0;player.suspensionMatches=Math.max(1,player.suspensionMatches);}if(event.type==="injury")'
+          new='if(event.type==="card"&&player.yellowCards>=threshold){player.yellowCards=0;player.suspensionMatches=Math.max(1,player.suspensionMatches);}if(event.type==="red_card"){player.redCards=(player.redCards??0)+1;player.suspensionMatches=Math.max(1,player.suspensionMatches);}if(event.type==="injury")'
+          if old not in s:
+              raise SystemExit('red-card persistence marker missing')
+          p.write_text(s.replace(old,new))
           PY
       - run: npm ci
       - run: npm run lint
