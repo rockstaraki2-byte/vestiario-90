@@ -7,6 +7,7 @@ import { createMarketState, prepareNextMarketSeason, processMarketRound, type Ma
 import { applyNarrativeDay } from "./narrative";
 import { applyCareerChoice, careerAfterRound, createManagerCareer, type ManagerCareerState } from "./career";
 import { createClubManagementState, hydrateClubManagement, prepareNextClubManagementSeason, processClubManagementRound, type ClubManagementState } from "./club-management";
+import { competitionStartDate, professionalCompetitionById, type ProfessionalCompetitionId } from "../data/brazil-2026/competitions";
 
 export const SEASON_SAVE_KEY="vestiario90:season:v5";
 export const TOTAL_ROUNDS=38;
@@ -26,12 +27,15 @@ export type SeasonState={
   market:MarketState;
   career:ManagerCareerState;
   clubManagement:ClubManagementState;
+  competitionId:ProfessionalCompetitionId;
+  currentDate:string;
   championClubId?:string;
   lastUserMatch?:StoredUserMatch;
 };
 
 function cloneLeague(league:LeagueWorld):LeagueWorld{
   return{
+    ...league,
     clubs:league.clubs.map(club=>({...club,players:club.players.map(player=>({...player,contract:{...player.contract},promises:(player.promises??[]).map(promise=>({...promise}))}))})),
     fixtures:league.fixtures.map(fixture=>({...fixture})),
     standings:league.standings.map(standing=>({...standing})),
@@ -45,13 +49,15 @@ function refreshStatus(player:LeaguePlayer,isSelected:boolean){
 }
 
 function defaultLineup(club:LeagueClub):string[]{return pickStartingXI(club).map(p=>p.id);}
+function addIsoDays(iso:string,days:number){const date=new Date(`${iso}T12:00:00Z`);date.setUTCDate(date.getUTCDate()+days);return date.toISOString().slice(0,10);}
 
-export function createSeason(baseSeed:string,year=2026,selectedClubId="club-1"):SeasonState{
-  const league=createLeague(`${baseSeed}:${year}`,year);
+export function createSeason(baseSeed:string,year=2026,selectedClubId="club-1",competitionId:ProfessionalCompetitionId="BRA1"):SeasonState{
+  const league=createLeague(`${baseSeed}:${year}:${competitionId}`,year,competitionId);
   const club=league.clubs.find(c=>c.id===selectedClubId)??league.clubs[0];
   const lineupIds=defaultLineup(club);
   club.players.forEach(player=>refreshStatus(player,lineupIds.includes(player.id)));
-  return{baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,recentForm:[],completed:false,livingWorld:createLivingWorld(club.name),market:createMarketState(),career:createManagerCareer(club,year),clubManagement:createClubManagementState(league,baseSeed,year)};
+  const firstDate=league.fixtures.find(f=>f.round===1)?.date??competitionStartDate(competitionId,year);
+  return{baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,recentForm:[],completed:false,livingWorld:createLivingWorld(club.name),market:createMarketState(),career:createManagerCareer(club,year),clubManagement:createClubManagementState(league,baseSeed,year),competitionId,currentDate:addIsoDays(firstDate,-7)};
 }
 
 export function getSelectedClub(state:SeasonState):LeagueClub{return state.league.clubs.find(c=>c.id===state.selectedClubId)??state.league.clubs[0];}
@@ -152,9 +158,10 @@ export function playCurrentRound(
   const recentForm=[...(state.recentForm??[])];
   if(userResult)recentForm.push(gf>ga?"V":gf<ga?"D":"E");
   while(recentForm.length>5)recentForm.shift();
-  const completed=state.currentRound>=TOTAL_ROUNDS;
+  const totalRounds=league.totalRounds??Math.max(...league.fixtures.map(f=>f.round),TOTAL_ROUNDS);
+  const completed=state.currentRound>=totalRounds;
   const championClubId=completed?sortedStandings(league)[0]?.clubId:undefined;
-  const nextRound=completed?TOTAL_ROUNDS+1:state.currentRound+1;
+  const nextRound=completed?totalRounds+1:state.currentRound+1;
   const selectedClub=league.clubs.find(c=>c.id===state.selectedClubId)!;
   const validLineup=state.lineupIds.filter(id=>{
     const p=selectedClub.players.find(player=>player.id===id);
@@ -193,6 +200,27 @@ export function advanceSeasonDay(state:SeasonState,calendarDay=1):SeasonState{
   return processMarketRound({...state,league,livingWorld});
 }
 
+export type CalendarRoute="matchday"|"inbox"|"club"|null;
+export type CalendarAdvanceResult={state:SeasonState;route:CalendarRoute;reason:string};
+
+export function getTodayUserFixture(state:SeasonState):LeagueFixture|undefined{
+  return getUserFixtures(state).find(f=>!f.played&&f.date===state.currentDate);
+}
+
+export function advanceCalendarDay(state:SeasonState):CalendarAdvanceResult{
+  const todayMatch=getTodayUserFixture(state);
+  if(todayMatch)return{state,route:"matchday",reason:"Hoje é dia de jogo. A comissão já encaminhou você para a preparação da partida."};
+  const current=state.currentDate??state.league.fixtures.find(f=>!f.played)?.date??`${state.year}-01-01`;
+  const nextDate=addIsoDays(current,1);
+  const dayNumber=Math.max(1,Math.floor((new Date(`${nextDate}T12:00:00Z`).getTime()-new Date(`${state.year}-01-01T12:00:00Z`).getTime())/86400000)+1);
+  const next=advanceSeasonDay({...state,currentDate:nextDate},dayNumber);
+  if(getTodayUserFixture(next))return{state:next,route:"matchday",reason:"Hoje é dia de jogo. Vá para a preparação da partida."};
+  const pending=next.livingWorld.inbox.find(event=>event.unread&&!event.resolved);
+  if(pending?.kind==="Diretoria")return{state:next,route:"club",reason:`A diretoria precisa de você: ${pending.title}.`};
+  if(pending)return{state:next,route:"inbox",reason:`Há uma decisão pendente: ${pending.title}.`};
+  return{state:next,route:null,reason:"Dia avançado. Nenhuma decisão obrigatória surgiu."};
+}
+
 export function resolveSeasonWorldChoice(state:SeasonState,eventId:string,choiceId:string){
   const club=getSelectedClub(state);
   const event=state.livingWorld.inbox.find(item=>item.id===eventId),choice=event?.choices.find(item=>item.id===choiceId);
@@ -228,26 +256,37 @@ export function startNextSeason(state:SeasonState):SeasonState{
     currentClub.transferBudgetEur+=Math.max(2_000_000,Math.round(currentClub.marketValueEur*.04/100_000)*100_000);
     currentClub.wageBudgetBrlMonthly=Math.round(currentClub.wageBudgetBrlMonthly*1.05/10_000)*10_000;
   }
-  prepared.league.fixtures=generateFixtures(prepared.league.clubs.map(c=>c.id));
+  const competitionId=state.competitionId??state.league.competitionId??"BRA1",competition=professionalCompetitionById(competitionId);
+  prepared.league.fixtures=generateFixtures(prepared.league.clubs.map(c=>c.id),competitionStartDate(competitionId,nextYear),competition.roundCadenceDays,competition.doubleRoundRobin);
+  prepared.league.competitionId=competitionId;prepared.league.competitionName=competition.name;prepared.league.totalRounds=Math.max(...prepared.league.fixtures.map(f=>f.round),0);
   prepared.league.standings=prepared.league.clubs.map(c=>({clubId:c.id,played:0,won:0,drawn:0,lost:0,goalsFor:0,goalsAgainst:0,points:0}));
   const club=prepared.league.clubs.find(c=>c.id===state.selectedClubId)??prepared.league.clubs[0];
   const lineupIds=defaultLineup(club);club.players.forEach(player=>refreshStatus(player,lineupIds.includes(player.id)));
   const livingWorld=state.career?.status==="Sem clube"?{...state.livingWorld,lastDailyRound:undefined,lastNarrativeDay:undefined}:createLivingWorld(club.name);livingWorld.managerReputation=state.livingWorld?.managerReputation??livingWorld.managerReputation;
   const clubManagement=prepareNextClubManagementSeason(state,nextYear,prepared.league);
-  return{...state,year:nextYear,league:prepared.league,currentRound:1,lineupIds,recentForm:[],completed:false,championClubId:undefined,lastUserMatch:undefined,livingWorld,market:prepared.market,career:state.career??createManagerCareer(club,nextYear),clubManagement};
+  const firstDate=prepared.league.fixtures.find(f=>f.round===1)?.date??competitionStartDate(competitionId,nextYear);
+  return{...state,year:nextYear,league:prepared.league,currentRound:1,lineupIds,recentForm:[],completed:false,championClubId:undefined,lastUserMatch:undefined,livingWorld,market:prepared.market,career:state.career??createManagerCareer(club,nextYear),clubManagement,competitionId,currentDate:addIsoDays(firstDate,-7)};
 }
 
 export function saveSeasonLocal(state:SeasonState):void{if(typeof window!=="undefined")window.localStorage.setItem(SEASON_SAVE_KEY,JSON.stringify(state));}
 
+export function hydrateSeasonState(parsed:SeasonState):SeasonState{
+  const competitionId=(parsed.competitionId??parsed.league?.competitionId??"BRA1") as ProfessionalCompetitionId;
+  const competition=professionalCompetitionById(competitionId),year=parsed.year??2026;
+  parsed.competitionId=competitionId;parsed.league.competitionId=competitionId;parsed.league.competitionName=competition.name;
+  if(parsed.league.fixtures.some(f=>!f.date)){
+    const dated=generateFixtures(parsed.league.clubs.map(c=>c.id),competitionStartDate(competitionId,year),competition.roundCadenceDays,competition.doubleRoundRobin);
+    const dateByRound=new Map(dated.map(f=>[f.round,f.date]));
+    parsed.league.fixtures=parsed.league.fixtures.map(f=>({...f,date:f.date??dateByRound.get(f.round)}));
+  }
+  parsed.league.totalRounds=parsed.league.totalRounds??Math.max(...parsed.league.fixtures.map(f=>f.round),0);
+  if(!parsed.currentDate){const next=parsed.league.fixtures.find(f=>!f.played&&f.round===parsed.currentRound)?.date??parsed.league.fixtures.find(f=>!f.played)?.date??competitionStartDate(competitionId,year);parsed.currentDate=addIsoDays(next,-1);}
+  if(!parsed.career){const club=parsed.league.clubs.find(c=>c.id===parsed.selectedClubId)??parsed.league.clubs[0];parsed.career=createManagerCareer(club,year);}
+  if(!parsed.clubManagement)parsed.clubManagement=hydrateClubManagement(parsed);
+  return parsed;
+}
+
 export function loadSeasonLocal():SeasonState|null{
   if(typeof window==="undefined")return null;
-  try{
-    const raw=window.localStorage.getItem(SEASON_SAVE_KEY);
-    if(!raw)return null;
-    const parsed=JSON.parse(raw) as SeasonState;
-    if(!parsed?.baseSeed||!parsed.league?.clubs?.length||!Array.isArray(parsed.lineupIds)||!parsed.livingWorld||!parsed.market)return null;
-    if(!parsed.career){const club=parsed.league.clubs.find(c=>c.id===parsed.selectedClubId)??parsed.league.clubs[0];parsed.career=createManagerCareer(club,parsed.year??2026);}
-    if(!parsed.clubManagement)parsed.clubManagement=hydrateClubManagement(parsed);
-    return parsed;
-  }catch{return null;}
+  try{const raw=window.localStorage.getItem(SEASON_SAVE_KEY);if(!raw)return null;const parsed=JSON.parse(raw) as SeasonState;if(!parsed?.baseSeed||!parsed.league?.clubs?.length||!Array.isArray(parsed.lineupIds)||!parsed.livingWorld||!parsed.market)return null;return hydrateSeasonState(parsed);}catch{return null;}
 }
