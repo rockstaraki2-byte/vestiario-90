@@ -131,3 +131,22 @@
 - [x] reputação influencia processos seletivos
 - [x] histórico de passagens, demissões, entrevistas e aproveitamento
 - [x] tela Carreira com status, segurança, desempenho e processos abertos
+
+## M7 — Gestão do clube / Sprint 11
+- [x] dossiê acionável do próprio jogador a partir do elenco
+- [x] conversa individual, promessa, elogio e cobrança no dossiê
+- [x] contrato, salário, empresário, cláusula e renovação visíveis no jogador
+- [x] indicar e retirar jogador da lista de transferências pelo dossiê
+- [x] pedir observação interna e avaliação médica de atletas do elenco
+- [x] Departamento de Futebol com responsável e nível de estrutura
+- [x] Observação/Scouting com pedidos de relatório de jogadores externos
+- [x] Categorias de Base persistentes com jovens gerados deterministicamente
+- [x] avaliação de potencial/prontidão e promoção da base ao profissional
+- [x] Análise de Desempenho com dossiê de adversário
+- [x] Médico e Performance com parecer de condição, fadiga e lesão
+- [x] diretoria decide aumento de verba de transferências e teto salarial
+- [x] diretoria decide investimentos em scouting, base, análise e estrutura médica
+- [x] confiança, reputação e segurança no cargo influenciam aprovação da diretoria
+- [x] cooldown impede pedidos repetidos à diretoria a cada rodada
+- [x] solicitações de departamentos têm prazo e relatórios chegam ao inbox
+- [x] estrutura dos departamentos e base acompanha a carreira e vira a temporada
