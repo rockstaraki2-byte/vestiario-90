@@ -76,7 +76,19 @@
 - [x] decisões do inbox alteram métricas do mundo e relações com o elenco
 - [x] telas funcionais de Caixa de entrada e Notícias
 - [ ] entrevistas/TV com árvores longas de perguntas
-- [ ] vazamentos, redes sociais e conflitos entre jogadores
+- [x] vazamentos, redes sociais e conflitos entre jogadores
+
+## M3.5 — Crises e repercussão / Sprint 8
+- [x] discussões internas disparadas por rivalidades fortes
+- [x] decisões de mediação, punição ou apoio com efeito nos dois envolvidos e no núcleo social
+- [x] vazamentos para imprensa quando coesão/confiança se deterioram
+- [x] investigação, negativa pública ou cobrança coletiva como respostas a vazamentos
+- [x] líderes podem publicar mensagens ambíguas após derrotas
+- [x] companheiros podem defender jogadores próximos publicamente
+- [x] redes sociais alimentam pressão da mídia, torcida e confiança interna
+- [x] repercussões viram notícias persistentes no Mundo Vivo
+- [x] Caixa de entrada identifica Conflito, Vazamento e Rede social como categorias próprias
+- [x] contraste da UI do Vestiário corrigido para cards de fundo branco em desktop e mobile
 
 ## M4 — Mercado / Sprint 6
 - [x] orçamento de transferências e teto salarial por clube
