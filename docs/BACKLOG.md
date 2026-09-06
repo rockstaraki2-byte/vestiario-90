@@ -50,7 +50,20 @@
 - [x] promessa de mais minutos com prazo, progresso, cumprimento e quebra
 - [x] tela Vestiário com clima do grupo, líderes, questões ativas e histórico humano
 - [x] contratos, salários simulados e renovação por agente
-- [ ] rede de relações jogador-jogador, panelinhas e influência dos líderes
+- [x] rede de relações jogador-jogador, panelinhas e influência dos líderes
+
+## M2.5 — Relações coletivas / Sprint 7
+- [x] química determinística e estável entre pares de jogadores
+- [x] amizades, rivalidades e respeito interno
+- [x] núcleos sociais formados em torno dos atletas mais influentes
+- [x] coesão e influência calculadas por grupo
+- [x] indicador de unidade geral do vestiário
+- [x] conversas individuais repercutem em amigos, rivais e membros do mesmo núcleo
+- [x] promessas cumpridas ou quebradas geram efeito cascata no grupo
+- [x] deixar uma liderança saudável fora da partida afeta seu núcleo
+- [x] rivalidades por posição reagem à escolha de titulares
+- [x] venda, empréstimo e chegada de jogador alteram o clima social
+- [x] tela Vestiário exibe panelinhas, líderes, amizades, rivalidades e influência
 
 ## M3 — Mundo vivo / Sprint 5
 - [x] estado persistente de confiança da diretoria, apoio da torcida, pressão da mídia e reputação
