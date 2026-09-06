@@ -30,6 +30,15 @@
 - [ ] cartões vermelhos e inferioridade numérica
 - [ ] substituições em qualquer minuto, sem janelas discretas
 
+## M1.6 — Dados reais Transfermarkt
+- [x] snapshot estático dos plantéis dos 20 clubes da Série A 2026
+- [x] 663 perfis de jogadores vinculados aos clubes atuais do snapshot
+- [x] idade factual do Transfermarkt aplicada à engine (100% de cobertura do snapshot)
+- [x] valor de mercado em euros separado do overall simulado
+- [x] valores positivos publicados para mais de 92% dos perfis; ausências preservadas como sem valor
+- [x] ID Transfermarkt persistido no jogador e exibido no elenco
+- [x] data de referência do valor preservada quando publicada pela fonte
+
 ## M2 — Pessoas e Vestiário / Sprint 4
 - [x] moral e fadiga conectadas ao loop esportivo
 - [x] personalidades determinísticas dos jogadores
@@ -43,12 +52,21 @@
 - [ ] contratos e renovação
 - [ ] rede de relações jogador-jogador, panelinhas e influência dos líderes
 
-## M3 — Mundo vivo
-- [ ] Event Engine conectado ao inbox
-- [ ] imprensa, diretoria, empresários e coletivas
+## M3 — Mundo vivo / Sprint 5
+- [x] estado persistente de confiança da diretoria, apoio da torcida, pressão da mídia e reputação
+- [x] Event Engine conectado ao inbox e ao loop da temporada
+- [x] coletivas pós-jogo com escolhas e consequências
+- [x] empresários reagindo a insatisfação, confiança e falta de minutos
+- [x] reuniões periódicas com a diretoria
+- [x] jogadores procurando o treinador conforme problemas do vestiário
+- [x] feed de notícias gerado pelas partidas e decisões do treinador
+- [x] decisões do inbox alteram métricas do mundo e relações com o elenco
+- [x] telas funcionais de Caixa de entrada e Notícias
+- [ ] entrevistas/TV com árvores longas de perguntas
+- [ ] vazamentos, redes sociais e conflitos entre jogadores
 
 ## M4 — Mercado
 - [ ] IA de necessidades, propostas, empréstimos e contratos
 
-## M5 — Narrativa
-- [ ] feed social, viagens, conflitos e `NarrativeProvider`
+## M5 — Narrativa avançada
+- [ ] viagens, conflitos externos e `NarrativeProvider`

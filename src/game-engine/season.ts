@@ -2,8 +2,9 @@ import { SeededRng } from "./rng";
 import { createLeague, sortedStandings, type LeagueClub, type LeagueFixture, type LeaguePlayer, type LeagueWorld } from "./league";
 import { DEFAULT_TACTIC, pickStartingXI, simulateMatch, type MatchResult, type MatchTactic } from "./match";
 import { applyPeopleAfterMatch } from "./people";
+import { createLivingWorld, worldAfterDay, worldAfterMatch, type LivingWorldState } from "./world-events";
 
-export const SEASON_SAVE_KEY="vestiario90:season:v3";
+export const SEASON_SAVE_KEY="vestiario90:season:v4";
 export const TOTAL_ROUNDS=38;
 
 export type RecentResult="V"|"E"|"D";
@@ -17,6 +18,7 @@ export type SeasonState={
   lineupIds:string[];
   recentForm:RecentResult[];
   completed:boolean;
+  livingWorld:LivingWorldState;
   championClubId?:string;
   lastUserMatch?:StoredUserMatch;
 };
@@ -42,7 +44,7 @@ export function createSeason(baseSeed:string,year=2026,selectedClubId="club-1"):
   const club=league.clubs.find(c=>c.id===selectedClubId)??league.clubs[0];
   const lineupIds=defaultLineup(club);
   club.players.forEach(player=>refreshStatus(player,lineupIds.includes(player.id)));
-  return{baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,recentForm:[],completed:false};
+  return{baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,recentForm:[],completed:false,livingWorld:createLivingWorld(club.name)};
 }
 
 export function getSelectedClub(state:SeasonState):LeagueClub{return state.league.clubs.find(c=>c.id===state.selectedClubId)??state.league.clubs[0];}
@@ -155,7 +157,8 @@ export function playCurrentRound(
     if(player.injuryDays===0&&player.suspensionMatches===0&&!lineupIds.includes(player.id))lineupIds.push(player.id);
   }
   selectedClub.players.forEach(player=>refreshStatus(player,lineupIds.includes(player.id)));
-  return{...state,league,currentRound:nextRound,lineupIds,recentForm,completed,championClubId,lastUserMatch};
+  const livingWorld=userResult?worldAfterMatch(state.livingWorld??createLivingWorld(selectedClub.name),selectedClub,state.currentRound,gf,ga):(state.livingWorld??createLivingWorld(selectedClub.name));
+  return{...state,league,currentRound:nextRound,lineupIds,recentForm,completed,championClubId,lastUserMatch,livingWorld};
 }
 
 export function advanceSeasonDay(state:SeasonState):SeasonState{
@@ -170,7 +173,8 @@ export function advanceSeasonDay(state:SeasonState):SeasonState{
     }
   }
   club.players.forEach(player=>refreshStatus(player,state.lineupIds.includes(player.id)));
-  return{...state,league};
+  const livingWorld=worldAfterDay(state.livingWorld??createLivingWorld(club.name),club,state.currentRound,state.baseSeed);
+  return{...state,league,livingWorld};
 }
 
 export function toggleLineupPlayer(state:SeasonState,playerId:string):SeasonState{
@@ -183,7 +187,12 @@ export function toggleLineupPlayer(state:SeasonState,playerId:string):SeasonStat
   return{...state,lineupIds:[...state.lineupIds,playerId]};
 }
 
-export function startNextSeason(state:SeasonState):SeasonState{return state.completed?createSeason(state.baseSeed,state.year+1,state.selectedClubId):state;}
+export function startNextSeason(state:SeasonState):SeasonState{
+  if(!state.completed)return state;
+  const next=createSeason(state.baseSeed,state.year+1,state.selectedClubId);
+  next.livingWorld.managerReputation=state.livingWorld?.managerReputation??next.livingWorld.managerReputation;
+  return next;
+}
 
 export function saveSeasonLocal(state:SeasonState):void{if(typeof window!=="undefined")window.localStorage.setItem(SEASON_SAVE_KEY,JSON.stringify(state));}
 
@@ -193,7 +202,7 @@ export function loadSeasonLocal():SeasonState|null{
     const raw=window.localStorage.getItem(SEASON_SAVE_KEY);
     if(!raw)return null;
     const parsed=JSON.parse(raw) as SeasonState;
-    if(!parsed?.baseSeed||!parsed.league?.clubs?.length||!Array.isArray(parsed.lineupIds))return null;
+    if(!parsed?.baseSeed||!parsed.league?.clubs?.length||!Array.isArray(parsed.lineupIds)||!parsed.livingWorld)return null;
     return parsed;
   }catch{return null;}
 }
