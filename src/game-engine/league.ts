@@ -1,7 +1,9 @@
 import { SeededRng } from "./rng";
+import { SOCCERWIKI_CLUBS, SOCCERWIKI_PLAYERS } from "@/data/soccerwiki";
 
 export type LeaguePlayer = {
   id:string;
+  sourceId?:number;
   name:string;
   position:string;
   age:number;
@@ -17,35 +19,46 @@ export type LeaguePlayer = {
   suspensionMatches:number;
   status:string;
 };
-export type LeagueClub = { id:string; name:string; shortName:string; color:string; reputation:number; players:LeaguePlayer[] };
+export type LeagueClub = { id:string; sourceId:number; name:string; shortName:string; imageUrl:string; color:string; reputation:number; players:LeaguePlayer[] };
 export type LeagueFixture = { id:string; round:number; homeClubId:string; awayClubId:string; played:boolean; homeGoals?:number; awayGoals?:number };
 export type LeagueStanding = { clubId:string; played:number; won:number; drawn:number; lost:number; goalsFor:number; goalsAgainst:number; points:number };
 export type LeagueWorld = { clubs:LeagueClub[]; fixtures:LeagueFixture[]; standings:LeagueStanding[] };
 
-const CLUB_NAMES=["Aurora FC","Ferroviário Azul","União Serrana","Nacional do Vale","Atlético Imperial","Estrela do Norte","Real Horizonte","Grêmio Portuário","Vila Operária","Independente FC","Monte Verde","Oeste Metropolitano","Esportivo Central","Associação Rubra","Litoral EC","Pioneiros","São Bento da Mata","Guarani do Sul","Nova Capital","Racing Dourado"];
-const FIRST=["João","Caio","Rafael","Lucas","Matheus","André","Diego","Bruno","Henrique","Vitor","Leonardo","Gabriel","Pedro","Gustavo","Eduardo","Felipe","Thiago","Samuel","Murilo","Daniel"];
-const LAST=["Mendes","Lima","Tavares","Reis","Nunes","Alves","Costa","Luz","Rocha","Freitas","Barbosa","Vieira","Cardoso","Ramos","Pires","Duarte","Moura","Castro","Neves","Santos"];
 const POSITIONS=["GOL","GOL","GOL","LD","LD","ZAG","ZAG","ZAG","ZAG","LE","LE","VOL","VOL","VOL","MC","MC","MC","MEI","MEI","PD","PD","PE","PE","ATA","ATA","ATA","ATA","ZAG","MC","ATA"];
-const COLORS=["#d9ff43","#2876e8","#df4b4b","#f1c34d","#9d6bf2","#19b99a","#e76ea7","#f07d3d"];
+const COLORS=["#159447","#d33e34","#151515","#d43832","#ececec","#4a78d0","#d84137","#2b6fdd","#111111","#222222","#6c1f35","#171717","#2b78c5","#1f5cc4","#111111","#d42d2d","#e9e9e9","#d43b2d","#d73b2d","#4b7b35"];
 
-function generatePlayers(clubId:string,rng:SeededRng):LeaguePlayer[]{
-  return POSITIONS.map((position,index)=>({
-    id:`${clubId}-p${index+1}`,
-    name:`${rng.pick(FIRST)} ${rng.pick(LAST)}`,
-    position,
-    age:rng.integer(17,35),
-    overall:rng.integer(58,84),
-    morale:rng.integer(62,86),
-    condition:rng.integer(86,100),
-    fatigue:rng.integer(0,10),
-    form:rng.integer(5,8),
-    goals:0,
-    assists:0,
-    yellowCards:0,
-    injuryDays:0,
-    suspensionMatches:0,
-    status:index<11?"Titular":index<18?"Rotação":"Reserva",
-  }));
+function generatedIdentity(slot:number){
+  const first=SOCCERWIKI_PLAYERS[slot%SOCCERWIKI_PLAYERS.length];
+  const second=SOCCERWIKI_PLAYERS[(slot*7+31)%SOCCERWIKI_PLAYERS.length];
+  const forename=first.name.split(" ")[0];
+  const surname=second.name.split(" ").at(-1)??"Silva";
+  return{name:`${forename} ${surname}`};
+}
+
+function generatePlayers(clubId:string,clubIndex:number,rng:SeededRng):LeaguePlayer[]{
+  return POSITIONS.map((position,index)=>{
+    const slot=clubIndex*POSITIONS.length+index;
+    const source=SOCCERWIKI_PLAYERS[slot];
+    const identity=source??generatedIdentity(slot);
+    return{
+      id:`${clubId}-p${index+1}`,
+      sourceId:source?.sourceId,
+      name:identity.name,
+      position,
+      age:rng.integer(17,35),
+      overall:rng.integer(60,86),
+      morale:rng.integer(62,86),
+      condition:rng.integer(86,100),
+      fatigue:rng.integer(0,10),
+      form:rng.integer(5,8),
+      goals:0,
+      assists:0,
+      yellowCards:0,
+      injuryDays:0,
+      suspensionMatches:0,
+      status:index<11?"Titular":index<18?"Rotação":"Reserva",
+    };
+  });
 }
 
 export function generateFixtures(clubIds:string[]):LeagueFixture[]{
@@ -69,9 +82,18 @@ export function generateFixtures(clubIds:string[]):LeagueFixture[]{
 
 export function createLeague(seed:string):LeagueWorld{
   const rng=new SeededRng(seed);
-  const clubs=CLUB_NAMES.map((name,index)=>{
+  const clubs=SOCCERWIKI_CLUBS.map((identity,index)=>{
     const id=`club-${index+1}`;
-    return{id,name,shortName:name.split(" ").map(x=>x[0]).join("").slice(0,3),color:COLORS[index%COLORS.length],reputation:rng.integer(45,80),players:generatePlayers(id,rng)};
+    return{
+      id,
+      sourceId:identity.sourceId,
+      name:identity.name,
+      shortName:identity.shortName,
+      imageUrl:identity.imageUrl,
+      color:COLORS[index%COLORS.length],
+      reputation:rng.integer(58,88),
+      players:generatePlayers(id,index,rng),
+    };
   });
   return{
     clubs,
