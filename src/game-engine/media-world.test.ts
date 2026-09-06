@@ -1,0 +1,13 @@
+import{describe,expect,it}from"vitest";
+import{createLeague}from"./league";
+import{answerMediaSession,createMediaWorld,mediaAfterMatch,mediaBeforeRound,mediaRelationLabel,pendingMediaSessions}from"./media-world";
+import{mediaProfilesForCompetition}from"./media-realism";
+
+describe("Sprint 15 media world",()=>{
+ it("loads competition-specific real media profiles",()=>{expect(mediaProfilesForCompetition("ENG1").some(p=>p.journalist==="Gary Neville")).toBe(true);expect(mediaProfilesForCompetition("ESP1").some(p=>p.outlet==="MARCA")).toBe(true);expect(mediaProfilesForCompetition("FRA1").some(p=>p.outlet==="L'Équipe")).toBe(true)});
+ it("creates persistent relations for active competition",()=>{const media=createMediaWorld("BRA1");expect(Object.keys(media.relations).length).toBeGreaterThan(3);expect(Object.values(media.relations)[0].respect).toBe(55)});
+ it("opens a pre-match session and advances multi-question interview",()=>{const league=createLeague("media-test",2026,"BRA1"),club=league.clubs[0],media=mediaBeforeRound(createMediaWorld("BRA1"),"BRA1",club,1,"seed",40),session=pendingMediaSessions(media,"BRA1")[0];expect(session).toBeTruthy();const first=answerMediaSession(media,"BRA1",session.id,session.questions[0].choices[0].id);expect(first.completed).toBe(false);const secondSession=first.mediaWorld.sessions.find(s=>s.id===session.id)!;const second=answerMediaSession(first.mediaWorld,"BRA1",session.id,secondSession.questions[1].choices[0].id);expect(second.completed).toBe(true);expect(second.mediaWorld.relations[session.profileId].interactions).toBe(2)});
+ it("post-match result shifts fan segments and creates social trends",()=>{const league=createLeague("media-result",2026,"BRA1"),club=league.clubs[0],before=createMediaWorld("BRA1"),after=mediaAfterMatch(before,"BRA1",club,2,3,0,"seed");expect(after.fanSegments.every(group=>group.mood>=before.fanSegments.find(b=>b.id===group.id)!.mood)).toBe(true);expect(after.trends.length).toBeGreaterThan(0);expect(after.sessions.some(s=>s.format==="Coletiva pós-jogo")).toBe(true)});
+ it("negative result lowers at least one supporter segment",()=>{const league=createLeague("media-loss",2026,"ENG1"),club=league.clubs[0],before=createMediaWorld("ENG1"),after=mediaAfterMatch(before,"ENG1",club,3,0,2,"seed");expect(after.fanSegments.some(group=>group.mood<before.fanSegments.find(b=>b.id===group.id)!.mood)).toBe(true)});
+ it("relationship label reacts to persistent tension and respect",()=>{expect(mediaRelationLabel({profileId:"x",respect:80,access:70,tension:20,interactions:3})).toBe("Próxima");expect(mediaRelationLabel({profileId:"x",respect:40,access:30,tension:75,interactions:3})).toBe("Tensa")});
+});
