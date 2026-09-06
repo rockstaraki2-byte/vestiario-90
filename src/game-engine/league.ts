@@ -6,10 +6,11 @@ export type SquadRole="Líder"|"Titular"|"Rotação"|"Reserva"|"Promessa";
 export type PlayerPromise={id:string;type:"Mais minutos";createdRound:number;deadlineRound:number;targetAppearances:number;progressAppearances:number;status:"Ativa"|"Cumprida"|"Quebrada"};
 export type PlayerContract={salaryBrlMonthly:number;startYear:number;endYear:number;agentName:string;releaseClauseEur:number|null};
 export type OverallHistoryPoint={year:number;round:number;overall:number;reason:"início"|"forma"|"idade"|"temporada"};
+export type PlayerCompetitionStats={appearances:number;starts:number;minutes:number;goals:number;assists:number;shots:number;yellowCards:number;wins:number;draws:number;losses:number;cleanSheets:number;ratingTotal:number;ratedMatches:number;averageRating:number;lastRating:number};
 export type LeaguePlayer={
  id:string;transfermarktId:string;name:string;position:string;age:number;marketValueEur:number|null;marketValueUpdated?:string;
  overall:number;potential:number;seasonStartOverall:number;developmentProgress:number;overallHistory:OverallHistoryPoint[];
- morale:number;condition:number;fatigue:number;form:number;goals:number;assists:number;shots:number;yellowCards:number;redCards:number;wins:number;draws:number;losses:number;cleanSheets:number;ratingTotal:number;ratedMatches:number;averageRating:number;lastRating:number;
+ morale:number;condition:number;fatigue:number;form:number;goals:number;assists:number;shots:number;yellowCards:number;redCards:number;wins:number;draws:number;losses:number;cleanSheets:number;ratingTotal:number;ratedMatches:number;averageRating:number;lastRating:number;competitionStats?:Record<string,PlayerCompetitionStats>;
  injuryDays:number;suspensionMatches:number;status:string;personality:PlayerPersonality;squadRole:SquadRole;happiness:number;managerTrust:number;appearances:number;starts:number;minutes:number;promises:PlayerPromise[];contract:PlayerContract;transferListed:boolean;wantsToLeave:boolean;lastConversationRound?:number;
 };
 export type LeagueClub={id:string;sourceId:number;transfermarktId:number;name:string;shortName:string;imageUrl:string;color:string;reputation:number;marketValueEur:number;transferBudgetEur:number;wageBudgetBrlMonthly:number;players:LeaguePlayer[]};
