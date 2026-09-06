@@ -1,5 +1,5 @@
 {
-  "snapshot": "2026-09-06T16:06:42.283Z",
+  "snapshot": "2026-09-06T16:10:15.333Z",
   "counts": {
     "ENG1": {
       "clubs": 20,
@@ -126,11 +126,6 @@
       "tmCode": "ES1",
       "clubs": [
         {
-          "id": 331,
-          "name": "CA Osasuna",
-          "squad": 23
-        },
-        {
           "id": 131,
           "name": "FC Barcelona",
           "squad": 27
@@ -154,6 +149,11 @@
           "id": 1108,
           "name": "Deportivo Alavés",
           "squad": 24
+        },
+        {
+          "id": 331,
+          "name": "CA Osasuna",
+          "squad": 23
         },
         {
           "id": 13,
