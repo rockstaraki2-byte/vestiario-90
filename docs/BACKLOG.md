@@ -12,10 +12,15 @@
 - [x] calendário determinístico de 38 rodadas
 - [x] telas funcionais de elenco e classificação
 - [x] escalação, tática e match engine textual (vertical slice determinístico)
-- [ ] classificação, lesões, suspensões e virada de temporada
+- [x] rodada completa com simulação dos 10 jogos e classificação persistente
+- [x] condição, fadiga, moral, lesões, cartões e suspensões
+- [x] escalação manual com bloqueio de indisponíveis
+- [x] calendário funcional, encerramento e virada de temporada
+- [ ] substituições e ajustes táticos durante a partida
 
 ## M2 — Pessoas
-- [ ] moral, fadiga, personalidade, relações, contratos e promessas
+- [~] moral e fadiga conectadas ao loop esportivo
+- [ ] personalidade, relações, contratos e promessas
 
 ## M3 — Mundo vivo
 - [ ] Event Engine, inbox, imprensa, diretoria, empresários e coletivas
