@@ -204,3 +204,36 @@
 - [x] transferências IA x IA entre ligas registradas no mundo
 - [x] janela internacional por calendário e histórico global
 - [ ] contrapropostas multi-etapa, bônus, parcelas, luvas e cláusulas avançadas
+
+
+## M11 — Mega pacote: Sprints 20/21/23/24/28/29 + Competições 2.0
+### Sprint 20 — Médico avançado
+- [x] histórico de lesões por atleta, severidade, prazo e estágio de retorno
+- [x] risco de recaída ligado à fadiga e recorrência
+- [x] transição tratamento → transição → treino parcial → liberado
+### Sprint 21 — Motor de partida 2.0
+- [x] xG e grandes chances durante a partida
+- [x] passes, desarmes e interceptações ao vivo
+- [x] cartões vermelhos com inferioridade numérica real
+- [x] IA adversária muda intensidade e faz substituições durante o jogo
+- [x] risco de lesão aumenta com fadiga e condição
+### Sprint 23 — Vida do jogador
+- [x] eventos de adaptação, família, disciplina, entorno social e empresário
+- [x] consequências em moral, felicidade e confiança
+- [x] histórico persistente no save
+### Sprint 24 — Torcida e estádio
+- [x] capacidade, público, média, atmosfera e receita de bilheteria
+- [x] protestos por sequência ruim e mosaicos/festa em bom momento
+### Sprint 28 — Finanças no papel do treinador
+- [x] caixa, receita, despesa salarial estimada, premiações e projeção
+- [x] treinador consulta finanças, mas pedidos de verba continuam dependendo da diretoria
+### Sprint 29 — Mundo histórico
+- [x] histórico de campeões, posição do usuário, artilheiro e copas por temporada
+- [x] aposentadoria gradual de veteranos e entrada de newgens
+- [x] memória preservada por décadas de save
+### Competições 2.0
+- [x] partidas de copa do usuário recebem data no calendário
+- [x] calendário para automaticamente em dia de copa
+- [x] jogos do usuário deixam de ser auto-simulados e usam o motor minuto a minuto
+- [x] adversários externos recebem plantel de competição simulado e determinístico
+- [x] resultado jogado avança mata-mata, premiação, mídia, desgaste e estatísticas
