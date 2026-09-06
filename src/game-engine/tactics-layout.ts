@@ -1,8 +1,10 @@
 import type { LeaguePlayer } from "./league";
 import type { Formation } from "./match";
+import type{TacticalPoint}from"./tactical-position";
 
 export type TacticalSlot={id:string;label:string;x:number;y:number;preferred:string[]};
 export type TacticalAssignment={slot:TacticalSlot;player:LeaguePlayer};
+export type TacticalPlayerPlacement={player:LeaguePlayer;point:TacticalPoint;label:string;manual:boolean};
 
 const BACK_LINE=[
  {id:"lb",label:"LE",x:16,y:70,preferred:["LE","ZAG","VOL"]},
@@ -41,21 +43,8 @@ const FORMATIONS:Record<Formation,TacticalSlot[]>={
  ],
 };
 
-function fitScore(player:LeaguePlayer,slot:TacticalSlot){
- const idx=slot.preferred.indexOf(player.position);
- const positionScore=idx===0?100:idx===1?72:idx===2?48:idx===3?28:4;
- return positionScore+player.overall*.15+player.condition*.03;
-}
-
+function fitScore(player:LeaguePlayer,slot:TacticalSlot){const idx=slot.preferred.indexOf(player.position),positionScore=idx===0?100:idx===1?72:idx===2?48:idx===3?28:4;return positionScore+player.overall*.15+player.condition*.03;}
 export function formationSlots(formation:Formation){return FORMATIONS[formation];}
-
-export function layoutLineup(players:LeaguePlayer[],formation:Formation):TacticalAssignment[]{
- const remaining=[...players],assignments:TacticalAssignment[]=[];
- for(const slot of FORMATIONS[formation]){
-  if(!remaining.length)break;
-  let bestIndex=0,best=-Infinity;
-  remaining.forEach((player,index)=>{const score=fitScore(player,slot);if(score>best){best=score;bestIndex=index}});
-  const [player]=remaining.splice(bestIndex,1);assignments.push({slot,player});
- }
- return assignments;
-}
+export function layoutLineup(players:LeaguePlayer[],formation:Formation):TacticalAssignment[]{const remaining=[...players],assignments:TacticalAssignment[]=[];for(const slot of FORMATIONS[formation]){if(!remaining.length)break;let bestIndex=0,best=-Infinity;remaining.forEach((player,index)=>{const score=fitScore(player,slot);if(score>best){best=score;bestIndex=index}});const[player]=remaining.splice(bestIndex,1);assignments.push({slot,player});}return assignments;}
+export function defaultTacticalPositions(players:LeaguePlayer[],formation:Formation){return Object.fromEntries(layoutLineup(players,formation).map(({slot,player})=>[player.id,{x:slot.x,y:slot.y} satisfies TacticalPoint]));}
+export function lineupPlacements(players:LeaguePlayer[],formation:Formation,manual?:Record<string,TacticalPoint>):TacticalPlayerPlacement[]{const defaults=layoutLineup(players,formation),fallback=new Map(defaults.map(item=>[item.player.id,item.slot]));return players.map(player=>{const slot=fallback.get(player.id),point=manual?.[player.id]??(slot?{x:slot.x,y:slot.y}:{x:50,y:50});return{player,point,label:slot?.label??player.position,manual:Boolean(manual?.[player.id])};});}
