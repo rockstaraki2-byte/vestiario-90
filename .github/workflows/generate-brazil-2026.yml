@@ -1,0 +1,30 @@
+name: Generate Brazil 2026 snapshots
+on:
+  push:
+    branches: [feat/sprint12-multisave-calendar-leagues]
+    paths:
+      - scripts/fetch-brazil-competitions-2026.mjs
+      - .github/workflows/generate-brazil-2026.yml
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/sprint12-multisave-calendar-leagues
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/fetch-brazil-competitions-2026.mjs
+      - name: Commit snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A src/data/brazil-2026
+          if ! git diff --cached --quiet; then
+            git commit -m "data: add 2026 Série B C and youth rosters"
+            git push origin HEAD:feat/sprint12-multisave-calendar-leagues
+          fi
