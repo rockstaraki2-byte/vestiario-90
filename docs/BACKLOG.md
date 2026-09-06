@@ -107,5 +107,14 @@
 - [ ] contrapropostas em múltiplas rodadas e bônus/cláusulas avançadas
 - [ ] mercado internacional e clubes fora da Série A
 
-## M5 — Narrativa avançada
-- [ ] viagens, conflitos externos e `NarrativeProvider`
+## M5 — Narrativa avançada / Sprint 9
+- [x] `NarrativeProvider` contextual ligado ao avanço dos dias
+- [x] viagens e atrasos com impacto em descanso e preparação
+- [x] problemas de hotel e recuperação
+- [x] alertas de desgaste da comissão técnica
+- [x] convites para TV e compromissos de patrocinador
+- [x] escolhas narrativas alteram condição, fadiga, moral, diretoria, torcida e mídia
+- [x] dia de jogo minuto a minuto com pausa e três velocidades
+- [x] substituições e ajustes táticos em qualquer minuto
+- [x] quadro tático reorganizado por formação e função dos jogadores
+- [ ] eventos pessoais raros e conflitos externos de longo prazo
