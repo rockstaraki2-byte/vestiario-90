@@ -1,0 +1,19 @@
+name: Transfermarkt Snapshot
+on:
+  push:
+    branches: [feat/sprint5-world-market-values]
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/fetch-transfermarkt-snapshot.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tm-snapshot
+          path: tm-snapshot.json
+          retention-days: 1
