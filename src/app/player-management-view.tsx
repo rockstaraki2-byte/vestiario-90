@@ -1,9 +1,9 @@
 "use client";
 
 import{useEffect,useMemo,useState}from"react";
-import{BadgeDollarSign,ClipboardCheck,FileText,HeartPulse,MessageSquareText,RefreshCw,Send,ShieldCheck,UserRoundSearch}from"lucide-react";
+import{ClipboardCheck,FileText,HeartPulse,MessageSquareText,RefreshCw,Send,ShieldCheck,UserRoundSearch}from"lucide-react";
 import type{SeasonState}from"@/game-engine/season";
-import type{LeagueClub,LeaguePlayer}from"@/game-engine/league";
+import type{LeaguePlayer}from"@/game-engine/league";
 import{talkToPlayer,type ConversationAction}from"@/game-engine/people";
 import{renewPlayerContract,toggleTransferList}from"@/game-engine/market";
 import{clubOperationsProfile,playerDepartmentReports,requestInternalAssessment,requestMedicalAssessment,type ClubActionResult}from"@/game-engine/club-management";
