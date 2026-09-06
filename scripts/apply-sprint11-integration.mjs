@@ -3,7 +3,30 @@ async function patch(path,fn){const source=await readFile(path,"utf8"),next=fn(s
 function replaceOnce(source,from,to,label){if(!source.includes(from))throw new Error(`marker missing: ${label}`);return source.replace(from,to)}
 
 await patch("src/game-engine/club-management.ts",source=>replaceOnce(source,'const full:{...DepartmentTask}={...task,id:nextId(clubManagement,"task")};','const full:DepartmentTask={...task,id:nextId(clubManagement,"task")};','task type'));
-await patch("src/app/club-management-view.tsx",source=>replaceOnce(source,'targets.map(({player,targetClub:unused,club:targetClub})=>{void unused;','targets.map(({player,club:targetClub})=>{','target destructure'));
+await patch("src/app/club-management-view.tsx",source=>{
+ let s=replaceOnce(source,'import{Activity,BarChart3,BriefcaseBusiness,Building2,ChevronRight,ClipboardList,Coins,GraduationCap,HeartPulse,Search,ShieldCheck,TrendingUp,UsersRound}from"lucide-react";','import{Activity,BarChart3,BriefcaseBusiness,Building2,ChevronRight,ClipboardList,Coins,GraduationCap,HeartPulse,Search,ShieldCheck,TrendingUp}from"lucide-react";','club unused icon');
+ s=replaceOnce(s,'type BoardRequestType,type ClubActionResult,type DepartmentKey','type ClubActionResult,type DepartmentKey','club unused type');
+ s=replaceOnce(s,'targets.map(({player,targetClub:unused,club:targetClub})=>{void unused;','targets.map(({player,club:targetClub})=>{','target destructure');
+ return s;
+});
+await patch("src/app/player-management-view.tsx",source=>{
+ let s=replaceOnce(source,'import{BadgeDollarSign,ClipboardCheck,FileText,HeartPulse,MessageSquareText,RefreshCw,Send,ShieldCheck,UserRoundSearch}from"lucide-react";','import{ClipboardCheck,FileText,HeartPulse,MessageSquareText,RefreshCw,Send,ShieldCheck,UserRoundSearch}from"lucide-react";','player unused icon');
+ s=replaceOnce(s,'import type{LeagueClub,LeaguePlayer}from"@/game-engine/league";','import type{LeaguePlayer}from"@/game-engine/league";','player unused type');
+ return s;
+});
+await patch("src/app/player-management-view.module.css",source=>{
+ let s=source;
+ s=replaceOnce(s,'max-height:690px}table{','max-height:690px}.tableWrap table{','table selector');
+ s=replaceOnce(s,'border-collapse:collapse;font-size:12px}th{','border-collapse:collapse;font-size:12px}.tableWrap th{','th selector');
+ s=replaceOnce(s,'border-bottom:1px solid #e8ece9}td{','border-bottom:1px solid #e8ece9}.tableWrap td{','td selector');
+ s=replaceOnce(s,'color:#3c443f}tbody tr{','color:#3c443f}.tableWrap tbody tr{','row selector');
+ s=replaceOnce(s,'transition:.15s}tbody tr:hover{','transition:.15s}.tableWrap tbody tr:hover{','hover selector');
+ s=replaceOnce(s,'background:#edf7f1!important}td b{','background:#edf7f1!important}.tableWrap td b{','cell b selector');
+ s=replaceOnce(s,'color:#222a25}td small{','color:#222a25}.tableWrap td small{','cell small selector');
+ s=replaceOnce(s,'margin-top:2px}td strong{','margin-top:2px}.tableWrap td strong{','cell strong selector');
+ s=replaceOnce(s,'font-size:13px}td em{','font-size:13px}.tableWrap td em{','cell em selector');
+ return s;
+});
 
 await patch("src/game-engine/season.ts",source=>{
  let s=source;
