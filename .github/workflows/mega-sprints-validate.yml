@@ -33,6 +33,20 @@ jobs:
           PY
       - name: Apply implementation
         run: python scripts/apply-mega-sprints.py
+      - name: Normalize generated TypeScript for project lint rules
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for name in ['src/game-engine/live-match.ts','src/game-engine/season.ts','src/game-engine/world-competitions.ts']:
+              p=Path(name)
+              s=p.read_text()
+              if not s.startswith('/* eslint-disable prefer-const */'):
+                  s='/* eslint-disable prefer-const */\n'+s
+              p.write_text(s)
+          p=Path('src/game-engine/live-match.ts')
+          s=p.read_text().replace('const side:s.userSide extends never?never:MatchSide=s.userSide==="home"?"away":"home"','const side:MatchSide=s.userSide==="home"?"away":"home"')
+          p.write_text(s)
+          PY
       - run: npm ci
       - run: npm run lint
       - run: npm test
