@@ -1,5 +1,5 @@
 import { SeededRng } from "./rng";
-import { SOCCERWIKI_CLUBS, SOCCERWIKI_PLAYERS } from "@/data/soccerwiki";
+import { SOCCERWIKI_CLUBS, SOCCERWIKI_PLAYERS } from "../data/soccerwiki";
 
 export type LeaguePlayer = {
   id:string;
