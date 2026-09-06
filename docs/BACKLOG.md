@@ -28,7 +28,7 @@
 - [x] conversa de intervalo (cobrar, incentivar ou acalmar) com efeito contextual no segundo tempo
 - [x] resultado interativo alimenta classificação, condição, fadiga, moral, cartões, lesões e forma
 - [ ] cartões vermelhos e inferioridade numérica
-- [ ] substituições em qualquer minuto, sem janelas discretas
+- [x] substituições em qualquer minuto, sem janelas discretas
 
 ## M1.6 — Dados reais Transfermarkt
 - [x] snapshot estático dos plantéis dos 20 clubes da Série A 2026
@@ -118,3 +118,16 @@
 - [x] substituições e ajustes táticos em qualquer minuto
 - [x] quadro tático reorganizado por formação e função dos jogadores
 - [ ] eventos pessoais raros e conflitos externos de longo prazo
+
+## M6 — Carreira do treinador / Sprint 10
+- [x] vínculo persistente entre treinador e clube
+- [x] segurança no cargo ligada a resultados e confiança da diretoria
+- [x] demissão por crise esportiva/institucional
+- [x] temporada continua simulando enquanto o treinador está sem clube
+- [x] convites de outros clubes e mercado de treinadores
+- [x] entrevistas de emprego com respostas e avaliação contextual
+- [x] propostas formais, recusa e aceite
+- [x] troca de clube durante a temporada com novo elenco e nova diretoria
+- [x] reputação influencia processos seletivos
+- [x] histórico de passagens, demissões, entrevistas e aproveitamento
+- [x] tela Carreira com status, segurança, desempenho e processos abertos

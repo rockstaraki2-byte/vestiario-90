@@ -56,14 +56,14 @@ function inviteForInterview(world:LivingWorldState,career:ManagerCareerState,clu
 }
 
 export function careerAfterRound(career:ManagerCareerState,league:LeagueWorld,world:LivingWorldState,round:number,year:number,seed:string,result?:CareerRoundResult){
-  let nextCareer:{...ManagerCareerState}= {...career,spells:career.spells.map(spell=>({...spell}))};
+  const nextCareer:ManagerCareerState={...career,spells:career.spells.map(spell=>({...spell}))};
   let nextWorld=world;
   if(nextCareer.status==="Empregado"&&nextCareer.currentClubId&&result){
     const win=result.goalsFor>result.goalsAgainst,loss=result.goalsFor<result.goalsAgainst;
     nextCareer.matches+=1;if(win)nextCareer.wins+=1;else if(loss)nextCareer.losses+=1;else nextCareer.draws+=1;
     const club=league.clubs.find(item=>item.id===nextCareer.currentClubId);
     const position=club?standingPosition(league,club.id):10;
-    const expectationPenalty=club&&club.reputation>=78&&position>10?-2:club&&club.reputation>=78&&position>15?-4:0;
+    const expectationPenalty=club&&club.reputation>=78&&position>15?-4:club&&club.reputation>=78&&position>10?-2:0;
     const resultDelta=win?5:loss?-7:1;
     nextCareer.jobSecurity=clamp(nextCareer.jobSecurity+resultDelta+expectationPenalty);
     nextWorld={...nextWorld,boardConfidence:clamp(nextWorld.boardConfidence+(win?2:loss?-4:0))};
@@ -103,7 +103,7 @@ function formalOffer(world:LivingWorldState,club:LeagueClub,round:number){
 
 export function applyCareerChoice(career:ManagerCareerState,league:LeagueWorld,world:LivingWorldState,choice:WorldChoice,round:number,year:number,seed:string):CareerResolution{
   const club=choice.careerClubId?league.clubs.find(item=>item.id===choice.careerClubId):undefined;
-  let nextCareer:ManagerCareerState={...career,spells:career.spells.map(spell=>({...spell}))};
+  const nextCareer:ManagerCareerState={...career,spells:career.spells.map(spell=>({...spell}))};
   let nextWorld=world;
   if(choice.careerAction==="accept-interview"&&club){nextCareer.interviews+=1;nextWorld=interviewEvent(nextWorld,nextCareer,club,round);return{career:nextCareer,world:nextWorld,message:`Entrevista com o ${club.name} agendada.`};}
   if(choice.careerAction==="decline-interview"&&club)return{career:nextCareer,world:nextWorld,message:`Processo com o ${club.name} encerrado.`};

@@ -3,7 +3,7 @@ import { playerConcern } from "./people";
 import { buildDressingRoomNetwork, playerInfluence, playerSocialContext } from "./social";
 import type { LeagueClub } from "./league";
 
-export type WorldEventKind="Jogador"|"Empresário"|"Imprensa"|"Diretoria"|"Coletiva"|"Conflito"|"Vazamento"|"Rede social"|"Logística"|"Comissão técnica"|"Compromisso";
+export type WorldEventKind="Jogador"|"Empresário"|"Imprensa"|"Diretoria"|"Coletiva"|"Conflito"|"Vazamento"|"Rede social"|"Logística"|"Comissão técnica"|"Compromisso"|"Carreira";
 export type WorldEffect={
  boardConfidence?:number;fanSupport?:number;mediaPressure?:number;managerReputation?:number;
  playerTrust?:number;playerHappiness?:number;playerMorale?:number;
@@ -11,7 +11,8 @@ export type WorldEffect={
  groupTrust?:number;groupHappiness?:number;groupMorale?:number;
  squadCondition?:number;squadFatigue?:number;squadMorale?:number;
 };
-export type WorldChoice={id:string;label:string;outcome:string;effect:WorldEffect};
+export type CareerChoiceAction="accept-interview"|"decline-interview"|"interview-answer"|"accept-job"|"decline-job"|"ack-dismissal";
+export type WorldChoice={id:string;label:string;outcome:string;effect:WorldEffect;careerAction?:CareerChoiceAction;careerClubId?:string;careerScore?:number};
 export type WorldInboxEvent={
  id:string;kind:WorldEventKind;title:string;body:string;round:number;createdOrder:number;
  playerId?:string;secondaryPlayerId?:string;unread:boolean;resolved:boolean;choices:WorldChoice[];resolution?:string;
@@ -176,6 +177,7 @@ function eventSource(kind:WorldEventKind){
  if(kind==="Rede social")return"Redes sociais";
  if(kind==="Vazamento")return"Central da Bola";
  if(kind==="Conflito")return"Bastidores do Vestiário";
+ if(kind==="Carreira")return"Mercado de Treinadores";
  return"Futebol Agora";
 }
 
