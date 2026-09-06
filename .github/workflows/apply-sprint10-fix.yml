@@ -1,0 +1,35 @@
+name: Apply Sprint 10 Fix
+on:
+  push:
+    branches: [feat/sprint10-manager-career]
+    paths:
+      - .github/workflows/apply-sprint10-fix.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/sprint10-manager-career
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: node scripts/apply-sprint10-integration.mjs
+      - name: Fix career lint
+        run: sed -i 's/let nextCareer:ManagerCareerState=/const nextCareer:ManagerCareerState=/g' src/game-engine/career.ts
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/game-engine/career.ts src/game-engine/world-events.ts src/game-engine/season.ts src/app/world-view.tsx src/app/page.tsx docs/BACKLOG.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: connect Sprint 10 manager career"
+          git push origin HEAD:feat/sprint10-manager-career
