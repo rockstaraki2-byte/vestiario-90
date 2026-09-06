@@ -1,0 +1,63 @@
+import { readFile, writeFile } from "node:fs/promises";
+
+const path="src/app/page.tsx";
+let source=await readFile(path,"utf8");
+const replace=(from,to,label)=>{
+ if(!source.includes(from))throw new Error(`Patch não encontrado: ${label}`);
+ source=source.replace(from,to);
+};
+
+replace(
+'import DressingRoomView from "./dressing-room-view";\nimport { SOCCERWIKI_COMPETITION, SOCCERWIKI_META } from "@/data/soccerwiki";',
+'import DressingRoomView from "./dressing-room-view";\nimport WorldInboxView, { NewsFeedView } from "./world-view";\nimport { SOCCERWIKI_COMPETITION } from "@/data/soccerwiki";\nimport { BRASILEIRAO_2026_ROSTER_META } from "@/data/brasileirao-2026/rosters";',
+"imports data"
+);
+replace(
+'import { talkToPlayer, type ConversationAction } from "@/game-engine/people";\nimport { advanceSeasonDay, createSeason, getCurrentUserFixture, getSelectedClub, getUserFixtures, loadSeasonLocal, playCurrentRound, saveSeasonLocal, startNextSeason, toggleLineupPlayer, type SeasonState } from "@/game-engine/season";',
+'import { talkToPlayer, type ConversationAction } from "@/game-engine/people";\nimport { pendingWorldEvents, resolveWorldEvent } from "@/game-engine/world-events";\nimport { advanceSeasonDay, createSeason, getCurrentUserFixture, getSelectedClub, getUserFixtures, loadSeasonLocal, playCurrentRound, saveSeasonLocal, startNextSeason, toggleLineupPlayer, type SeasonState } from "@/game-engine/season";',
+"imports world"
+);
+replace(
+'  const unavailable=club.players.filter(p=>p.injuryDays>0||p.suspensionMatches>0).length;\n',
+'  const unavailable=club.players.filter(p=>p.injuryDays>0||p.suspensionMatches>0).length;\n  const pendingEvents=pendingWorldEvents(season.livingWorld);\n  const unreadEvents=season.livingWorld.inbox.filter(event=>event.unread&&!event.resolved).length;\n  const latestNews=season.livingWorld.news.slice(0,3);\n',
+"derived world"
+);
+replace(
+'  function handleConversation(playerId:string,action:ConversationAction){const result=talkToPlayer(season,playerId,action);persist(result.state);flash(result.message)}\n',
+'  function handleConversation(playerId:string,action:ConversationAction){const result=talkToPlayer(season,playerId,action);persist(result.state);flash(result.message)}\n  function handleWorldChoice(eventId:string,choiceId:string){\n    const result=resolveWorldEvent(season.livingWorld,club,eventId,choiceId);\n    const nextLeague={...season.league,clubs:season.league.clubs.map(current=>current.id===club.id?result.club:current)};\n    persist({...season,league:nextLeague,livingWorld:result.world});flash(result.message);\n  }\n',
+"world handler"
+);
+replace(
+'{label==="Caixa de entrada"&&<i>3</i>}',
+'{label==="Caixa de entrada"&&pendingEvents.length>0&&<i>{Math.min(99,pendingEvents.length)}</i>}',
+"nav badge"
+);
+replace(
+'<button aria-label="Mensagens" onClick={()=>setActive("Vestiário")}><MessageSquareText size={19}/><i/></button>',
+'<button aria-label="Mensagens" onClick={()=>setActive("Caixa de entrada")}><MessageSquareText size={19}/>{unreadEvents>0&&<i/>}</button>',
+"top inbox"
+);
+replace(
+'        {active==="Elenco"?<SquadView club={club} lineupIds={season.lineupIds} onToggle={handleToggleLineup}/>:''\n        active==="Vestiário"?<DressingRoomView season={season} onConversation={handleConversation}/>:''\n        active==="Táticas"?',
+'        {active==="Elenco"?<SquadView club={club} lineupIds={season.lineupIds} onToggle={handleToggleLineup}/>:''\n        active==="Vestiário"?<DressingRoomView season={season} onConversation={handleConversation}/>:''\n        active==="Caixa de entrada"?<WorldInboxView world={season.livingWorld} club={club} onResolve={handleWorldChoice}/>:''\n        active==="Notícias"?<NewsFeedView world={season.livingWorld} club={club}/>:''\n        active==="Táticas"?',
+"routing"
+);
+const oldHome='<div className={styles.rightCol}><section className={`${styles.card} ${styles.inboxCard}`}><div className={styles.cardHead}><div>PRECISA DA SUA ATENÇÃO <i>3</i></div><button onClick={()=>setActive("Vestiário")}>Ver vestiário <ChevronRight size={15}/></button></div><InboxItem urgent icon="VR" title="Vestiário" text="Papéis, satisfação, confiança e promessas agora reagem às suas decisões." time="agora"/><InboxItem icon="CT" title="Comissão técnica" text={`Condição média em ${squadCondition}%. Ajuste descanso, pressão e ritmo.`} time="25 min"/><InboxItem icon="DB" title="Elencos Série A 2026" text={`20 clubes com vínculos jogador-clube pesquisados em ${SOCCERWIKI_META.rosterSnapshot}.`} time="06/09"/></section><section className={styles.card}><div className={styles.cardHead}><div>MUNDO VIVO</div><button>Ver notícias <ChevronRight size={15}/></button></div><article className={styles.featureNews}><div><span>FUTEBOL AGORA</span><b>{position<=4?`${club.name} entra forte na briga pelas primeiras posições`:`${club.name} busca reação no Brasileirão`}</b><small>Temporada {season.year} • rodada {Math.min(season.currentRound,38)}</small></div></article><News initials="DM" source="Departamento Médico" text={unavailable?`${unavailable} atletas estão indisponíveis`:"Elenco sem baixas médicas"} time="agora"/><News initials="TC" source="Tática & Campo" text={`${tactic.formation} com mentalidade ${tactic.mentality.toLowerCase()}`} time="hoje"/></section></div>';
+const newHome='<div className={styles.rightCol}><section className={`${styles.card} ${styles.inboxCard}`}><div className={styles.cardHead}><div>PRECISA DA SUA ATENÇÃO {pendingEvents.length>0&&<i>{pendingEvents.length}</i>}</div><button onClick={()=>setActive("Caixa de entrada")}>Ver inbox <ChevronRight size={15}/></button></div>{pendingEvents.slice(0,3).map((event,index)=><InboxItem key={event.id} urgent={index===0} icon={event.kind.slice(0,2).toUpperCase()} title={event.title} text={event.body} time={`R${event.round}`} onClick={()=>setActive("Caixa de entrada")}/>) }{pendingEvents.length===0&&<InboxItem icon="OK" title="Sem decisões pendentes" text="O mundo está calmo por enquanto. Jogue ou avance para gerar novas situações." time="agora" onClick={()=>setActive("Caixa de entrada")}/>}</section><section className={styles.card}><div className={styles.cardHead}><div>MUNDO VIVO</div><button onClick={()=>setActive("Notícias")}>Ver notícias <ChevronRight size={15}/></button></div>{latestNews[0]?<article className={styles.featureNews}><div><span>{latestNews[0].source.toUpperCase()}</span><b>{latestNews[0].headline}</b><small>Rodada {latestNews[0].round}</small></div></article>:<article className={styles.featureNews}><div><span>FUTEBOL AGORA</span><b>O mundo ainda está esperando sua primeira decisão.</b><small>Temporada {season.year}</small></div></article>}{latestNews.slice(1).map(item=><News key={item.id} initials={item.source.slice(0,2).toUpperCase()} source={item.source} text={item.headline} time={`R${item.round}`}/>)}</section></div>';
+replace(oldHome,newHome,"home living world");
+replace(
+'function InboxItem({icon,title,text,time,urgent}:{icon:string;title:string;text:string;time:string;urgent?:boolean}){return <button className={styles.inboxItem}>',
+'function InboxItem({icon,title,text,time,urgent,onClick}:{icon:string;title:string;text:string;time:string;urgent?:boolean;onClick?:()=>void}){return <button className={styles.inboxItem} onClick={onClick}>',
+"inbox click"
+);
+const oldSquad='function SquadView({club,lineupIds,onToggle}:{club:LeagueClub;lineupIds:string[];onToggle:(id:string)=>void}){return <section className={`${styles.card} ${styles.dataCard}`}><div className={styles.cardHead}><div>{club.players.length} JOGADORES • {lineupIds.length}/11 TITULARES</div><button>Elenco web • {SOCCERWIKI_META.rosterSnapshot}</button></div><div className={styles.tableScroll}><table className={styles.dataTable}><thead><tr><th>XI</th><th>Jogador</th><th>Pos.</th><th>Idade*</th><th>OVR*</th><th>Papel</th><th>Personalidade*</th><th>Satisf.</th><th>Confiança</th><th>Condição</th><th>Status</th></tr></thead><tbody>{club.players.map(p=>{const selected=lineupIds.includes(p.id),blocked=p.injuryDays>0||p.suspensionMatches>0;return <tr key={p.id}><td><button className={`${seasonStyles.xiButton} ${selected?seasonStyles.xiSelected:""}`} disabled={blocked} onClick={()=>onToggle(p.id)}>{selected?"✓":"+"}</button></td><td><b>{p.name}</b></td><td><span className={styles.position}>{p.position}</span></td><td>{p.age}</td><td><strong>{p.overall}</strong></td><td>{p.squadRole}</td><td>{p.personality}</td><td><Progress value={p.happiness}/></td><td><Progress value={p.managerTrust}/></td><td><Progress value={p.condition}/></td><td><em className={blocked?seasonStyles.dangerStatus:""}>{p.status}</em></td></tr>})}</tbody></table></div><small style={{display:"block",padding:"10px 14px",color:"#7b838e"}}>* Idade, OVR e personalidade são atributos simulados; o vínculo jogador-clube foi pesquisado para o snapshot.</small></section>}';
+const newSquad='function SquadView({club,lineupIds,onToggle}:{club:LeagueClub;lineupIds:string[];onToggle:(id:string)=>void}){return <section className={`${styles.card} ${styles.dataCard}`}><div className={styles.cardHead}><div>{club.players.length} JOGADORES • {lineupIds.length}/11 TITULARES</div><button>Transfermarkt • {BRASILEIRAO_2026_ROSTER_META.snapshot}</button></div><div className={styles.tableScroll}><table className={styles.dataTable}><thead><tr><th>XI</th><th>Jogador</th><th>Pos.</th><th>Idade</th><th>Valor TM</th><th>OVR*</th><th>Papel</th><th>Personalidade*</th><th>Satisf.</th><th>Confiança</th><th>Condição</th><th>Status</th></tr></thead><tbody>{club.players.map(p=>{const selected=lineupIds.includes(p.id),blocked=p.injuryDays>0||p.suspensionMatches>0;return <tr key={p.id}><td><button className={`${seasonStyles.xiButton} ${selected?seasonStyles.xiSelected:""}`} disabled={blocked} onClick={()=>onToggle(p.id)}>{selected?"✓":"+"}</button></td><td><b>{p.name}</b><small className={seasonStyles.sourceId}> TM#{p.transfermarktId}</small></td><td><span className={styles.position}>{p.position}</span></td><td>{p.age}</td><td><strong>{formatMarketValue(p.marketValueEur)}</strong></td><td><strong>{p.overall}</strong></td><td>{p.squadRole}</td><td>{p.personality}</td><td><Progress value={p.happiness}/></td><td><Progress value={p.managerTrust}/></td><td><Progress value={p.condition}/></td><td><em className={blocked?seasonStyles.dangerStatus:""}>{p.status}</em></td></tr>})}</tbody></table></div><small style={{display:"block",padding:"10px 14px",color:"#7b838e"}}>Idade e valor de mercado: Transfermarkt. * OVR e personalidade são atributos da simulação do Vestiário 90. Valores não publicados aparecem como —.</small></section>}';
+replace(oldSquad,newSquad,"squad Transfermarkt");
+replace(
+'function Progress({value}:{value:number}){return <span className={styles.progress}><i style={{width:`${value}%`}}/><small>{value}%</small></span>}',
+'function formatMarketValue(value:number|null){if(value===null)return "—";if(value>=1_000_000)return `€${(value/1_000_000).toLocaleString("pt-BR",{maximumFractionDigits:2})} mi`;return `€${Math.round(value/1_000).toLocaleString("pt-BR")} mil`}\nfunction Progress({value}:{value:number}){return <span className={styles.progress}><i style={{width:`${value}%`}}/><small>{value}%</small></span>}',
+"market formatter"
+);
+
+await writeFile(path,source);
+console.log("Sprint 5 UI aplicada em",path);
