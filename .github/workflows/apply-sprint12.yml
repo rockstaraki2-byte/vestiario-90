@@ -1,0 +1,35 @@
+name: Apply Sprint 12 Integration
+on:
+  push:
+    branches: [feat/sprint12-multisave-calendar-leagues]
+    paths:
+      - scripts/apply-sprint12-integration.mjs
+      - .github/workflows/apply-sprint12.yml
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/sprint12-multisave-calendar-leagues
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: node scripts/apply-sprint12-integration.mjs
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Commit integrated Sprint 12
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A src/game-engine/season.ts src/app/page.tsx src/app/club-management-view.tsx next.config.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: connect Sprint 12 menu saves and smart calendar"
+            git push origin HEAD:feat/sprint12-multisave-calendar-leagues
+          fi
