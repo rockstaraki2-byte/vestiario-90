@@ -19,6 +19,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Align save hydration patch with current engine
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/apply-mega-sprints.py')
+          s=p.read_text()
+          old="patch('src/game-engine/season.ts','parsed.internationalMarket=hydrateInternationalMarket(parsed.internationalMarket);return parsed;','parsed.internationalMarket=hydrateInternationalMarket(parsed.internationalMarket);parsed.advancedWorld=hydrateAdvancedWorld(parsed.advancedWorld,parsed.league,parsed.baseSeed,parsed.year);return parsed;','hydrate advanced')"
+          new="patch('src/game-engine/season.ts','parsed.internationalMarket=hydrateInternationalMarket(parsed.internationalMarket);const club=getSelectedClub(parsed)','parsed.internationalMarket=hydrateInternationalMarket(parsed.internationalMarket);parsed.advancedWorld=hydrateAdvancedWorld(parsed.advancedWorld,parsed.league,parsed.baseSeed,parsed.year);const club=getSelectedClub(parsed)','hydrate advanced')"
+          if old not in s:
+              raise SystemExit('compatibility patch marker missing')
+          p.write_text(s.replace(old,new))
+          PY
       - name: Apply implementation
         run: python scripts/apply-mega-sprints.py
       - run: npm ci
