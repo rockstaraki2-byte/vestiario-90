@@ -4,6 +4,7 @@ import { DEFAULT_TACTIC, pickStartingXI, simulateMatch, type MatchResult, type M
 import { applyPeopleAfterMatch } from "./people";
 import { createLivingWorld, worldAfterDay, worldAfterMatch, type LivingWorldState } from "./world-events";
 import { createMarketState, prepareNextMarketSeason, processMarketRound, type MarketState } from "./market";
+import { applyNarrativeDay } from "./narrative";
 
 export const SEASON_SAVE_KEY="vestiario90:season:v5";
 export const TOTAL_ROUNDS=38;
@@ -164,7 +165,7 @@ export function playCurrentRound(
   return processMarketRound(nextState);
 }
 
-export function advanceSeasonDay(state:SeasonState):SeasonState{
+export function advanceSeasonDay(state:SeasonState,calendarDay=1):SeasonState{
   const league=cloneLeague(state.league);
   const club=league.clubs.find(c=>c.id===state.selectedClubId)!;
   for(const currentClub of league.clubs){
@@ -176,7 +177,8 @@ export function advanceSeasonDay(state:SeasonState):SeasonState{
     }
   }
   club.players.forEach(player=>refreshStatus(player,state.lineupIds.includes(player.id)));
-  const livingWorld=worldAfterDay(state.livingWorld??createLivingWorld(club.name),club,state.currentRound,state.baseSeed);
+  let livingWorld=worldAfterDay(state.livingWorld??createLivingWorld(club.name),club,state.currentRound,state.baseSeed);
+  livingWorld=applyNarrativeDay(livingWorld,{day:calendarDay,round:state.currentRound,selectedClubId:state.selectedClubId,seed:state.baseSeed,league});
   return processMarketRound({...state,league,livingWorld});
 }
 

@@ -3,12 +3,13 @@ import { playerConcern } from "./people";
 import { buildDressingRoomNetwork, playerInfluence, playerSocialContext } from "./social";
 import type { LeagueClub } from "./league";
 
-export type WorldEventKind="Jogador"|"Empresário"|"Imprensa"|"Diretoria"|"Coletiva"|"Conflito"|"Vazamento"|"Rede social";
+export type WorldEventKind="Jogador"|"Empresário"|"Imprensa"|"Diretoria"|"Coletiva"|"Conflito"|"Vazamento"|"Rede social"|"Logística"|"Comissão técnica"|"Compromisso";
 export type WorldEffect={
  boardConfidence?:number;fanSupport?:number;mediaPressure?:number;managerReputation?:number;
  playerTrust?:number;playerHappiness?:number;playerMorale?:number;
  secondaryTrust?:number;secondaryHappiness?:number;secondaryMorale?:number;
  groupTrust?:number;groupHappiness?:number;groupMorale?:number;
+ squadCondition?:number;squadFatigue?:number;squadMorale?:number;
 };
 export type WorldChoice={id:string;label:string;outcome:string;effect:WorldEffect};
 export type WorldInboxEvent={
@@ -18,7 +19,7 @@ export type WorldInboxEvent={
 export type WorldNews={id:string;headline:string;summary:string;source:string;round:number;createdOrder:number;tone:"positive"|"neutral"|"negative"};
 export type LivingWorldState={
  boardConfidence:number;fanSupport:number;mediaPressure:number;managerReputation:number;
- sequence:number;inbox:WorldInboxEvent[];news:WorldNews[];lastDailyRound?:number;
+ sequence:number;inbox:WorldInboxEvent[];news:WorldNews[];lastDailyRound?:number;lastNarrativeDay?:number;
 };
 
 const clamp=(v:number)=>Math.max(0,Math.min(100,Math.round(v)));
@@ -157,6 +158,13 @@ function applyEffect(world:LivingWorldState,club:LeagueClub,event:WorldInboxEven
   if(group)for(const memberId of group.memberIds){
    if(memberId===event.playerId||memberId===event.secondaryPlayerId)continue;
    const member=nextClub.players.find(p=>p.id===memberId);if(member)applyToPlayer(member,effect.groupTrust,effect.groupHappiness,effect.groupMorale);
+  }
+ }
+ if(effect.squadCondition||effect.squadFatigue||effect.squadMorale){
+  for(const player of nextClub.players){
+   player.condition=metric(player.condition,effect.squadCondition);
+   player.fatigue=metric(player.fatigue,effect.squadFatigue);
+   player.morale=metric(player.morale,effect.squadMorale);
   }
  }
  return{world:nextWorld,club:nextClub};
