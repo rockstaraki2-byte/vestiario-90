@@ -2,7 +2,7 @@ import { SeededRng } from "./rng";
 import { createLeague, sortedStandings, type LeagueClub, type LeagueFixture, type LeaguePlayer, type LeagueWorld } from "./league";
 import { DEFAULT_TACTIC, pickStartingXI, simulateMatch, type MatchResult, type MatchTactic } from "./match";
 
-export const SEASON_SAVE_KEY="vestiario90:season:v1";
+export const SEASON_SAVE_KEY="vestiario90:season:v2";
 export const TOTAL_ROUNDS=38;
 
 export type RecentResult="V"|"E"|"D";
@@ -34,9 +34,7 @@ function refreshStatus(player:LeaguePlayer,isSelected:boolean){
   else player.status=isSelected?"Titular":player.status==="Titular"?"Rotação":player.status;
 }
 
-function defaultLineup(club:LeagueClub):string[]{
-  return pickStartingXI(club).map(p=>p.id);
-}
+function defaultLineup(club:LeagueClub):string[]{return pickStartingXI(club).map(p=>p.id);}
 
 export function createSeason(baseSeed:string,year=2026,selectedClubId="club-1"):SeasonState{
   const league=createLeague(`${baseSeed}:${year}`);
@@ -46,9 +44,7 @@ export function createSeason(baseSeed:string,year=2026,selectedClubId="club-1"):
   return{baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,recentForm:[],completed:false};
 }
 
-export function getSelectedClub(state:SeasonState):LeagueClub{
-  return state.league.clubs.find(c=>c.id===state.selectedClubId)??state.league.clubs[0];
-}
+export function getSelectedClub(state:SeasonState):LeagueClub{return state.league.clubs.find(c=>c.id===state.selectedClubId)??state.league.clubs[0];}
 
 export function getCurrentUserFixture(state:SeasonState):LeagueFixture|undefined{
   return state.league.fixtures.find(f=>f.round===state.currentRound&&(f.homeClubId===state.selectedClubId||f.awayClubId===state.selectedClubId));
@@ -71,24 +67,18 @@ function updateStanding(league:LeagueWorld,fixture:LeagueFixture,result:MatchRes
 
 function resultMoodDelta(goalsFor:number,goalsAgainst:number){return goalsFor>goalsAgainst?3:goalsFor<goalsAgainst?-2:1;}
 
-function applyPlayerEffects(
-  club:LeagueClub,
-  result:MatchResult,
-  side:"home"|"away",
-  lineupIds:string[]|undefined,
-  seed:string,
-){
+function applyPlayerEffects(club:LeagueClub,result:MatchResult,side:"home"|"away",participatingIds:string[]|undefined,seed:string){
   const rng=new SeededRng(seed);
-  const xi=pickStartingXI(club,lineupIds);
-  const xiIds=new Set(xi.map(p=>p.id));
+  const participants=participatingIds?.length?club.players.filter(p=>participatingIds.includes(p.id)):pickStartingXI(club);
+  const participantIds=new Set(participants.map(p=>p.id));
   const goalsFor=side==="home"?result.homeGoals:result.awayGoals;
   const goalsAgainst=side==="home"?result.awayGoals:result.homeGoals;
   const moraleDelta=resultMoodDelta(goalsFor,goalsAgainst);
   for(const player of club.players){
-    if(player.suspensionMatches>0&&!xiIds.has(player.id))player.suspensionMatches=Math.max(0,player.suspensionMatches-1);
-    if(xiIds.has(player.id)){
-      player.condition=Math.max(45,player.condition-rng.integer(7,15));
-      player.fatigue=Math.min(100,player.fatigue+rng.integer(9,17));
+    if(player.suspensionMatches>0&&!participantIds.has(player.id))player.suspensionMatches=Math.max(0,player.suspensionMatches-1);
+    if(participantIds.has(player.id)){
+      player.condition=Math.max(45,player.condition-rng.integer(6,14));
+      player.fatigue=Math.min(100,player.fatigue+rng.integer(8,16));
       player.morale=Math.max(0,Math.min(100,player.morale+moraleDelta+rng.integer(-1,1)));
       player.form=Math.max(1,Math.min(10,player.form+(goalsFor>goalsAgainst?.3:goalsFor<goalsAgainst?-.25:.05)));
     }else{
@@ -109,7 +99,12 @@ function applyPlayerEffects(
   }
 }
 
-export function playCurrentRound(state:SeasonState,userTactic:MatchTactic=DEFAULT_TACTIC):SeasonState{
+export function playCurrentRound(
+  state:SeasonState,
+  userTactic:MatchTactic=DEFAULT_TACTIC,
+  userMatchOverride?:MatchResult,
+  userParticipantIds?:string[],
+):SeasonState{
   if(state.completed)return state;
   const league=cloneLeague(state.league);
   const roundFixtures=league.fixtures.filter(f=>f.round===state.currentRound&&!f.played);
@@ -118,7 +113,8 @@ export function playCurrentRound(state:SeasonState,userTactic:MatchTactic=DEFAUL
     const home=league.clubs.find(c=>c.id===fixture.homeClubId)!;
     const away=league.clubs.find(c=>c.id===fixture.awayClubId)!;
     const userHome=home.id===state.selectedClubId,userAway=away.id===state.selectedClubId;
-    const result=simulateMatch(
+    const isUserFixture=userHome||userAway;
+    const result=isUserFixture&&userMatchOverride?userMatchOverride:simulateMatch(
       home,
       away,
       `${state.baseSeed}:${state.year}:r${state.currentRound}:${fixture.id}`,
@@ -129,9 +125,9 @@ export function playCurrentRound(state:SeasonState,userTactic:MatchTactic=DEFAUL
     );
     fixture.played=true;fixture.homeGoals=result.homeGoals;fixture.awayGoals=result.awayGoals;
     updateStanding(league,fixture,result);
-    applyPlayerEffects(home,result,"home",userHome?state.lineupIds:undefined,`${fixture.id}:home`);
-    applyPlayerEffects(away,result,"away",userAway?state.lineupIds:undefined,`${fixture.id}:away`);
-    if(userHome||userAway)lastUserMatch={fixtureId:fixture.id,homeClubId:home.id,awayClubId:away.id,result};
+    applyPlayerEffects(home,result,"home",userHome?(userParticipantIds??state.lineupIds):undefined,`${fixture.id}:home`);
+    applyPlayerEffects(away,result,"away",userAway?(userParticipantIds??state.lineupIds):undefined,`${fixture.id}:away`);
+    if(isUserFixture)lastUserMatch={fixtureId:fixture.id,homeClubId:home.id,awayClubId:away.id,result};
   }
   const userResult=lastUserMatch?.result;
   const userHome=lastUserMatch?.homeClubId===state.selectedClubId;
@@ -182,14 +178,9 @@ export function toggleLineupPlayer(state:SeasonState,playerId:string):SeasonStat
   return{...state,lineupIds:[...state.lineupIds,playerId]};
 }
 
-export function startNextSeason(state:SeasonState):SeasonState{
-  if(!state.completed)return state;
-  return createSeason(state.baseSeed,state.year+1,state.selectedClubId);
-}
+export function startNextSeason(state:SeasonState):SeasonState{return state.completed?createSeason(state.baseSeed,state.year+1,state.selectedClubId):state;}
 
-export function saveSeasonLocal(state:SeasonState):void{
-  if(typeof window!=="undefined")window.localStorage.setItem(SEASON_SAVE_KEY,JSON.stringify(state));
-}
+export function saveSeasonLocal(state:SeasonState):void{if(typeof window!=="undefined")window.localStorage.setItem(SEASON_SAVE_KEY,JSON.stringify(state));}
 
 export function loadSeasonLocal():SeasonState|null{
   if(typeof window==="undefined")return null;

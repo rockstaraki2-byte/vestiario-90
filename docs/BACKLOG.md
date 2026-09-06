@@ -16,7 +16,19 @@
 - [x] condição, fadiga, moral, lesões, cartões e suspensões
 - [x] escalação manual com bloqueio de indisponíveis
 - [x] calendário funcional, encerramento e virada de temporada
-- [ ] substituições e ajustes táticos durante a partida
+
+## M1.5 — Base SoccerWiki + Sprint 3: dia de jogo
+- [x] catálogo SoccerWiki normalizado como fonte de identidade (snapshot 2026-09-06)
+- [x] Palmeiras como primeiro clube do save e identidades de clubes brasileiros no campeonato simulado
+- [x] identidade SoccerWiki aplicada aos jogadores; atributos e vínculos permanecem simulados quando ausentes no snapshot
+- [x] partida dividida em pré-jogo, primeiro tempo, intervalo, janela aos 70 minutos e reta final
+- [x] banco de reservas e até 5 substituições distribuídas entre as janelas
+- [x] lesão durante a partida obriga substituição antes de continuar
+- [x] mudança de mentalidade, pressão e ritmo durante o jogo
+- [x] conversa de intervalo (cobrar, incentivar ou acalmar) com efeito contextual no segundo tempo
+- [x] resultado interativo alimenta classificação, condição, fadiga, moral, cartões, lesões e forma
+- [ ] cartões vermelhos e inferioridade numérica
+- [ ] substituições em qualquer minuto, sem janelas discretas
 
 ## M2 — Pessoas
 - [~] moral e fadiga conectadas ao loop esportivo
