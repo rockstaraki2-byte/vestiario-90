@@ -29,7 +29,6 @@ function allExternalParticipants(activeCompetitionId:ProfessionalCompetitionId,l
  const external=PROFESSIONAL_COMPETITIONS.flatMap(comp=>comp.id===activeCompetitionId?[]:comp.clubs.map(club=>({id:`ext:${comp.id}:${club.transfermarktId}`,name:club.name,shortName:club.shortName,country:comp.country,reputation:repFromValue(club.marketValueEur)})));
  return[...active,...external];
 }
-function knockoutStages(size:number){const result:string[]=[];let current=size;while(current>2){result.push(current===32?"16 avos":current===16?"Oitavas de final":current===8?"Quartas de final":"Semifinal");current=Math.floor(current/2);}result.push("Final");return result;}
 function chooseParticipants(def:WorldCompetitionDefinition,pool:WorldParticipant[],activeCountry:string,rng:SeededRng){
  let candidates:WorldParticipant[];
  if(def.kind==="Copa nacional")candidates=pool.filter(p=>p.country===def.country);
@@ -44,7 +43,7 @@ function chooseParticipants(def:WorldCompetitionDefinition,pool:WorldParticipant
  for(const participant of activeCountryClubs){if(selected.length>=Math.min(6,def.participants))break;selected.push(participant);}
  for(const participant of ranked){if(selected.length>=def.participants)break;if(!selected.some(p=>p.id===participant.id))selected.push(participant);}
  while(selected.length>2&&(selected.length&(selected.length-1))!==0)selected.pop();
- return rng.shuffle?selected:selected.sort(()=>0);
+ return selected;
 }
 function pairRound(def:WorldCompetitionDefinition,participants:WorldParticipant[],stage:string,roundDue:number,rng:SeededRng){
  const shuffled=[...participants];for(let i=shuffled.length-1;i>0;i--){const j=rng.integer(0,i);[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];}
