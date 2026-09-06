@@ -26,6 +26,8 @@ jobs:
         run: python scripts/mega_2_match_competitions.py
       - name: Apply season, UI and tests
         run: python scripts/mega_3_integration.py
+      - name: Apply validation fixes
+        run: python scripts/mega_4_fixes.py
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -34,7 +36,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm -f scripts/mega_1_modules.py scripts/mega_2_match_competitions.py scripts/mega_3_integration.py .github/workflows/mega-sprints-builder.yml
+          git rm -f scripts/mega_1_modules.py scripts/mega_2_match_competitions.py scripts/mega_3_integration.py scripts/mega_4_fixes.py .github/workflows/mega-sprints-builder.yml
           git add src docs
           git commit -m "feat: Sprints 20, 21, 23, 24, 28, 29 and Competitions 2.0"
           git push --force origin HEAD:feat/mega-sprints-20-29-competitions2
