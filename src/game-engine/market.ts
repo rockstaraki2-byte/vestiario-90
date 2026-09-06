@@ -95,7 +95,7 @@ export function concludeAcceptedOffer(state:SeasonState,offerId:string):MarketAc
   if(rng.integer(1,100)>chance){offer.status="Recusada";offer.message=`${player.name} e ${player.contract.agentName} recusaram os termos pessoais.`;return{state:{...state,league,market},message:offer.message};}
   seller.players.splice(index,1);buyer.players.push(player);buyer.transferBudgetEur-=offer.feeEur;seller.transferBudgetEur+=offer.feeEur;
   player.contract={...player.contract,salaryBrlMonthly:offer.salaryBrlMonthly,startYear:state.year,endYear:state.year+(offer.type==="Compra"?3:1)};player.transferListed=false;player.wantsToLeave=false;player.happiness=Math.min(100,player.happiness+6);player.managerTrust=60;
-  if(offer.type==="Empréstimo"){player.loanFromClubId=seller.id;player.loanReturnYear=state.year+1;}
+  if(offer.type==="Empréstimo"){const loanPlayer=player as LeaguePlayer&{loanFromClubId?:string;loanReturnYear?:number};loanPlayer.loanFromClubId=seller.id;loanPlayer.loanReturnYear=state.year+1;}
   offer.status="Concluída";offer.message=`${player.name} é reforço do ${buyer.name}.`;
   market.history.unshift({id:nextRecordId(market),playerName:player.name,fromClubId:seller.id,toClubId:buyer.id,type:offer.type,feeEur:offer.feeEur,round:state.currentRound,year:state.year});
   const lineupIds=state.lineupIds.filter(id=>buyer.id===state.selectedClubId||id!==player.id);
@@ -132,8 +132,8 @@ export function processMarketRound(state:SeasonState):SeasonState{
 export function prepareNextMarketSeason(state:SeasonState,nextYear:number,league:LeagueWorld):{league:LeagueWorld;market:MarketState}{
   const market=cloneMarket(state.market??createMarketState());market.lastProcessedRound=undefined;
   const returns:{player:LeaguePlayer;from:LeagueClub;toId:string}[]=[];
-  for(const club of league.clubs)for(const player of club.players){if(player.loanFromClubId&&player.loanReturnYear&&player.loanReturnYear<=nextYear)returns.push({player,from:club,toId:player.loanFromClubId});}
-  for(const item of returns){item.from.players=item.from.players.filter(p=>p.id!==item.player.id);const parent=league.clubs.find(c=>c.id===item.toId);if(parent){delete item.player.loanFromClubId;delete item.player.loanReturnYear;parent.players.push(item.player);}}
+  for(const club of league.clubs)for(const player of club.players){const loanPlayer=player as LeaguePlayer&{loanFromClubId?:string;loanReturnYear?:number};if(loanPlayer.loanFromClubId&&loanPlayer.loanReturnYear&&loanPlayer.loanReturnYear<=nextYear)returns.push({player,from:club,toId:loanPlayer.loanFromClubId});}
+  for(const item of returns){item.from.players=item.from.players.filter(p=>p.id!==item.player.id);const parent=league.clubs.find(c=>c.id===item.toId);if(parent){const loanPlayer=item.player as LeaguePlayer&{loanFromClubId?:string;loanReturnYear?:number};delete loanPlayer.loanFromClubId;delete loanPlayer.loanReturnYear;parent.players.push(item.player);}}
   for(const club of league.clubs){
     const keep:LeaguePlayer[]=[];
     for(const player of club.players){
