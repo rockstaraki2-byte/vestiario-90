@@ -11,7 +11,8 @@ function cloneState(state:SeasonState):SeasonState{
   return{
     ...state,
     league:{
-      clubs:state.league.clubs.map(club=>({...club,players:club.players.map(player=>({...player,contract:{...player.contract},promises:(player.promises??[]).map(promise=>({...promise}))}))})),
+      ...state.league,
+      clubs:state.league.clubs.map(club=>({...club,players:club.players.map(player=>({...player,contract:{...player.contract},overallHistory:(player.overallHistory??[]).map(point=>({...point})),promises:(player.promises??[]).map(promise=>({...promise}))}))})),
       fixtures:state.league.fixtures.map(fixture=>({...fixture})),
       standings:state.league.standings.map(standing=>({...standing})),
     },
@@ -65,7 +66,7 @@ export function talkToPlayer(state:SeasonState,playerId:string,action:Conversati
   }else{
     const active=(player.promises??[]).some(p=>p.type==="Mais minutos"&&p.status==="Ativa");
     if(active)return{state,message:`${player.name} já tem uma promessa de minutos em andamento.`};
-    const promise:PlayerPromise={id:`minutes-${player.id}-r${next.currentRound}`,type:"Mais minutos",createdRound:next.currentRound,deadlineRound:Math.min(38,next.currentRound+5),targetAppearances:3,progressAppearances:0,status:"Ativa"};
+    const promise:PlayerPromise={id:`minutes-${player.id}-r${next.currentRound}`,type:"Mais minutos",createdRound:next.currentRound,deadlineRound:Math.min(next.league.totalRounds??38,next.currentRound+5),targetAppearances:3,progressAppearances:0,status:"Ativa"};
     player.promises=[...(player.promises??[]),promise];
     player.managerTrust=clamp(player.managerTrust+3);
     player.happiness=clamp(player.happiness+5);
@@ -84,9 +85,6 @@ export function applyPeopleAfterMatch(club:LeagueClub,participantIds:string[],st
   for(const player of club.players){
     const played=participants.has(player.id),started=starters.has(player.id);
     if(played){
-      player.appearances=(player.appearances??0)+1;
-      if(started)player.starts=(player.starts??0)+1;
-      player.minutes=(player.minutes??0)+(started?75:25);
       player.happiness=clamp((player.happiness??70)+(started?2:1));
       player.managerTrust=clamp((player.managerTrust??60)+1);
     }else if(player.squadRole==="Líder"||player.squadRole==="Titular"){

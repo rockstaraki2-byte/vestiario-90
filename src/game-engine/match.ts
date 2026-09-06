@@ -1,11 +1,12 @@
 import { SeededRng } from "./rng";
 import type { LeagueClub, LeaguePlayer } from "./league";
+import{tacticalFitMultiplier,type TacticalPoint}from"./tactical-position";
 
 export type Formation = "4-2-3-1" | "4-3-3" | "4-4-2";
 export type Mentality = "Defensiva" | "Equilibrada" | "Ofensiva";
-export type MatchTactic = { formation:Formation; mentality:Mentality; pressing:number; tempo:number };
+export type MatchTactic = { formation:Formation; mentality:Mentality; pressing:number; tempo:number; positions?:Record<string,TacticalPoint> };
 export type MatchEventType = "kickoff" | "chance" | "goal" | "card" | "injury" | "halftime" | "fulltime";
-export type MatchEvent = { minute:number; type:MatchEventType; team:"home"|"away"|"neutral"; text:string; playerId?:string };
+export type MatchEvent = { minute:number; type:MatchEventType; team:"home"|"away"|"neutral"; text:string; playerId?:string; assistPlayerId?:string };
 export type MatchResult = { homeGoals:number; awayGoals:number; possessionHome:number; shotsHome:number; shotsAway:number; events:MatchEvent[] };
 
 export const DEFAULT_TACTIC:MatchTactic={formation:"4-2-3-1",mentality:"Equilibrada",pressing:62,tempo:58};
@@ -28,11 +29,14 @@ function strength(club:LeagueClub,tactic:MatchTactic,lineupIds?:string[]){
     const condition=p.condition/100;
     const morale=.92+p.morale/1250;
     const fatigue=Math.max(.78,1-p.fatigue/240);
-    return sum+p.overall*condition*morale*fatigue;
+    const tacticalFit=tacticalFitMultiplier(p,tactic.positions?.[p.id]);
+    return sum+p.overall*condition*morale*fatigue*tacticalFit;
   },0)/eleven.length;
   const mentality=tactic.mentality==="Ofensiva"?2:tactic.mentality==="Defensiva"?-1:0;
   return base+mentality+(tactic.pressing-50)*.025+(tactic.tempo-50)*.02;
 }
+
+function assister(rng:SeededRng,xi:LeaguePlayer[],scorer:LeaguePlayer){const pool=xi.filter(p=>p.id!==scorer.id&&["ATA","PE","PD","MEI","MC","VOL"].includes(p.position));return pool.length&&rng.next()<.72?rng.pick(pool):undefined;}
 
 export function simulateMatch(
   home:LeagueClub,
@@ -54,17 +58,16 @@ export function simulateMatch(
   const chances:Array<{minute:number;team:"home"|"away";goal:boolean}>=[];
   for(let i=0;i<shotsHome;i++)chances.push({minute:rng.integer(3,89),team:"home",goal:rng.next()<Math.max(.07,Math.min(.28,.13+(homeStrength-awayStrength)*.006))});
   for(let i=0;i<shotsAway;i++)chances.push({minute:rng.integer(3,89),team:"away",goal:rng.next()<Math.max(.06,Math.min(.25,.12+(awayStrength-homeStrength)*.006))});
-  chances.sort((a,b)=>a.minute-b.minute).forEach((chance,index)=>{
+  chances.sort((a,b)=>a.minute-b.minute).forEach(chance=>{
     const club=chance.team==="home"?home:away,opponent=chance.team==="home"?away:home;
     const xi=chance.team==="home"?homeXI:awayXI;
     const attacking=xi.filter(p=>["ATA","PE","PD","MEI","MC"].includes(p.position));
     const attacker=rng.pick(attacking.length?attacking:xi);
     if(chance.goal){
       if(chance.team==="home")homeGoals++;else awayGoals++;
-      events.push({minute:chance.minute,type:"goal",team:chance.team,playerId:attacker.id,text:`GOL DO ${club.shortName}! ${attacker.name} finaliza com categoria após pressão sobre o ${opponent.shortName}.`});
-    }else if(index%3===0){
-      events.push({minute:chance.minute,type:"chance",team:chance.team,playerId:attacker.id,text:`${attacker.name} encontra espaço e finaliza, mas a chance passa por pouco.`});
-    }
+      const assist=assister(rng,xi,attacker);
+      events.push({minute:chance.minute,type:"goal",team:chance.team,playerId:attacker.id,assistPlayerId:assist?.id,text:`GOL DO ${club.shortName}! ${attacker.name} finaliza com categoria${assist?` após passe de ${assist.name}`:""} contra o ${opponent.shortName}.`});
+    }else events.push({minute:chance.minute,type:"chance",team:chance.team,playerId:attacker.id,text:`${attacker.name} encontra espaço e finaliza, mas a chance não entra.`});
   });
   events.push({minute:45,type:"halftime",team:"neutral",text:"Intervalo. As comissões ajustam posicionamento e intensidade."});
   if(rng.next()<.78){
