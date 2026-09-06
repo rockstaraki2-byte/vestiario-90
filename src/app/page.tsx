@@ -57,7 +57,7 @@ export default function Dashboard(){
   function flash(message:string){setNotice(message);window.setTimeout(()=>setNotice(""),3600)}
   function persist(next:SeasonState){setSeason(next);saveSeasonLocal(next)}
   function handleAdvance(){if(!employed){handleCareerAdvanceRound();return}const nextWorld=advanceDay(world),nextSeason=advanceSeasonDay(season,nextWorld.day);setWorld(nextWorld);saveLocalWorld(nextWorld);persist(nextSeason);flash(`${nextWorld.lastEvent} • condição física atualizada`)}
-  function handleCareerAdvanceRound(){if(season.completed){flash("A temporada terminou. Inicie a próxima para continuar procurando trabalho.");return}const next=playCurrentRound(season);persist(next);flash(`Rodada ${Math.min(38,next.currentRound-1)} simulada • mercado de treinadores atualizado`)}
+  function handleCareerAdvanceRound(){if(season.completed){handleNextSeason();return}const next=playCurrentRound(season);persist(next);flash(`Rodada ${Math.min(38,next.currentRound-1)} simulada • mercado de treinadores atualizado`)}
   function handleToggleLineup(playerId:string){persist(toggleLineupPlayer(season,playerId))}
   function handleConversation(playerId:string,action:ConversationAction){const result=talkToPlayer(season,playerId,action);persist(result.state);flash(result.message)}
   function handleWorldChoice(eventId:string,choiceId:string){const result=resolveSeasonWorldChoice(season,eventId,choiceId);persist(result.state);flash(result.message)}
