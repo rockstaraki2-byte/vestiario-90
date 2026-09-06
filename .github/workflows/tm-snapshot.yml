@@ -2,12 +2,19 @@ name: Transfermarkt Snapshot
 on:
   push:
     branches: [feat/sprint5-world-market-values]
+    paths:
+      - scripts/fetch-transfermarkt-snapshot.mjs
+      - .github/workflows/tm-snapshot.yml
+permissions:
+  contents: write
 jobs:
   snapshot:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: feat/sprint5-world-market-values
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -17,3 +24,11 @@ jobs:
           name: tm-snapshot
           path: tm-snapshot.json
           retention-days: 1
+      - name: Commit generated dataset
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/brasileirao-2026/transfermarkt-snapshot.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: refresh Transfermarkt snapshot"
+          git push origin HEAD:feat/sprint5-world-market-values
