@@ -1,16 +1,16 @@
-name: Apply Sprint 12 Integration
+name: Finalize Sprint 12
 on:
   push:
     branches: [feat/sprint12-multisave-calendar-leagues]
     paths:
-      - scripts/apply-sprint12-integration.mjs
+      - scripts/finalize_sprint12.py
       - .github/workflows/apply-sprint12.yml
 permissions:
   contents: write
 jobs:
-  integrate:
+  finalize:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -19,32 +19,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Adapt integration script to current engine
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          p=Path('scripts/apply-sprint12-integration.mjs')
-          s=p.read_text()
-          s=s.replace('export function resolveSeasonWorldChoice(state:SeasonState,eventId:string,choiceId:string):WorldActionResult{','export function resolveSeasonWorldChoice(state:SeasonState,eventId:string,choiceId:string){')
-          pattern=r" s=once\(s,'export function startNextSeason\(state:SeasonState\):SeasonState\{.*?,'next season schedule'\);"
-          replacement=""" s=once(s,'  prepared.league.fixtures=generateFixtures(prepared.league.clubs.map(c=>c.id));','  const competitionId=state.competitionId??state.league.competitionId??\"BRA1\",competition=professionalCompetitionById(competitionId);\\n  prepared.league.fixtures=generateFixtures(prepared.league.clubs.map(c=>c.id),competitionStartDate(competitionId,nextYear),competition.roundCadenceDays,competition.doubleRoundRobin);\\n  prepared.league.competitionId=competitionId;prepared.league.competitionName=competition.name;prepared.league.totalRounds=Math.max(...prepared.league.fixtures.map(f=>f.round),0);','next season schedule');"""
-          s,n=re.subn(pattern,replacement,s,flags=re.S)
-          if n!=1:
-              raise SystemExit(f'next season adapter replacements={n}')
-          p.write_text(s)
-          PY
-      - run: node scripts/apply-sprint12-integration.mjs
+      - name: Apply Sprint 12 to current sources
+        run: python scripts/finalize_sprint12.py
       - run: npm ci
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - name: Commit integrated Sprint 12
+      - name: Commit validated Sprint 12
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A src/game-engine/season.ts src/app/page.tsx src/app/club-management-view.tsx next.config.ts
+          git add src/game-engine/season.ts src/app/page.tsx src/app/club-management-view.tsx next.config.ts
           if ! git diff --cached --quiet; then
-            git commit -m "feat: connect Sprint 12 menu saves and smart calendar"
+            git commit -m "feat: connect Sprint 12 saves leagues and smart calendar"
             git push origin HEAD:feat/sprint12-multisave-calendar-leagues
           fi
