@@ -19,13 +19,19 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Adapt integration script to current Sprint 11 signature
+      - name: Adapt integration script to current engine
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           p=Path('scripts/apply-sprint12-integration.mjs')
           s=p.read_text()
           s=s.replace('export function resolveSeasonWorldChoice(state:SeasonState,eventId:string,choiceId:string):WorldActionResult{','export function resolveSeasonWorldChoice(state:SeasonState,eventId:string,choiceId:string){')
+          pattern=r" s=once\(s,'export function startNextSeason\(state:SeasonState\):SeasonState\{.*?,'next season schedule'\);"
+          replacement=""" s=once(s,'  prepared.league.fixtures=generateFixtures(prepared.league.clubs.map(c=>c.id));','  const competitionId=state.competitionId??state.league.competitionId??\"BRA1\",competition=professionalCompetitionById(competitionId);\\n  prepared.league.fixtures=generateFixtures(prepared.league.clubs.map(c=>c.id),competitionStartDate(competitionId,nextYear),competition.roundCadenceDays,competition.doubleRoundRobin);\\n  prepared.league.competitionId=competitionId;prepared.league.competitionName=competition.name;prepared.league.totalRounds=Math.max(...prepared.league.fixtures.map(f=>f.round),0);','next season schedule');"""
+          s,n=re.subn(pattern,replacement,s,flags=re.S)
+          if n!=1:
+              raise SystemExit(f'next season adapter replacements={n}')
           p.write_text(s)
           PY
       - run: node scripts/apply-sprint12-integration.mjs
