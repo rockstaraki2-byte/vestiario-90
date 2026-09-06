@@ -3,9 +3,9 @@ const BASE="https://tmapi-alpha.transfermarkt.technology";
 const headers={Accept:"application/json","Accept-Language":"pt-BR","User-Agent":"Mozilla/5.0"};
 const POSITION={GOL:"GOL",ZAG:"ZAG",LD:"LD",LE:"LE",VOL:"VOL",MC:"MC",MEI:"MEI",PD:"PD",PE:"PE",CA:"ATA",SA:"ATA",MD:"PD"};
 const SPECS=[
- {id:"ENG1",tm:"GB1",name:"Premier League",shortName:"Premier League",country:"Inglaterra",startDate:"2026-08-22",expectedClubs:20},
- {id:"ESP1",tm:"ES1",name:"LALIGA EA SPORTS",shortName:"LaLiga",country:"Espanha",startDate:"2026-08-14",expectedClubs:20},
- {id:"FRA1",tm:"FR1",name:"Ligue 1 McDonald's",shortName:"Ligue 1",country:"França",startDate:"2026-08-21",expectedClubs:18},
+ {id:"ENG1",tm:"GB1",name:"Premier League",shortName:"Premier League",country:"Inglaterra",startDate:"2026-08-21",expectedClubs:20,benchSize:9,maxSubstitutions:5},
+ {id:"ESP1",tm:"ES1",name:"LALIGA EA SPORTS",shortName:"LaLiga",country:"Espanha",startDate:"2026-08-15",expectedClubs:20,benchSize:12,maxSubstitutions:5},
+ {id:"FRA1",tm:"FR1",name:"Ligue 1 McDonald's",shortName:"Ligue 1",country:"França",startDate:"2026-08-21",expectedClubs:18,benchSize:9,maxSubstitutions:5},
 ];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function api(path,attempt=1){try{const r=await fetch(`${BASE}/${path}`,{headers});const text=await r.text();if(!r.ok)throw new Error(`${r.status} ${text.slice(0,180)}`);return JSON.parse(text);}catch(error){if(attempt>=5)throw new Error(`${path}: ${error}`);await sleep(400*attempt);return api(path,attempt+1);}}
@@ -27,7 +27,7 @@ out.push('export type EuropeCompetitionId="ENG1"|"ESP1"|"FRA1";');
 out.push('export type EuropeRosterPosition="GOL"|"LD"|"LE"|"ZAG"|"VOL"|"MC"|"MEI"|"PD"|"PE"|"ATA";');
 out.push('export type EuropeRosterPlayer={transfermarktId:string;name:string;position:EuropeRosterPosition;age:number;marketValueEur:number|null;marketValueUpdated?:string};');
 out.push('export type EuropeClubRoster={sourceId:number;transfermarktId:number;name:string;shortName:string;imageUrl:string;marketValueEur:number;players:EuropeRosterPlayer[]};');
-out.push('export type EuropeCompetitionRoster={id:EuropeCompetitionId;tmCode:string;name:string;shortName:string;country:string;season:2026;startDate:string;roundCadenceDays:number;doubleRoundRobin:true;clubs:EuropeClubRoster[]};');
+out.push('export type EuropeCompetitionRoster={id:EuropeCompetitionId;tmCode:string;name:string;shortName:string;country:string;season:2026;startDate:string;roundCadenceDays:number;doubleRoundRobin:true;benchSize:number;maxSubstitutions:number;clubs:EuropeClubRoster[]};');
 out.push(`export const EUROPE_2026_META=${JSON.stringify({snapshot:"2026-09-06",source:"Transfermarkt competition/squad snapshot, participantes conferidos em fontes oficiais das ligas",counts})} as const;`);
-out.push(`export const EUROPE_2026_COMPETITIONS:EuropeCompetitionRoster[]=${JSON.stringify(snapshots.map(s=>({id:s.id,tmCode:s.tm,name:s.name,shortName:s.shortName,country:s.country,season:2026,startDate:s.startDate,roundCadenceDays:7,doubleRoundRobin:true,clubs:s.clubs})))};`);
+out.push(`export const EUROPE_2026_COMPETITIONS:EuropeCompetitionRoster[]=${JSON.stringify(snapshots.map(s=>({id:s.id,tmCode:s.tm,name:s.name,shortName:s.shortName,country:s.country,season:2026,startDate:s.startDate,roundCadenceDays:7,doubleRoundRobin:true,benchSize:s.benchSize,maxSubstitutions:s.maxSubstitutions,clubs:s.clubs})))};`);
 await mkdir("src/data/europe-2026",{recursive:true});await writeFile("src/data/europe-2026/top-leagues.ts",out.join("\n")+"\n");await writeFile("europe-2026-snapshot.json",JSON.stringify({snapshot:new Date().toISOString(),counts,competitions:snapshots.map(s=>({id:s.id,tmCode:s.tm,clubs:s.clubs.map(c=>({id:c.transfermarktId,name:c.name,squad:c.players.length}))}))},null,2));console.log("DONE",JSON.stringify(counts));
