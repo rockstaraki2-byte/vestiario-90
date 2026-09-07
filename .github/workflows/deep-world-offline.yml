@@ -1,0 +1,298 @@
+name: Deep world and offline PWA
+on:
+  push:
+    paths:
+      - '.github/workflows/deep-world-offline.yml'
+permissions:
+  contents: write
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add persistent club dynamics and PWA shell
+        run: |
+          cat > src/game-engine/club-dynamics.ts <<'EOF'
+          import type { LeagueWorld } from "./league";
+          import type { WorldCompetitionsState } from "./world-competitions";
+          import type { AdvancedWorldState } from "./advanced-world";
+          import type { ClubAiState } from "./club-ai";
+          import type { ProfessionalCompetitionId } from "../data/brazil-2026/competitions";
+
+          export type ClubTrendPoint={
+            year:number;clubName:string;competitionId:ProfessionalCompetitionId;position:number;
+            reputationBefore:number;reputationAfter:number;reputationDelta:number;
+            marketValueBefore:number;marketValueAfter:number;
+            transferBudgetBefore:number;transferBudgetAfter:number;
+            wageBudgetBefore:number;wageBudgetAfter:number;
+            estimatedRevenueEur:number;estimatedExpensesEur:number;operatingResultEur:number;
+            managerName?:string;managerStyle?:string;summary:string;
+          };
+          export type ClubDynamicsState={history:Record<string,ClubTrendPoint[]>;lastEvolvedYear?:number};
+
+          const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
+          const round100k=(value:number)=>Math.round(value/100_000)*100_000;
+          const key=(value:string)=>value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");
+          export function createClubDynamics():ClubDynamicsState{return{history:{}};}
+          export function hydrateClubDynamics(value:ClubDynamicsState|undefined):ClubDynamicsState{return value?{history:value.history??{},lastEvolvedYear:value.lastEvolvedYear}:createClubDynamics();}
+          export function clubTrendHistory(value:ClubDynamicsState|undefined,clubName:string){return[...(hydrateClubDynamics(value).history[key(clubName)]??[])].sort((a,b)=>b.year-a.year);}
+          export function latestClubTrend(value:ClubDynamicsState|undefined,clubName:string){return clubTrendHistory(value,clubName)[0];}
+
+          function competitionBase(id:ProfessionalCompetitionId|undefined){
+            if(id==="ENG1")return 125_000_000;if(id==="ESP1")return 82_000_000;if(id==="FRA1")return 62_000_000;
+            if(id==="BRA1")return 42_000_000;if(id==="ENG2")return 34_000_000;if(id==="ESP2")return 26_000_000;
+            if(id==="FRA2")return 22_000_000;if(id==="BRA2")return 15_000_000;return 8_000_000;
+          }
+          function continentalImpact(clubId:string,world:WorldCompetitionsState){let reputation=0,prizeSignal=0;for(const t of world.tournaments){const participant=t.participants.find(p=>p.activeClubId===clubId);if(!participant)continue;const matches=t.matches.filter(m=>m.played&&(m.home.activeClubId===clubId||m.away.activeClubId===clubId));if(!matches.length)continue;const champion=t.championId===participant.id,final=matches.some(m=>m.stage==="Final"),semi=matches.some(m=>m.stage==="Semifinal"),quarters=matches.some(m=>m.stage==="Quartas de final");if(champion){reputation+=3;prizeSignal+=18_000_000;}else if(final){reputation+=2;prizeSignal+=10_000_000;}else if(semi){reputation+=1.2;prizeSignal+=6_000_000;}else if(quarters){reputation+=.6;prizeSignal+=3_000_000;}}return{reputation,prizeSignal};}
+          function playerValue(overall:number,value:number|null){return value??Math.max(250_000,(overall-52)*520_000);}
+
+          export function evolveClubDynamics(league:LeagueWorld,year:number,world:WorldCompetitionsState,advanced:AdvancedWorldState,clubAi:ClubAiState|undefined,value:ClubDynamicsState|undefined){
+            const state=structuredClone(hydrateClubDynamics(value));if(state.lastEvolvedYear===year)return state;const table=[...league.standings].sort((a,b)=>b.points-a.points||(b.goalsFor-b.goalsAgainst)-(a.goalsFor-a.goalsAgainst)||b.goalsFor-a.goalsFor),repOrder=[...league.clubs].sort((a,b)=>b.reputation-a.reputation),n=Math.max(1,league.clubs.length),competitionId=(league.competitionId??"BRA1") as ProfessionalCompetitionId;
+            for(const club of league.clubs){const position=Math.max(1,table.findIndex(r=>r.clubId===club.id)+1),expected=Math.max(1,repOrder.findIndex(c=>c.id===club.id)+1),continental=continentalImpact(club.id,world),overperformance=clamp((expected-position)*.45,-2.2,2.2),tableDelta=position===1?3.2:position<=4?1.8:position<=Math.ceil(n*.45)?.7:position>=n-2?-2.3:position>=Math.ceil(n*.8)?-1.1:0,reputationBefore=club.reputation,reputationDelta=Math.round(clamp(tableDelta+overperformance+continental.reputation,-5,5)*10)/10,reputationAfter=clamp(Math.round((reputationBefore+reputationDelta)*10)/10,42,97),marketValueBefore=club.marketValueEur,squadValue=club.players.reduce((sum,p)=>sum+playerValue(p.overall,p.marketValueEur),0),marketValueAfter=round100k(Math.max(3_000_000,marketValueBefore*.62+squadValue*.38*(1+reputationDelta*.012))),transferBudgetBefore=club.transferBudgetEur,wageBudgetBefore=club.wageBudgetBrlMonthly,wageSpend=club.players.reduce((sum,p)=>sum+p.contract.salaryBrlMonthly,0),finance=advanced.finances[club.id],baseRevenue=competitionBase(competitionId),performanceFactor=1.18-(position-1)/Math.max(1,n-1)*.34,commercial=Math.max(2_000_000,reputationAfter*reputationAfter*3200),estimatedRevenueEur=Math.round(baseRevenue*performanceFactor+commercial+continental.prizeSignal+Math.max(0,finance?.prizeMoneyEur??0)),estimatedExpensesEur=Math.round(wageSpend*12/6+marketValueAfter*.032),operatingResultEur=estimatedRevenueEur-estimatedExpensesEur,allocation=Math.max(900_000,marketValueAfter*.026+Math.max(0,operatingResultEur)*.16),transferBudgetAfter=round100k(Math.max(750_000,(transferBudgetBefore*.45+allocation)*(operatingResultEur<0?.88:1)*(1+reputationDelta*.025))),wageGrowth=clamp(1.025+reputationDelta*.014,.94,1.13),wageBudgetAfter=Math.round(Math.max(wageSpend*1.07,wageBudgetBefore*wageGrowth)/10_000)*10_000,manager=clubAi?.managers.find(m=>m.clubId===club.id),summary=reputationDelta>=2?"O clube valorizou esportivamente e ganhou poder de mercado.":reputationDelta<=-2?"A temporada reduziu prestígio e apertou a capacidade de investimento.":operatingResultEur>=0?"O clube fechou o ciclo de forma estável e sustentável.":"O desempenho esportivo segurou parte da pressão financeira.";
+              club.reputation=reputationAfter;club.marketValueEur=marketValueAfter;club.transferBudgetEur=transferBudgetAfter;club.wageBudgetBrlMonthly=wageBudgetAfter;const point:ClubTrendPoint={year,clubName:club.name,competitionId,position,reputationBefore,reputationAfter,reputationDelta,marketValueBefore,marketValueAfter,transferBudgetBefore,transferBudgetAfter,wageBudgetBefore,wageBudgetAfter,estimatedRevenueEur,estimatedExpensesEur,operatingResultEur,managerName:manager?.managerName,managerStyle:manager?.style,summary},k=key(club.name);state.history[k]=[point,...(state.history[k]??[]).filter(x=>x.year!==year)].slice(0,30);
+            }
+            state.lastEvolvedYear=year;return state;
+          }
+          EOF
+
+          cat > src/app/pwa-client.tsx <<'EOF'
+          "use client";
+          import { useEffect, useState } from "react";
+          import { CheckCircle2, Download, Wifi, WifiOff } from "lucide-react";
+          import styles from "./pwa-client.module.css";
+
+          type InstallEvent=Event&{prompt:()=>Promise<void>;userChoice:Promise<{outcome:"accepted"|"dismissed"}>};
+          type NavigatorStandalone=Navigator&{standalone?:boolean};
+          export default function PwaClient(){
+            const[online,setOnline]=useState(true),[ready,setReady]=useState(false),[installEvent,setInstallEvent]=useState<InstallEvent|null>(null),[installed,setInstalled]=useState(false);
+            useEffect(()=>{const timer=window.setTimeout(()=>{setOnline(navigator.onLine);setInstalled(window.matchMedia("(display-mode: standalone)").matches||Boolean((navigator as NavigatorStandalone).standalone));},0),onOnline=()=>setOnline(true),onOffline=()=>setOnline(false),onInstall=(event:Event)=>{event.preventDefault();setInstallEvent(event as InstallEvent);},onInstalled=()=>{setInstalled(true);setInstallEvent(null);};window.addEventListener("online",onOnline);window.addEventListener("offline",onOffline);window.addEventListener("beforeinstallprompt",onInstall);window.addEventListener("appinstalled",onInstalled);if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js",{scope:"/"}).then(async registration=>{await navigator.serviceWorker.ready;setReady(Boolean(navigator.serviceWorker.controller||registration.active));registration.active?.postMessage({type:"CACHE_APP_SHELL"});try{await navigator.storage?.persist?.();}catch{}}).catch(()=>setReady(false));navigator.serviceWorker.addEventListener("controllerchange",()=>setReady(true));}return()=>{window.clearTimeout(timer);window.removeEventListener("online",onOnline);window.removeEventListener("offline",onOffline);window.removeEventListener("beforeinstallprompt",onInstall);window.removeEventListener("appinstalled",onInstalled);};},[]);
+            async function install(){if(!installEvent)return;await installEvent.prompt();const result=await installEvent.userChoice;if(result.outcome==="accepted")setInstalled(true);setInstallEvent(null);}
+            const label=!online?"MODO OFFLINE":ready?"OFFLINE PRONTO":"PREPARANDO OFFLINE";
+            return <aside className={`${styles.shell} ${!online?styles.offline:""}`} aria-live="polite"><span>{!online?<WifiOff/>:ready?<CheckCircle2/>:<Wifi/>}<b>{label}</b></span>{installEvent&&!installed&&<button onClick={install}><Download/> INSTALAR</button>}</aside>;
+          }
+          EOF
+
+          cat > src/app/pwa-client.module.css <<'EOF'
+          .shell{position:fixed;right:14px;bottom:14px;z-index:90;display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid rgba(255,255,255,.13);border-radius:12px;background:rgba(7,17,15,.9);backdrop-filter:blur(12px);box-shadow:0 10px 30px rgba(0,0,0,.18);color:#d9ff43;font-size:8px;letter-spacing:.06em}.shell span{display:flex;align-items:center;gap:6px}.shell svg{width:13px;height:13px}.shell button{display:flex;align-items:center;gap:5px;border:0;border-radius:8px;background:#d9ff43;color:#07110f;font:inherit;font-weight:900;padding:6px 8px;cursor:pointer}.offline{color:#fff;background:rgba(91,45,15,.94)}@media(max-width:720px){.shell{right:8px;bottom:8px}.shell b{font-size:7px}}
+          EOF
+
+          cat > public/sw.js <<'EOF'
+          const CACHE="v90-offline-shell-v2";
+          const CORE=["/","/manifest.webmanifest","/icon-192.png","/icon-512.png","/icon-maskable-512.png"];
+          const sameOrigin=url=>new URL(url,self.location.origin).origin===self.location.origin;
+          async function store(cache,request,response){if(response&&(response.ok||response.type==="opaque"))await cache.put(request,response.clone());return response;}
+          async function cacheShell(){const cache=await caches.open(CACHE);await Promise.allSettled(CORE.slice(1).map(async url=>store(cache,url,await fetch(url,{cache:"reload"}))));try{const response=await fetch("/",{cache:"reload"});if(!response.ok)return;await cache.put("/",response.clone());const html=await response.text(),assets=[...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match=>match[1]).filter(url=>url.startsWith("/")&&sameOrigin(url));await Promise.allSettled([...new Set(assets)].map(async url=>store(cache,url,await fetch(url,{cache:"reload"}))));}catch{}}
+          self.addEventListener("install",event=>{event.waitUntil(cacheShell().then(()=>self.skipWaiting()));});
+          self.addEventListener("activate",event=>{event.waitUntil((async()=>{for(const key of await caches.keys())if(key.startsWith("v90-offline-")&&key!==CACHE)await caches.delete(key);await self.clients.claim();})());});
+          self.addEventListener("message",event=>{if(event.data?.type==="CACHE_APP_SHELL")event.waitUntil(cacheShell());});
+          async function cacheFirst(request){const cache=await caches.open(CACHE),hit=await cache.match(request);if(hit)return hit;try{return await store(cache,request,await fetch(request));}catch{return new Response("",{status:504});}}
+          async function staleWhileRevalidate(request){const cache=await caches.open(CACHE),hit=await cache.match(request),network=fetch(request).then(response=>store(cache,request,response)).catch(()=>undefined);return hit??await network??new Response("",{status:504});}
+          async function navigation(request){const cache=await caches.open(CACHE);try{const response=await fetch(request);if(response.ok)await cache.put("/",response.clone());return response;}catch{return await cache.match(request)??await cache.match("/")??new Response("Vestiário 90 ainda não foi preparado para uso offline. Abra o jogo uma vez conectado.",{status:503,headers:{"Content-Type":"text/plain; charset=utf-8"}});}}
+          self.addEventListener("fetch",event=>{const request=event.request;if(request.method!=="GET")return;const url=new URL(request.url);if(request.mode==="navigate"){event.respondWith(navigation(request));return;}if(url.origin===self.location.origin){if(url.pathname.startsWith("/_next/static/")||url.pathname.startsWith("/icon-")||url.pathname==="/manifest.webmanifest"){event.respondWith(cacheFirst(request));return;}event.respondWith(staleWhileRevalidate(request));return;}if(request.destination==="image")event.respondWith(cacheFirst(request));});
+          EOF
+
+          python - <<'PY'
+          from pathlib import Path
+          import struct,zlib
+          def make_png(path,size,maskable=False):
+              bg=(7,24,17,255); lime=(217,255,67,255); white=(244,249,246,255); rows=[]
+              for y in range(size):
+                  row=bytearray([0])
+                  for x in range(size):
+                      nx=x/size; ny=y/size; c=bg
+                      inset=.15 if maskable else .08
+                      shield=(nx>inset and nx<1-inset and ny>inset and ny<.78 and abs(nx-.5)<(.43-(ny-inset)*.28))
+                      if shield:c=lime
+                      ring=(x-size/2)**2+(y-size*.46)**2
+                      if shield and ring<(size*.22)**2:c=white
+                      if shield and ring<(size*.145)**2:c=bg
+                      if shield and (abs(x-size*.5)<size*.025 or abs(y-size*.46)<size*.025) and ring<(size*.14)**2:c=lime
+                      row.extend(c)
+                  rows.append(bytes(row))
+              raw=b''.join(rows)
+              def chunk(kind,data):return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data)&0xffffffff)
+              png=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',size,size,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(raw,9))+chunk(b'IEND',b'')
+              Path(path).write_bytes(png)
+          make_png('public/icon-192.png',192)
+          make_png('public/icon-512.png',512)
+          make_png('public/icon-maskable-512.png',512,True)
+          PY
+
+      - name: Deepen AI market, board pressure and multi-year progression
+        run: |
+          cat > src/game-engine/active-board.ts <<'EOF'
+          import type { LeagueClub, LeagueWorld } from "./league";
+          import { sortedStandings } from "./league";
+          import type { SeasonState } from "./season";
+          import type { LivingWorldState, WorldInboxEvent, WorldNews } from "./world-events";
+
+          export type BoardObjectiveStatus="No caminho"|"Atenção"|"Cumprida"|"Falhou";
+          export type BoardObjective={id:string;category:"Liga"|"Copas"|"Elenco"|"Finanças"|"Base";title:string;description:string;priority:"Essencial"|"Alta"|"Média";progress:number;status:BoardObjectiveStatus};
+          export type BoardEvaluation={id:string;round:number;date:string;score:number;verdict:"Excelente"|"Positiva"|"Estável"|"Sob pressão"|"Crítica";summary:string;position:number;targetPosition:number;form:string;boardConfidence:number};
+          export type BoardMeeting={id:string;eventId:string;round:number;date:string;title:string;agenda:string[];status:"Pendente"|"Realizada"};
+          export type BoardStatement={id:string;round:number;date:string;tone:"positive"|"neutral"|"negative";headline:string;body:string};
+          export type BoardSeasonContext={promoted?:boolean;relegated?:boolean;previousPosition?:number;reputationDelta?:number};
+          export type BoardMandate={name:string;description:string;patience:number;pressure:"Baixa"|"Moderada"|"Alta";nonNegotiables:string[]};
+          export type ActiveBoardState={season:number;clubId:string;philosophy:string;targetPosition:number;mandate:BoardMandate;objectives:BoardObjective[];evaluations:BoardEvaluation[];meetings:BoardMeeting[];statements:BoardStatement[];lastEvaluationRound?:number;lastUltimatumRound?:number};
+
+          const clamp=(v:number)=>Math.max(0,Math.min(100,Math.round(v)));
+          function expectedPosition(club:LeagueClub,league:LeagueWorld){const rank=[...league.clubs].sort((a,b)=>b.reputation-a.reputation).findIndex(c=>c.id===club.id)+1,n=league.clubs.length;if(rank<=3)return Math.min(4,n);if(rank<=6)return Math.min(6,n);if(rank<=Math.ceil(n*.55))return Math.min(10,n);return Math.min(15,n);}
+          function mandateFor(club:LeagueClub,league:LeagueWorld,context:BoardSeasonContext={}){const n=league.clubs.length,rank=[...league.clubs].sort((a,b)=>b.reputation-a.reputation).findIndex(c=>c.id===club.id)+1;let target=expectedPosition(club,league),mandate:BoardMandate;if(context.relegated){target=Math.min(2,n);mandate={name:"Acesso imediato",description:"A queda mudou o contexto: a diretoria exige reação esportiva e retorno à divisão superior.",patience:38,pressure:"Alta",nonNegotiables:["Brigar pelo acesso","Preservar os principais ativos"]};}else if(context.promoted){target=Math.min(n-3,Math.max(11,target));mandate={name:"Consolidar a permanência",description:"O clube subiu de nível e aceita um ciclo de adaptação, desde que a equipe permaneça competitiva.",patience:74,pressure:"Moderada",nonNegotiables:["Evitar o rebaixamento","Não romper o teto salarial"]};}else if(rank<=3){target=Math.min(3,n);mandate={name:"Disputar títulos",description:"Elenco, reputação e orçamento colocam o clube sob obrigação de competir no topo.",patience:43,pressure:"Alta",nonNegotiables:["Brigar pelo título","Chegar forte aos mata-matas"]};}else if(rank<=6){target=Math.min(6,n);mandate={name:"Vaga continental",description:"A diretoria espera presença constante na faixa continental e evolução em jogos grandes.",patience:55,pressure:"Moderada",nonNegotiables:["Classificação continental","Elenco competitivo"]};}else{mandate={name:"Crescimento sustentável",description:"O clube quer subir degraus sem comprometer orçamento, vestiário e desenvolvimento de ativos.",patience:66,pressure:"Baixa",nonNegotiables:["Superar a expectativa da liga","Manter sustentabilidade"]};}if((context.reputationDelta??0)>=3&&!context.promoted)target=Math.max(1,target-1);return{target,mandate};}
+          function objectives(target:number,mandate:BoardMandate):BoardObjective[]{const title=mandate.name==="Disputar títulos"?"Disputar o título até o fim":mandate.name==="Acesso imediato"?"Terminar na zona de acesso":mandate.name==="Consolidar a permanência"?"Permanecer fora da zona de queda":`Terminar entre os ${target} primeiros`;return[
+            {id:"league",category:"Liga",title,description:"A posição na liga é a principal régua esportiva da temporada.",priority:"Essencial",progress:0,status:"No caminho"},
+            {id:"cups",category:"Copas",title:mandate.pressure==="Alta"?"Chegar às fases decisivas das copas":"Ser competitivo nas copas",description:"A diretoria compara a campanha de mata-mata à força e ao investimento do elenco.",priority:mandate.pressure==="Alta"?"Essencial":"Alta",progress:50,status:"No caminho"},
+            {id:"squad",category:"Elenco",title:"Manter o vestiário competitivo",description:"Moral, confiança e gestão de minutos precisam permanecer sob controle.",priority:"Alta",progress:70,status:"No caminho"},
+            {id:"finance",category:"Finanças",title:"Respeitar a estrutura salarial",description:"O gasto mensal do elenco deve permanecer dentro do teto aprovado.",priority:"Alta",progress:80,status:"No caminho"},
+            {id:"youth",category:"Base",title:"Desenvolver ativos jovens",description:"A diretoria valoriza minutos e evolução para atletas de até 21 anos.",priority:"Média",progress:40,status:"No caminho"},
+          ];}
+          export function createActiveBoard(club:LeagueClub,league:LeagueWorld,year:number,context:BoardSeasonContext={}):ActiveBoardState{const{target,mandate}=mandateFor(club,league,context);return{season:year,clubId:club.id,philosophy:mandate.description,targetPosition:target,mandate,objectives:objectives(target,mandate),evaluations:[],meetings:[],statements:[]};}
+          export function hydrateActiveBoard(value:ActiveBoardState|undefined,state:SeasonState){const club=state.league.clubs.find(c=>c.id===state.selectedClubId)??state.league.clubs[0];if(!value||value.season!==state.year||value.clubId!==club.id)return createActiveBoard(club,state.league,state.year);const fallback=mandateFor(club,state.league).mandate;return{...value,mandate:value.mandate??fallback,objectives:(value.objectives?.length?value.objectives:objectives(value.targetPosition,fallback)).map(o=>({...o})),evaluations:[...(value.evaluations??[])],meetings:[...(value.meetings??[])],statements:[...(value.statements??[])]};}
+          function addEvent(world:LivingWorldState,event:Omit<WorldInboxEvent,"createdOrder">){const order=world.sequence+1;return{...world,sequence:order,inbox:[{...event,createdOrder:order},...world.inbox].slice(0,80)};}
+          function addNews(world:LivingWorldState,news:Omit<WorldNews,"createdOrder">){const order=world.sequence+1;return{...world,sequence:order,news:[{...news,createdOrder:order},...world.news].slice(0,110)};}
+          function updateObjectives(board:ActiveBoardState,state:SeasonState,position:number){const club=state.league.clubs.find(c=>c.id===state.selectedClubId)!,morale=Math.round(club.players.reduce((s,p)=>s+p.morale,0)/Math.max(1,club.players.length)),wage=club.players.reduce((s,p)=>s+p.contract.salaryBrlMonthly,0),youthMinutes=club.players.filter(p=>p.age<=21).reduce((s,p)=>s+p.minutes,0),allMinutes=club.players.reduce((s,p)=>s+p.minutes,0),youthShare=allMinutes?youthMinutes/allMinutes:0;return board.objectives.map(o=>{let progress=o.progress;if(o.id==="league")progress=clamp(100-(position-board.targetPosition)*11);if(o.id==="squad")progress=morale;if(o.id==="finance")progress=clamp(100-Math.max(0,(wage/Math.max(1,club.wageBudgetBrlMonthly)-1)*160));if(o.id==="youth")progress=clamp(youthShare*650);const status:BoardObjectiveStatus=progress>=92?"Cumprida":progress>=58?"No caminho":progress>=35?"Atenção":"Falhou";return{...o,progress,status};});}
+          export function processActiveBoardAfterRound(state:SeasonState):SeasonState{if(state.career?.status!=="Empregado")return state;const completedRound=Math.max(0,state.currentRound-1),board=hydrateActiveBoard(state.boardState,state),threeLosses=state.recentForm.slice(-3).join("")==="DDD",cadence=board.mandate.pressure==="Alta"?3:board.mandate.pressure==="Baixa"?5:4;if(completedRound<=0||board.lastEvaluationRound===completedRound||(completedRound%cadence!==0&&!threeLosses))return{...state,boardState:board};const club=state.league.clubs.find(c=>c.id===state.selectedClubId)!,table=sortedStandings(state.league),position=table.findIndex(s=>s.clubId===club.id)+1,updatedObjectives=updateObjectives(board,state,position),leagueScore=clamp(78-(position-board.targetPosition)*9),formScore=clamp(55+state.recentForm.reduce((s,r)=>s+(r==="V"?9:r==="D"?-8:1),0)),morale=Math.round(club.players.reduce((s,p)=>s+p.morale,0)/Math.max(1,club.players.length)),wage=club.players.reduce((s,p)=>s+p.contract.salaryBrlMonthly,0),financeScore=wage<=club.wageBudgetBrlMonthly?82:clamp(78-(wage/club.wageBudgetBrlMonthly-1)*180),essentialFailures=updatedObjectives.filter(o=>o.priority==="Essencial"&&o.status==="Falhou").length,gap=Math.max(0,position-board.targetPosition),pressurePenalty=Math.round(gap*Math.max(0,70-board.mandate.patience)/12+essentialFailures*8),score=clamp(leagueScore*.42+formScore*.25+morale*.18+financeScore*.15-pressurePenalty),verdict:BoardEvaluation["verdict"]=score>=82?"Excelente":score>=68?"Positiva":score>=54?"Estável":score>=38?"Sob pressão":"Crítica",form=state.recentForm.join(" ")||"—",summary=score>=68?`A diretoria entende que o trabalho segue alinhado ao mandato “${board.mandate.name}”. O ${club.name} ocupa a ${position}ª posição.`:score>=54?`O trabalho ainda está em uma faixa aceitável, mas o mandato “${board.mandate.name}” exige sinais concretos de evolução.`:`A diretoria considera o momento incompatível com o mandato “${board.mandate.name}”. Resultados e objetivos essenciais passam a pesar diretamente na permanência.`,evaluation:BoardEvaluation={id:`board-eval-${state.year}-${completedRound}`,round:completedRound,date:state.currentDate,score,verdict,summary,position,targetPosition:board.targetPosition,form,boardConfidence:state.livingWorld.boardConfidence},eventId=`active-board-meeting-${state.year}-${completedRound}`,meeting:BoardMeeting={id:`meeting-${state.year}-${completedRound}`,eventId,round:completedRound,date:state.currentDate,title:`Reunião de avaliação — rodada ${completedRound}`,agenda:[`Mandato: ${board.mandate.name} • pressão ${board.mandate.pressure}`,`Posição atual: ${position}º • meta: top ${board.targetPosition}`,`Forma recente: ${form}`,`Confiança da diretoria: ${state.livingWorld.boardConfidence}%`,`Avaliação do ciclo: ${score}/100 (${verdict})`],status:"Pendente"},tone:BoardStatement["tone"]=score>=68?"positive":score<50?"negative":"neutral",statement:BoardStatement={id:`statement-${state.year}-${completedRound}`,round:completedRound,date:state.currentDate,tone,headline:score>=68?`Diretoria do ${club.name} respalda planejamento`:score<50?`Diretoria cobra reação do ${club.name}`:`Diretoria mantém avaliação aberta sobre o momento`,body:score>=68?`O clube entende que o trabalho está cumprindo o mandato esportivo e mantém apoio ao planejamento.`:score<50?`A diretoria declarou que os resultados estão abaixo do compromisso assumido para a temporada e espera reação imediata.`:`O trabalho segue em avaliação, com foco nas metas definidas para esta temporada.`};let world={...state.livingWorld,boardConfidence:clamp(state.livingWorld.boardConfidence+(score>=75?4:score<35?-8:score<45?-5:score<55?-2:1))};world=addEvent(world,{id:eventId,kind:"Diretoria",title:meeting.title,body:`${summary} Pauta: ${meeting.agenda.join(" • ")}.`,round:completedRound,unread:true,resolved:false,choices:[{id:"align",label:"Reforçar alinhamento com o mandato",outcome:"A diretoria valorizou a leitura objetiva e o compromisso com as metas.",effect:{boardConfidence:3,managerReputation:1}},{id:"ambition",label:"Prometer uma reação imediata",outcome:"A fala elevou a expectativa interna e externa sobre os próximos resultados.",effect:{boardConfidence:2,mediaPressure:3,managerReputation:2}},{id:"time",label:"Pedir mais tempo para o projeto",outcome:"A diretoria aceitou ouvir o argumento, mas reduziu sua margem de tolerância.",effect:{boardConfidence:-1,mediaPressure:-1}}]});let lastUltimatumRound=board.lastUltimatumRound;if(score<35&&completedRound>=8&&(lastUltimatumRound===undefined||completedRound-lastUltimatumRound>=6)){lastUltimatumRound=completedRound;world=addEvent(world,{id:`board-ultimatum-${state.year}-${completedRound}`,kind:"Diretoria",title:`Ultimato da diretoria do ${club.name}`,body:`O mandato “${board.mandate.name}” entrou em zona crítica. A próxima sequência de jogos pode definir sua permanência no cargo.`,round:completedRound,unread:true,resolved:false,choices:[{id:"ultimatum-results",label:"Assumir responsabilidade e cobrar resultados",outcome:"Você assumiu publicamente a responsabilidade pela reação.",effect:{boardConfidence:2,mediaPressure:4,managerReputation:1}},{id:"ultimatum-process",label:"Defender o processo de trabalho",outcome:"A diretoria ouviu o argumento, mas não retirou a cobrança por resultados.",effect:{boardConfidence:-1,mediaPressure:-1}}]});}world=addNews(world,{id:statement.id,headline:statement.headline,summary:statement.body,source:`Diretoria do ${club.name} • comunicado simulado`,round:completedRound,tone});const nextBoard:ActiveBoardState={...board,lastEvaluationRound:completedRound,lastUltimatumRound,objectives:updatedObjectives,evaluations:[evaluation,...board.evaluations].slice(0,20),meetings:[meeting,...board.meetings].slice(0,20),statements:[statement,...board.statements].slice(0,30)};return{...state,livingWorld:world,boardState:nextBoard};}
+          EOF
+
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('src/game-engine/club-ai.ts');s=p.read_text()
+          s=s.replace('import type { LeagueWorld } from "./league";','import type { LeaguePlayer, LeagueWorld, LeagueClub } from "./league";')
+          anchor='export function managerForClub(state:ClubAiState|undefined,clubId:string){return state?.managers.find(item=>item.clubId===clubId);}\n'
+          addition=r'''
+          function stylePositionBonus(style:ManagerStyle,position:string){if(style==="Posse")return["VOL","MC","MEI","LD","LE"].includes(position)?12:0;if(style==="Pressão alta")return["MC","MEI","PE","PD","ATA"].includes(position)?13:0;if(style==="Transição")return["PE","PD","ATA","LD","LE"].includes(position)?14:0;if(style==="Bloco baixo")return["GOL","ZAG","VOL","LD","LE"].includes(position)?14:0;return 5;}
+          export function managerRecruitmentScore(manager:ClubManagerProfile|undefined,player:LeaguePlayer){if(!manager)return player.overall*3+player.potential;const youth=(manager.youthTrust-50)*Math.max(-5,25-player.age)*.055,potential=(player.potential-player.overall)*(.7+manager.youthTrust/100),agePenalty=player.age>=31?(player.age-30)*(manager.youthTrust/14):0;return player.overall*3+potential+youth+stylePositionBonus(manager.style,player.position)-agePenalty;}
+          function matchScore(manager:ClubManagerProfile|undefined,player:LeaguePlayer){const youth=manager?(manager.youthTrust-50)*(player.age<=22?.16:player.age>=30?-.08:0):0;return player.overall*4+player.condition*1.15-player.fatigue*1.25+player.form*5+(manager?stylePositionBonus(manager.style,player.position):0)+youth;}
+          export function pickAiStartingXI(club:LeagueClub,state:ClubAiState|undefined){const manager=managerForClub(state,club.id),available=club.players.filter(p=>p.injuryDays===0&&p.suspensionMatches===0),used=new Set<string>(),chosen:LeaguePlayer[]=[],take=(positions:string[],count:number)=>{const pool=available.filter(p=>!used.has(p.id)&&positions.includes(p.position)).sort((a,b)=>matchScore(manager,b)-matchScore(manager,a)).slice(0,count);for(const p of pool){used.add(p.id);chosen.push(p);}};take(["GOL"],1);take(["ZAG"],2);take(["LD","LE"],2);if(manager?.formation==="4-4-2"){take(["VOL","MC","MEI","PE","PD"],4);take(["ATA","PE","PD"],2);}else if(manager?.formation==="4-3-3"){take(["VOL","MC","MEI"],3);take(["PE","PD","ATA","MEI"],3);}else{take(["VOL","MC"],2);take(["MEI","PE","PD","MC"],3);take(["ATA","PE","PD"],1);}for(const p of [...available].sort((a,b)=>matchScore(manager,b)-matchScore(manager,a))){if(chosen.length>=11)break;if(!used.has(p.id)){used.add(p.id);chosen.push(p);}}return chosen.slice(0,11);}
+          '''
+          if anchor not in s: raise SystemExit('club ai anchor missing')
+          s=s.replace(anchor,anchor+addition,1);p.write_text(s)
+
+          p=Path('src/game-engine/market.ts');s=p.read_text()
+          s=s.replace('import { applyArrivalImpact, applyDepartureImpact } from "./social";','import { applyArrivalImpact, applyDepartureImpact } from "./social";\nimport { managerForClub, managerRecruitmentScore, type ClubManagerProfile } from "./club-ai";')
+          s=s.replace('export type TransferRecord={id:string;playerName:string;fromClubId:string;toClubId:string;type:TransferOfferType;feeEur:number;round:number;year:number};','export type TransferRecord={id:string;playerId?:string;playerName:string;fromClubId:string;toClubId:string;type:TransferOfferType;feeEur:number;round:number;year:number;managerName?:string;strategy?:string;reason?:string};')
+          s=s.replace('market.history.unshift({id:nextRecordId(market),playerName:player.name,fromClubId:seller.id,toClubId:buyer.id,type:offer.type,feeEur:offer.feeEur,round:state.currentRound,year:state.year});','market.history.unshift({id:nextRecordId(market),playerId:player.id,playerName:player.name,fromClubId:seller.id,toClubId:buyer.id,type:offer.type,feeEur:offer.feeEur,round:state.currentRound,year:state.year});')
+          marker='export function processMarketRound(state:SeasonState):SeasonState{'
+          ai=r'''
+          type SquadNeed={positions:string[];deficit:number;label:string};
+          function managerNeed(manager:ClubManagerProfile|undefined,club:LeagueClub):SquadNeed{const groups:[string,string[],number][]=[["Gol",["GOL"],3],["Zaga",["ZAG"],4],["Laterais",["LD","LE"],4],["Meio",["VOL","MC","MEI"],6],["Pontas",["PE","PD"],4],["Ataque",["ATA"],3]],style=manager?.style;let best:SquadNeed={positions:["VOL","MC","MEI","PE","PD","ATA"],deficit:0,label:"profundidade"};for(const[label,positions,base]of groups){let desired=base;if(style==="Posse"&&label==="Meio")desired++;if(style==="Pressão alta"&&(label==="Pontas"||label==="Meio"))desired++;if(style==="Transição"&&(label==="Pontas"||label==="Ataque"))desired++;if(style==="Bloco baixo"&&(label==="Zaga"||label==="Meio"))desired++;if(manager?.formation==="4-4-2"&&label==="Ataque")desired++;const count=club.players.filter(p=>positions.includes(p.position)).length,deficit=desired-count;if(deficit>best.deficit)best={positions,deficit,label};}return best;}
+          function processAiTransfers(state:SeasonState,league:LeagueWorld,market:MarketState,rng:SeededRng){const moved=new Set(market.history.filter(h=>h.year===state.year).map(h=>h.playerId).filter((id):id is string=>Boolean(id))),userId=state.selectedClubId,buyers=league.clubs.filter(c=>c.id!==userId),done=new Set<string>();let deals=0,maxDeals=Math.max(1,Math.min(3,Math.ceil(league.clubs.length/8)));for(let pass=0;pass<buyers.length&&deals<maxDeals;pass++){const buyer=buyers[(pass+rng.integer(0,Math.max(0,buyers.length-1)))%buyers.length];if(done.has(buyer.id))continue;const manager=managerForClub(state.clubAi,buyer.id);if(rng.integer(1,100)>Math.min(88,18+(manager?.transferAggression??55)*.7))continue;const need=managerNeed(manager,buyer),wageSpend=clubWageSpend(buyer),candidates:{seller:LeagueClub;player:LeaguePlayer;score:number;fee:number}[]=[];for(const seller of league.clubs){if(seller.id===buyer.id||seller.id===userId)continue;for(const player of seller.players){const loan=player as LeaguePlayer&{loanReturnYear?:number};if(moved.has(player.id)||loan.loanReturnYear||!need.positions.includes(player.position)||player.injuryDays>18)continue;const depth=seller.players.filter(p=>p.position===player.position).length;if(depth<=2&&!player.transferListed&&!player.wantsToLeave)continue;const value=estimatedPlayerValue(player),fee=Math.round(value*(player.transferListed||player.wantsToLeave?rng.integer(88,105):rng.integer(100,119))/100/100_000)*100_000;if(fee>buyer.transferBudgetEur*.92)continue;const salary=Math.round(player.contract.salaryBrlMonthly*(1.06+rng.integer(0,10)/100)/5_000)*5_000;if(wageSpend+salary>buyer.wageBudgetBrlMonthly)continue;const score=managerRecruitmentScore(manager,player)+need.deficit*14+(player.transferListed?10:0)+(player.wantsToLeave?8:0)-fee/2_500_000;candidates.push({seller,player,score,fee});}}
+            const target=candidates.sort((a,b)=>b.score-a.score)[rng.integer(0,Math.min(2,Math.max(0,candidates.length-1)))];if(!target)continue;const index=target.seller.players.findIndex(p=>p.id===target.player.id);if(index<0)continue;const player=target.seller.players.splice(index,1)[0],salary=Math.round(player.contract.salaryBrlMonthly*(1.08+rng.integer(0,8)/100)/5_000)*5_000;buyer.players.push(player);buyer.transferBudgetEur=Math.max(0,buyer.transferBudgetEur-target.fee);target.seller.transferBudgetEur+=target.fee;player.contract={...player.contract,salaryBrlMonthly:salary,startYear:state.year,endYear:state.year+3};player.transferListed=false;player.wantsToLeave=false;player.happiness=Math.min(100,player.happiness+4);player.managerTrust=58;player.joinedClubYear=state.year;player.clubTrainedYears=0;player.associationTrained=false;moved.add(player.id);done.add(buyer.id);deals++;market.history.unshift({id:nextRecordId(market),playerId:player.id,playerName:player.name,fromClubId:target.seller.id,toClubId:buyer.id,type:"Compra",feeEur:target.fee,round:state.currentRound,year:state.year,managerName:manager?.managerName,strategy:manager?.style,reason:`${need.label}: contratação alinhada ao modelo ${manager?.style??"equilibrado"}.`});}
+            market.history=market.history.slice(0,220);
+          }
+
+          '''
+          if marker not in s: raise SystemExit('market process anchor missing')
+          s=s.replace(marker,ai+marker,1)
+          old='  return{...state,league,market};\n}\n\nexport function prepareNextMarketSeason'
+          new='  processAiTransfers(state,league,market,rng);\n  return{...state,league,market};\n}\n\nexport function prepareNextMarketSeason'
+          if old not in s: raise SystemExit('market return anchor missing')
+          s=s.replace(old,new,1);p.write_text(s)
+
+          p=Path('src/game-engine/season.ts');s=p.read_text()
+          s=s.replace('import { createClubAiState, hydrateClubAi, prepareClubAiNextSeason, processClubAiRound, tacticForClub, type ClubAiState } from "./club-ai";','import { createClubAiState, hydrateClubAi, pickAiStartingXI, prepareClubAiNextSeason, processClubAiRound, tacticForClub, type ClubAiState } from "./club-ai";')
+          s=s.replace('import { workloadAdvice } from "./workload";','import { workloadAdvice } from "./workload";\nimport { createClubDynamics, evolveClubDynamics, hydrateClubDynamics, latestClubTrend, type ClubDynamicsState } from "./club-dynamics";')
+          s=s.replace('  competitionGovernance:CompetitionGovernanceState;','  competitionGovernance:CompetitionGovernanceState;\n  clubDynamics:ClubDynamicsState;')
+          s=s.replace('ecosystem:createFootballEcosystem(),competitionGovernance:createCompetitionGovernance(club,worldCompetitions,year,competitionId)','ecosystem:createFootballEcosystem(),competitionGovernance:createCompetitionGovernance(club,worldCompetitions,year,competitionId),clubDynamics:createClubDynamics()')
+          s=s.replace('homeStarters=userHome?[...state.lineupIds]:pickStartingXI(home).map(player=>player.id),awayStarters=userAway?[...state.lineupIds]:pickStartingXI(away).map(player=>player.id)','homeStarters=userHome?[...state.lineupIds]:pickAiStartingXI(home,state.clubAi).map(player=>player.id),awayStarters=userAway?[...state.lineupIds]:pickAiStartingXI(away,state.clubAi).map(player=>player.id)')
+          old='targetCompetitionId=nextCompetitionForClub(ecosystem,currentClub.name,state.competitionId),evolved=cloneLeague(state.league),prepared=prepareNextMarketSeason(state,nextYear,evolved);'
+          new='targetCompetitionId=nextCompetitionForClub(ecosystem,currentClub.name,state.competitionId),evolved=cloneLeague(state.league),clubDynamics=evolveClubDynamics(evolved,state.year,state.worldCompetitions,state.advancedWorld,state.clubAi,state.clubDynamics),prepared=prepareNextMarketSeason(state,nextYear,evolved);'
+          if old not in s: raise SystemExit('next season evolution anchor missing')
+          s=s.replace(old,new,1)
+          old='competitionGovernance=createCompetitionGovernance(club,worldCompetitions,nextYear,targetCompetitionId);return coordinateSeasonCalendars({...state,year:nextYear'
+          new='competitionGovernance=createCompetitionGovernance(club,worldCompetitions,nextYear,targetCompetitionId),trend=latestClubTrend(clubDynamics,currentClub.name),movement=ecosystem.archives[0]?.movements.find(item=>item.clubName===currentClub.name);return coordinateSeasonCalendars({...state,year:nextYear'
+          if old not in s: raise SystemExit('next season context anchor missing')
+          s=s.replace(old,new,1)
+          s=s.replace('boardState:createActiveBoard(club,league,nextYear),ecosystem,competitionGovernance','boardState:createActiveBoard(club,league,nextYear,{promoted:movement?.reason==="Acesso",relegated:movement?.reason==="Rebaixamento",previousPosition:trend?.position,reputationDelta:trend?.reputationDelta}),ecosystem,competitionGovernance,clubDynamics')
+          old='parsed.boardState=hydrateActiveBoard(parsed.boardState,parsed);parsed.ecosystem=hydrateFootballEcosystem(parsed.ecosystem);'
+          new='parsed.clubDynamics=hydrateClubDynamics(parsed.clubDynamics);parsed.boardState=hydrateActiveBoard(parsed.boardState,parsed);parsed.ecosystem=hydrateFootballEcosystem(parsed.ecosystem);'
+          if old not in s: raise SystemExit('hydrate club dynamics anchor missing')
+          s=s.replace(old,new,1);p.write_text(s)
+          PY
+
+      - name: Wire offline UI and progression views
+        run: |
+          cat > public/manifest.webmanifest <<'EOF'
+          {
+            "id":"/",
+            "name":"Vestiário 90",
+            "short_name":"V90",
+            "description":"Manager de futebol: suas decisões, o mundo reage — inclusive offline.",
+            "start_url":"/",
+            "scope":"/",
+            "display":"standalone",
+            "display_override":["window-controls-overlay","standalone","minimal-ui"],
+            "orientation":"any",
+            "background_color":"#07110f",
+            "theme_color":"#07110f",
+            "categories":["games","sports"],
+            "icons":[
+              {"src":"/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+              {"src":"/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+              {"src":"/icon-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+            ],
+            "shortcuts":[{"name":"Jogar Vestiário 90","short_name":"Jogar","url":"/","icons":[{"src":"/icon-192.png","sizes":"192x192","type":"image/png"}]}]
+          }
+          EOF
+
+          cat > next.config.ts <<'EOF'
+          import type { NextConfig } from "next";
+
+          const nextConfig:NextConfig={
+            images:{remotePatterns:[{protocol:"https",hostname:"cdn.soccerwiki.org",pathname:"/images/**"},{protocol:"https",hostname:"tmssl.akamaized.net",pathname:"/images/**"}]},
+            async headers(){return[
+              {source:"/sw.js",headers:[{key:"Cache-Control",value:"public, max-age=0, must-revalidate"},{key:"Service-Worker-Allowed",value:"/"}]},
+              {source:"/manifest.webmanifest",headers:[{key:"Cache-Control",value:"public, max-age=0, must-revalidate"}]},
+            ];},
+          };
+          export default nextConfig;
+          EOF
+
+          cat > src/app/layout.tsx <<'EOF'
+          import type { Metadata, Viewport } from "next";
+          import { Geist, Geist_Mono } from "next/font/google";
+          import PwaClient from "./pwa-client";
+          import "./globals.css";
+
+          const geistSans=Geist({variable:"--font-geist-sans",subsets:["latin"]});
+          const geistMono=Geist_Mono({variable:"--font-geist-mono",subsets:["latin"]});
+          export const viewport:Viewport={themeColor:"#07110f"};
+          export const metadata:Metadata={title:"Vestiário 90 — Manager de Futebol",description:"Suas decisões. O mundo reage.",manifest:"/manifest.webmanifest",icons:{icon:[{url:"/icon-192.png",sizes:"192x192",type:"image/png"},{url:"/icon-512.png",sizes:"512x512",type:"image/png"}],apple:"/icon-192.png"},appleWebApp:{capable:true,statusBarStyle:"black-translucent",title:"Vestiário 90"}};
+          export default function RootLayout({children}:LayoutProps<"/">){return <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable}`}><body>{children}<PwaClient/></body></html>}
+          EOF
+
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/app/advanced-club-view.tsx');s=p.read_text()
+          s=s.replace('import { Activity, Banknote, HeartPulse, History, Landmark, UsersRound } from "lucide-react";','import { Activity, Banknote, HeartPulse, History, Landmark, TrendingUp, UsersRound } from "lucide-react";')
+          s=s.replace('import { medicalCasesForClub } from "@/game-engine/advanced-world";','import { medicalCasesForClub } from "@/game-engine/advanced-world";\nimport { clubTrendHistory } from "@/game-engine/club-dynamics";')
+          old='avgFatigue=Math.round(club.players.reduce((sum,p)=>sum+p.fatigue,0)/Math.max(1,club.players.length)),unavailable=club.players.filter(p=>p.injuryDays>0||p.suspensionMatches>0).length;return'
+          new='avgFatigue=Math.round(club.players.reduce((sum,p)=>sum+p.fatigue,0)/Math.max(1,club.players.length)),unavailable=club.players.filter(p=>p.injuryDays>0||p.suspensionMatches>0).length,trends=clubTrendHistory(season.clubDynamics,club.name),latestTrend=trends[0];return'
+          if old not in s: raise SystemExit('advanced view state anchor missing')
+          s=s.replace(old,new,1)
+          anchor='<section className={styles.panel}><header><Activity/><div><span>ELENCO</span><h3>Carga & disponibilidade</h3></div></header>'
+          addition='<section className={styles.panel}><header><TrendingUp/><div><span>MUNDO PERSISTENTE</span><h3>Curva financeira & reputacional</h3></div></header>{latestTrend?<><div className={styles.details}><p><b>Reputação</b><strong>{latestTrend.reputationBefore} → {latestTrend.reputationAfter}</strong></p><p><b>Orçamento seguinte</b><strong>{eur(latestTrend.transferBudgetAfter)}</strong></p><p><b>Resultado operacional</b><strong>{eur(latestTrend.operatingResultEur)}</strong></p><p><b>Temporada-base</b><strong>{latestTrend.year} • {latestTrend.position}º</strong></p></div><small className={styles.note}>{latestTrend.summary}</small></>:<p className={styles.empty}>A curva multianual começa a ser registrada na primeira virada de temporada.</p>}</section>\n '+anchor
+          if anchor not in s: raise SystemExit('advanced view insert anchor missing')
+          s=s.replace(anchor,addition,1);p.write_text(s)
+
+          p=Path('src/app/club-management-view.tsx');s=p.read_text()
+          anchor='<p className={styles.intro}>{activeBoard.philosophy}</p><div className={styles.objectives}>'
+          repl='<p className={styles.intro}>{activeBoard.philosophy}</p>{activeBoard.mandate&&<div className={styles.evaluationStrip}><span>Mandato <b>{activeBoard.mandate.name}</b></span><span>Pressão <b>{activeBoard.mandate.pressure}</b></span><span>Paciência <b>{activeBoard.mandate.patience}/100</b></span><span>Meta <b>Top {activeBoard.targetPosition}</b></span></div>}<div className={styles.objectives}>'
+          if anchor not in s: raise SystemExit('club board UI anchor missing')
+          s=s.replace(anchor,repl,1);p.write_text(s)
+          PY
+
+      - name: Validate upgrade
+        run: |
+          npm ci
+          npm run lint
+          npm test
+          npm run build
+      - name: Commit validated upgrade
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src public next.config.ts
+          git rm .github/workflows/deep-world-offline.yml
+          git commit -m "feat: deepen persistent world and add offline PWA"
+          git push
