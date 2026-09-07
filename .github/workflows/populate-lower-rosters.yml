@@ -23,7 +23,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/data/europe-2026/lower-leagues.ts src/data/brazil-2026/serie-d.ts
+          git add src/data/europe-2026/real-lower-rosters.generated.ts src/data/brazil-2026/serie-d.ts
           if git diff --cached --quiet; then
             echo "No roster changes"
           else
