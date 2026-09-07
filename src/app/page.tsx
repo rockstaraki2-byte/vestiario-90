@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { BarChart3, Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Globe2, Home, Inbox, LayoutGrid, Landmark, MessageSquareText, Megaphone, Newspaper, Play, RotateCcw, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
+import { BarChart3, Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Flag, Globe2, Home, Inbox, LayoutGrid, Landmark, MessageSquareText, Megaphone, Newspaper, Play, RotateCcw, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
 import styles from "./page.module.css";
 import seasonStyles from "./season.module.css";
 import LiveMatchView from "./live-match-view";
@@ -19,6 +19,8 @@ import MainMenu from "./main-menu";
 import FootballWorldView from "./football-world-view";
 import AdvancedClubView from "./advanced-club-view";
 import SeasonCalendarView from "./season-calendar-view";
+import NationalTeamView from "./national-team-view";
+import NewsCenterView from "./news-center-view";
 import { professionalCompetitionById, type ProfessionalCompetitionId } from "@/data/brazil-2026/competitions";
 import { leagueClubIdForTransfermarkt } from "@/game-engine/new-game";
 import { createSaveSlot, migrateLegacySeason, saveToSlot, type SaveSlot } from "@/game-engine/save-slots";
@@ -29,9 +31,9 @@ import { tacticForClub } from "@/game-engine/club-ai";
 import { talkToPlayer, type ConversationAction } from "@/game-engine/people";
 import { pendingWorldEvents } from "@/game-engine/world-events";
 import { pendingMediaSessions } from "@/game-engine/media-world";
-import { advanceCalendarDay, createSeason, getCupMatchContext, getCurrentUserFixture, getSelectedClub, getTodayUserCupMatch, getTodayUserFixture, getUserFixtures, hydrateSeasonState, matchdaySelectionReady, playCurrentCupMatch, playCurrentRound, resolveMediaSessionChoice, resolveSeasonWorldChoice, setMatchdayRole, startNextSeason, toggleLineupPlayer, type MatchdayRole, type SeasonState } from "@/game-engine/season";
+import { advanceCalendarDay, applyForNationalTeam, createSeason, getCupMatchContext, getCurrentUserFixture, getSelectedClub, getTodayUserCupMatch, getTodayUserFixture, getUserFixtures, hydrateSeasonState, matchdaySelectionReady, playCurrentCupMatch, playCurrentRound, playTodayNationalMatch, resignNationalTeam, resolveMediaSessionChoice, resolveSeasonWorldChoice, setMatchdayRole, startNextSeason, toggleLineupPlayer, toggleNationalSelection, type MatchdayRole, type SeasonState } from "@/game-engine/season";
 
-const NAV=[["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["Vestiário",MessageSquareText],["Clube",Building2],["Táticas",LayoutGrid],["Calendário",CalendarDays],["Classificação",Trophy],["Central de Dados",BarChart3],["Mídia & Redes",Megaphone],["Mundo",Globe2],["Gestão & Legado",Landmark],["Mercado",BarChart3],["Carreira",BriefcaseBusiness],["Notícias",Newspaper]] as const;
+const NAV=[["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["Vestiário",MessageSquareText],["Clube",Building2],["Táticas",LayoutGrid],["Calendário",CalendarDays],["Classificação",Trophy],["Central de Dados",BarChart3],["Mídia & Redes",Megaphone],["Seleção",Flag],["Mundo",Globe2],["Gestão & Legado",Landmark],["Mercado",BarChart3],["Carreira",BriefcaseBusiness],["Notícias",Newspaper]] as const;
 
 export default function Dashboard(){
   const [screen,setScreen]=useState<"menu"|"game">("menu"),[saveId,setSaveId]=useState<string|null>(null),[season,setSeason]=useState<SeasonState>(()=>createSeason("vestiario-90",2026)),[active,setActive]=useState("Visão geral"),[notice,setNotice]=useState(""),[tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC),[match,setMatch]=useState<MatchResult|null>(null),[liveMatch,setLiveMatch]=useState<LiveMatchState|null>(null),[activeCupMatchId,setActiveCupMatchId]=useState<string|null>(null);
@@ -42,13 +44,17 @@ export default function Dashboard(){
   function persist(next:SeasonState){setSeason(next);if(saveId)saveToSlot(saveId,next)}
   function handleLoad(slot:SaveSlot){const next=hydrateSeasonState(slot.state);setSaveId(slot.meta.id);setSeason(next);setScreen("game");setActive("Visão geral");setMatch(null);setLiveMatch(null);setTactic(DEFAULT_TACTIC)}
   function handleStart(competitionId:ProfessionalCompetitionId,clubTransfermarktId:number,saveName?:string){const clubId=leagueClubIdForTransfermarkt(competitionId,clubTransfermarktId),next=createSeason(`career-${Date.now()}-${clubTransfermarktId}`,2026,clubId,competitionId),meta=createSaveSlot(next,saveName);setSaveId(meta?.id??null);setSeason(next);setScreen("game");setActive("Visão geral");setMatch(null);setLiveMatch(null);setTactic(DEFAULT_TACTIC)}
-  function handleAdvance(){if(!employed){handleCareerAdvanceRound();return}const result=advanceCalendarDay(season);persist(result.state);if(result.route==="matchday")setActive("Táticas");else if(result.route==="club")setActive("Clube");else if(result.route==="media")setActive("Mídia & Redes");else if(result.route==="inbox")setActive("Caixa de entrada");flash(`${formatDate(result.state.currentDate)} • ${result.reason}`)}
+  function handleAdvance(){if(!employed){handleCareerAdvanceRound();return}const result=advanceCalendarDay(season);persist(result.state);if(result.route==="matchday")setActive("Táticas");else if(result.route==="club")setActive("Clube");else if(result.route==="media")setActive("Mídia & Redes");else if(result.route==="national")setActive("Seleção");else if(result.route==="inbox")setActive("Caixa de entrada");flash(`${formatDate(result.state.currentDate)} • ${result.reason}`)}
   function handleCareerAdvanceRound(){if(season.completed){handleNextSeason();return}const next=playCurrentRound(season);persist(next);flash(`Rodada ${Math.min(totalRounds,next.currentRound-1)} simulada • estatísticas e evolução atualizadas`)}
   function handleToggleLineup(playerId:string){persist(toggleLineupPlayer(season,playerId))}
   function handleMatchdayRole(playerId:string,role:MatchdayRole){persist(setMatchdayRole(season,playerId,role))}
   function handleConversation(playerId:string,action:ConversationAction){const result=talkToPlayer(season,playerId,action);persist(result.state);flash(result.message)}
   function handleWorldChoice(eventId:string,choiceId:string){const result=resolveSeasonWorldChoice(season,eventId,choiceId);persist(result.state);flash(result.message)}
   function handleMediaChoice(sessionId:string,choiceId:string){const result=resolveMediaSessionChoice(season,sessionId,choiceId);persist(result.state);flash(result.message)}
+  function handleNationalApply(teamId:string){const result=applyForNationalTeam(season,teamId);persist(result.state);flash(result.message)}
+  function handleNationalToggle(playerId:string){const result=toggleNationalSelection(season,playerId);persist(result.state);flash(result.message)}
+  function handleNationalPlay(){const result=playTodayNationalMatch(season);persist(result.state);setActive("Mídia & Redes");flash(result.message)}
+  function handleNationalResign(){const result=resignNationalTeam(season);persist(result.state);flash(result.message)}
 
   function handlePlay(){
     if(!employed){flash("Você precisa assumir um clube antes de voltar ao banco de reservas.");return}
@@ -74,13 +80,13 @@ export default function Dashboard(){
         active==="Clube"?<ClubManagementView season={season} onOpenInbox={()=>setActive("Caixa de entrada")} onResult={({state:next,message})=>{persist(next);flash(message)}}/>:
         active==="Vestiário"?<DressingRoomView season={season} onConversation={handleConversation}/>:
         active==="Caixa de entrada"?<WorldInboxView world={season.livingWorld} club={club} onResolve={handleWorldChoice}/>:
-        active==="Notícias"?<NewsFeedView world={season.livingWorld} club={club}/>:
+        active==="Notícias"?<NewsCenterView season={season}/>:
         active==="Carreira"?<CareerView season={season} onOpenInbox={()=>setActive("Caixa de entrada")} onAdvanceRound={handleCareerAdvanceRound}/>:
         active==="Mercado"?<MarketView season={season} onResult={({state:next,message})=>{persist(next);flash(message)}}/>:
-        active==="Mundo"?<FootballWorldView season={season}/>:active==="Gestão & Legado"?<AdvancedClubView season={season} onOpenClub={()=>setActive("Clube")}/>:
+        active==="Seleção"?<NationalTeamView season={season} onApply={handleNationalApply} onToggle={handleNationalToggle} onPlay={handleNationalPlay} onResign={handleNationalResign}/>:active==="Mundo"?<FootballWorldView season={season}/>:active==="Gestão & Legado"?<AdvancedClubView season={season} onOpenClub={()=>setActive("Clube")}/>:
         active==="Central de Dados"?<StatisticsView season={season}/>:
         active==="Mídia & Redes"?<MediaCenterView season={season} onAnswer={handleMediaChoice}/>:
-        active==="Táticas"?(liveMatch&&liveHome&&liveAway?<LiveMatchView session={liveMatch} home={liveHome} away={liveAway} onChange={handleLiveChange} onFinish={handleLiveFinish}/>:match&&matchHome&&matchAway?<MatchCenter home={matchHome} away={matchAway} result={match} onContinue={()=>{setMatch(null);setActiveCupMatchId(null);setActive("Visão geral")}}/>:season.completed?<SeasonEnd season={season} standings={standings} clubs={league.clubs} onNext={handleNextSeason}/>:opponent?<TacticsView club={club} opponent={opponent} tactic={tactic} onChange={setTactic} lineupIds={season.lineupIds} benchIds={season.benchIds} benchSize={competition.benchSize} onSetRole={handleMatchdayRole} onPlay={handlePlay}/>:<ComingSoon title="Partida"/>):
+        active==="Táticas"?(liveMatch&&liveHome&&liveAway?<LiveMatchView session={liveMatch} home={liveHome} away={liveAway} onChange={handleLiveChange} onFinish={handleLiveFinish}/>:match&&matchHome&&matchAway?<MatchCenter home={matchHome} away={matchAway} result={match} onContinue={()=>{setMatch(null);setActiveCupMatchId(null);setActive(pendingMediaSessions(season.mediaWorld,season.competitionId).some(s=>s.format==="Coletiva pós-jogo"&&s.status==="Aberta")?"Mídia & Redes":"Visão geral")}}/>:season.completed?<SeasonEnd season={season} standings={standings} clubs={league.clubs} onNext={handleNextSeason}/>:opponent?<TacticsView club={club} opponent={opponent} tactic={tactic} onChange={setTactic} lineupIds={season.lineupIds} benchIds={season.benchIds} benchSize={competition.benchSize} onSetRole={handleMatchdayRole} onPlay={handlePlay}/>:<ComingSoon title="Partida"/>):
         active==="Classificação"?<TableView clubs={league.clubs} standings={standings} selectedClubId={club.id} competitionName={competition.name} totalRounds={totalRounds}/>:
         active==="Calendário"?<CalendarView season={season}/>:
         active!=="Visão geral"?<ComingSoon title={active}/>:

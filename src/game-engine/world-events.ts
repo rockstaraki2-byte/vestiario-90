@@ -51,11 +51,6 @@ export function worldAfterMatch(world:LivingWorldState,club:LeagueClub,round:num
  const won=goalsFor>goalsAgainst,lost=goalsFor<goalsAgainst;
  let next={...world};
  next=addNews(next,{id:`result-r${round}-${next.sequence}`,headline:won?`${club.name} vence e ambiente ganha força`:lost?`Derrota aumenta a pressão sobre ${club.name}`:`${club.name} empata e deixa debate aberto`,summary:`Placar: ${goalsFor}–${goalsAgainst}. O resultado já repercute no vestiário, na torcida e na imprensa.`,source:simulatedMediaCredit(round+next.sequence,competitionId),round,tone:won?"positive":lost?"negative":"neutral"});
- next=addEvent(next,{id:`press-r${round}-${next.sequence}`,kind:"Coletiva",title:"Coletiva pós-jogo",body:won?"A imprensa quer saber se a equipe entrou de vez na briga pelos objetivos.":lost?"Repórteres questionam desempenho, escolhas e reação do elenco.":"A imprensa cobra uma avaliação sobre os pontos positivos e o que faltou para vencer.",round,unread:true,resolved:false,choices:[
-  {id:"protect",label:"Proteger o elenco",outcome:"O grupo percebeu que o treinador assumiu a pressão para si.",effect:{playerTrust:3,playerHappiness:2,mediaPressure:2,boardConfidence:-1}},
-  {id:"demand",label:"Cobrar resposta",outcome:"A fala aumentou a cobrança pública, mas reforçou o padrão de exigência.",effect:{playerMorale:lost?-2:1,mediaPressure:5,managerReputation:2}},
-  {id:"praise",label:"Valorizar a atuação",outcome:"A mensagem positiva melhorou o clima, embora parte da imprensa a veja como cautelosa.",effect:{playerMorale:3,fanSupport:won?3:1,mediaPressure:-1}},
- ]});
  const concern=club.players.find(player=>playerConcern(player,round+1));
  if(concern){
   const reason=playerConcern(concern,round+1)??"O jogador quer clareza sobre seu espaço.";
