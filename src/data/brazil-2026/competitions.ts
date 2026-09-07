@@ -1,9 +1,10 @@
 import{BRASILEIRAO_2026_CLUBS}from"../brasileirao-2026/rosters";
 import{EUROPE_2026_COMPETITIONS,type EuropeCompetitionId}from"../europe-2026/top-leagues";
+import{EUROPE_LOWER_2026_COMPETITIONS,type EuropeLowerCompetitionId}from"../europe-2026/lower-leagues";
 import{BRAZIL_2026_EXPANDED_COMPETITIONS,type ExpandedClubRoster}from"./expanded-rosters";
 
 export type BrazilProfessionalCompetitionId="BRA1"|"BRA2"|"BRA3";
-export type ProfessionalCompetitionId=BrazilProfessionalCompetitionId|EuropeCompetitionId;
+export type ProfessionalCompetitionId=BrazilProfessionalCompetitionId|EuropeCompetitionId|EuropeLowerCompetitionId;
 export type YouthCompetitionId="CB20"|"SPjr";
 export type GameCompetitionId=ProfessionalCompetitionId|YouthCompetitionId;
 export type BrazilCompetitionId=GameCompetitionId;
@@ -26,7 +27,7 @@ export const BRAZIL_2026_COMPETITIONS:CompetitionDefinition[]=[
  {id:"CB20",name:"Campeonato Brasileiro Sub-20",shortName:"Brasileiro Sub-20",kind:"youth",country:"Brasil",season:2026,selectableAsCareer:false,startDate:"2026-03-01",roundCadenceDays:7,doubleRoundRobin:false,benchSize:12,maxSubstitutions:5,clubs:get("CB20")},
  {id:"SPjr",name:"Copa São Paulo de Futebol Júnior",shortName:"Copinha",kind:"youth",country:"Brasil",season:2026,selectableAsCareer:false,startDate:"2026-01-02",roundCadenceDays:3,doubleRoundRobin:false,benchSize:12,maxSubstitutions:5,clubs:get("SPjr")},
 ];
-const EUROPE_COMPETITIONS:CompetitionDefinition[]=EUROPE_2026_COMPETITIONS.map(item=>({id:item.id,name:item.name,shortName:item.shortName,kind:"professional",country:item.country,season:item.season,selectableAsCareer:true,startDate:item.startDate,roundCadenceDays:item.roundCadenceDays,doubleRoundRobin:item.doubleRoundRobin,benchSize:item.benchSize,maxSubstitutions:item.maxSubstitutions,clubs:item.clubs}));
+const EUROPE_COMPETITIONS:CompetitionDefinition[]=[...EUROPE_2026_COMPETITIONS,...EUROPE_LOWER_2026_COMPETITIONS].map(item=>({id:item.id,name:item.name,shortName:item.shortName,kind:"professional",country:item.country,season:item.season,selectableAsCareer:true,startDate:item.startDate,roundCadenceDays:item.roundCadenceDays,doubleRoundRobin:item.doubleRoundRobin,benchSize:item.benchSize,maxSubstitutions:item.maxSubstitutions,clubs:item.clubs}));
 export const ALL_2026_COMPETITIONS:CompetitionDefinition[]=[...BRAZIL_2026_COMPETITIONS,...EUROPE_COMPETITIONS];
 export const PROFESSIONAL_COMPETITIONS=ALL_2026_COMPETITIONS.filter((item):item is CompetitionDefinition&{id:ProfessionalCompetitionId}=>item.kind==="professional"&&item.selectableAsCareer);
 export const YOUTH_COMPETITIONS=BRAZIL_2026_COMPETITIONS.filter(item=>item.kind==="youth");
