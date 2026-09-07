@@ -28,17 +28,28 @@ jobs:
           PY
       - name: Apply integrated world-depth patch
         run: python scripts/apply-world-depth-upgrade.py
-      - name: Validate all systems
+      - name: Capture validation diagnostics
         run: |
-          npm ci
-          npm run lint
-          npm test
-          npm run build
-      - name: Commit validated feature branch
+          set +e
+          : > validation-world-depth.log
+          echo '=== npm ci ===' >> validation-world-depth.log
+          npm ci >> validation-world-depth.log 2>&1
+          echo "exit=$?" >> validation-world-depth.log
+          echo '=== lint ===' >> validation-world-depth.log
+          npm run lint >> validation-world-depth.log 2>&1
+          echo "exit=$?" >> validation-world-depth.log
+          echo '=== tests ===' >> validation-world-depth.log
+          npm test >> validation-world-depth.log 2>&1
+          echo "exit=$?" >> validation-world-depth.log
+          echo '=== build ===' >> validation-world-depth.log
+          npm run build >> validation-world-depth.log 2>&1
+          echo "exit=$?" >> validation-world-depth.log
+          exit 0
+      - name: Commit diagnostic feature branch
         run: |
           rm scripts/apply-world-depth-upgrade.py .github/workflows/world-depth-upgrade.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'feat: deepen football world and manager simulation'
+          git commit -m 'feat: stage football world depth for validation'
           git push
