@@ -1,0 +1,51 @@
+name: Persistent world v2 retry
+on:
+  push:
+    paths:
+      - '.github/workflows/persistent-world-v2-retry.yml'
+permissions:
+  contents: write
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reapply corrected persistent world upgrade
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          lines=Path('.github/workflows/persistent-world-v2.yml').read_text().splitlines()
+          blocks=[]
+          i=0
+          while i<len(lines):
+              if lines[i].startswith('        run: |'):
+                  i+=1
+                  block=[]
+                  while i<len(lines) and (lines[i].startswith('          ') or not lines[i].strip()):
+                      block.append(lines[i][10:] if lines[i].startswith('          ') else '')
+                      i+=1
+                  blocks.append('\n'.join(block))
+                  continue
+              i+=1
+          # Only material-generation and patch blocks. Validation/commit are run below.
+          script='\n\n'.join(blocks[:4])
+          script=script.replace('let pool=shuffle(pots[p],rng);','const pool=shuffle(pots[p],rng);')
+          script=script.replace('let reg=state.registrations[t.definition.id];','const reg=state.registrations[t.definition.id];')
+          bad="s=s.replace('}}return matches;}\\nfunction table(', '}return matches;}\\nfunction table(',1)"
+          script=script.replace(bad,"# knockout braces already match the rewritten nested loops")
+          result=subprocess.run(['bash','-euo','pipefail'],input=script,text=True)
+          raise SystemExit(result.returncode)
+          PY
+          npm ci
+          npm run lint
+          npm run build
+      - name: Commit persistent world v2
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src public
+          git rm .github/workflows/persistent-world-v2.yml .github/workflows/persistent-world-v2-retry.yml
+          git commit -m "feat: make world progression persistent across seasons"
+          git push
