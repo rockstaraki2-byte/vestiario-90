@@ -1,0 +1,142 @@
+=== npm ci ===
+npm warn deprecated eslint@9.39.5: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+
+added 398 packages, and audited 399 packages in 9s
+
+156 packages are looking for funding
+  run `npm fund` for details
+
+1 critical severity vulnerability
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+exit=0
+=== lint ===
+
+> vestiario-90@0.1.0 lint
+> eslint
+
+
+/home/runner/work/vestiario-90/vestiario-90/scripts/fetch-transfermarkt-snapshot.mjs
+  35:7  warning  'crest' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/runner/work/vestiario-90/vestiario-90/src/game-engine/world-competitions.ts
+  46:7    warning  'addDays' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  62:138  warning  'seed' is defined but never used              @typescript-eslint/no-unused-vars
+
+✖ 3 problems (0 errors, 3 warnings)
+
+exit=0
+=== tests ===
+
+> vestiario-90@0.1.0 test
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/home/runner/work/vestiario-90/vestiario-90[39m
+
+ [32m✓[39m src/game-engine/live-match.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m src/game-engine/sprint13.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 771[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 13 — Europa e evolução[2m > [22mcria convocação pré-jogo com titulares e banco conforme a liga [33m 320[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 13 — Europa e evolução[2m > [22mpersiste dados coletivos e individuais ao simular uma rodada [33m 425[2mms[22m[39m
+ [32m✓[39m src/game-engine/media-world.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 35[2mms[22m[39m
+ [32m✓[39m src/game-engine/social.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 1239[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 7 — relações e grupos do vestiário[2m > [22mforma núcleos determinísticos que cobrem todo o elenco [33m 302[2mms[22m[39m
+ [32m✓[39m src/game-engine/real-world-calendar.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/game-engine/market.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 2657[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mgera contratos e orçamentos para toda a liga [33m 307[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mIA de mercado é determinística por rodada [33m 511[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mtransferências manuais do save sobrevivem à virada da temporada quando o contrato segue vigente [33m 629[2mms[22m[39m
+ [32m✓[39m src/game-engine/club-management.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 1170[2mms[22m[39m
+   [33m[2m✓[22m[39m club management[2m > [22mcria departamentos e oito jogadores de base para o clube [33m 301[2mms[22m[39m
+ [32m✓[39m src/game-engine/career.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/game-engine/world-crises.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 942[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 8 — conflitos e mídia[2m > [22mmediação de conflito melhora os dois jogadores e repercute no núcleo [33m 331[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 8 — conflitos e mídia[2m > [22mlíder frustrado pode transformar derrota em crise de rede social [33m 311[2mms[22m[39m
+ [32m✓[39m src/game-engine/football-only-flow.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 629[2mms[22m[39m
+   [33m[2m✓[22m[39m football-only flow[2m > [22mlimpa ruído antigo de saves sem apagar decisões de futebol [33m 409[2mms[22m[39m
+ [32m✓[39m src/game-engine/league.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 103[2mms[22m[39m
+ [32m✓[39m src/game-engine/live-match-performance.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+ [32m✓[39m src/game-engine/world-events.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 1272[2mms[22m[39m
+   [33m[2m✓[22m[39m Mundo Vivo[2m > [22muma decisão altera métricas e gera repercussão [33m 340[2mms[22m[39m
+   [33m[2m✓[22m[39m Mundo Vivo[2m > [22mo loop da temporada persiste repercussão após uma rodada [33m 411[2mms[22m[39m
+ [32m✓[39m src/game-engine/statistics-scope.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m src/game-engine/advanced-world.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 181[2mms[22m[39m
+ [32m✓[39m src/game-engine/international-market.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 528[2mms[22m[39m
+   [33m[2m✓[22m[39m international market[2m > [22mlista jogadores reais de outras ligas [33m 329[2mms[22m[39m
+ [32m✓[39m src/game-engine/season.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 5609[2mms[22m[39m
+   [33m[2m✓[22m[39m season engine[2m > [22mconclui uma rodada e atualiza toda a tabela [33m 406[2mms[22m[39m
+   [33m[2m✓[22m[39m season engine[2m > [22mé determinística para a mesma seed [33m 615[2mms[22m[39m
+   [33m[2m✓[22m[39m season engine[2m > [22maceita o resultado jogado de forma interativa [33m 346[2mms[22m[39m
+   [33m[2m✓[22m[39m season engine[2m > [22mfecha 38 rodadas e permite virar a temporada [33m 3994[2mms[22m[39m
+ [32m✓[39m src/game-engine/football-depth.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m src/game-engine/world-competitions.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 573[2mms[22m[39m
+ [32m✓[39m src/game-engine/people.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1265[2mms[22m[39m
+   [33m[2m✓[22m[39m pessoas e vestiário[2m > [22mconversa altera confiança e satisfação [33m 304[2mms[22m[39m
+   [33m[2m✓[22m[39m pessoas e vestiário[2m > [22mpromessa de minutos é criada e pode ser cumprida [33m 682[2mms[22m[39m
+ [32m✓[39m src/game-engine/tactics-layout.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/game-engine/media-context.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [31m❯[39m src/game-engine/club-ai.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 33[2mms[22m[39m
+   [32m✓[39m club manager AI[2m > [22mcria um técnico e identidade tática para cada clube[32m 15[2mms[22m[39m
+[31m   [31m×[31m club manager AI[2m > [22mdemite técnico em situação crítica e registra a troca[39m[32m 16[2mms[22m[39m
+[31m     → expected 'Abel Ferreira' not to be 'Abel Ferreira' // Object.is equality[39m
+ [32m✓[39m src/game-engine/competitions2.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 199[2mms[22m[39m
+ [32m✓[39m src/game-engine/events/engine.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/game-engine/narrative.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/game-engine/live-match2.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m src/game-engine/rng.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/game-engine/match.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m src/game-engine/save.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/game-engine/board-contact.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 239[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/game-engine/club-ai.test.ts[2m > [22mclub manager AI[2m > [22mdemite técnico em situação crítica e registra a troca
+[31m[1mAssertionError[22m: expected 'Abel Ferreira' not to be 'Abel Ferreira' // Object.is equality[39m
+[36m [2m❯[22m src/game-engine/club-ai.test.ts:[2m7:365[22m[39m
+
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m30 passed[39m[22m[90m (31)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m109 passed[39m[22m[90m (110)[39m
+[2m   Start at [22m 20:53:39
+[2m   Duration [22m 11.67s[2m (transform 1.59s, setup 0ms, collect 7.99s, tests 17.68s, environment 7ms, prepare 3.09s)[22m
+
+
+::error file=/home/runner/work/vestiario-90/vestiario-90/src/game-engine/club-ai.test.ts,title=src/game-engine/club-ai.test.ts > club manager AI > demite técnico em situação crítica e registra a troca,line=7,column=365::AssertionError: expected 'Abel Ferreira' not to be 'Abel Ferreira' // Object.is equality%0A ❯ src/game-engine/club-ai.test.ts:7:365%0A%0A
+exit=1
+=== build ===
+
+> vestiario-90@0.1.0 build
+> next build
+
+▲ Next.js 16.3.4 (Turbopack)
+✓ Running next.config.ts took 24ms
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 5.2s
+  Running TypeScript ...
+  Finished TypeScript in 7.9s ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/3) ...
+✓ Generating static pages using 3 workers (3/3) in 423ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+exit=0
