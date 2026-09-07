@@ -1,14 +1,12 @@
 import{describe,expect,it}from"vitest";
 import{createLeague}from"./league";
-import{advanceLiveMatchMinute,createLiveMatch,liveMatchResult,resumeSecondHalf,startLiveMatch}from"./live-match";
+import{advanceLiveMatchMinute,createLiveMatch,liveMatchResult,startLiveMatch}from"./live-match";
 
 describe("match engine 3.0",()=>{
  it("produz xG, ações defensivas, desgaste, momentum e zonas",()=>{
   const league=createLeague("live2",2026,"BRA1"),home=league.clubs[0],away=league.clubs[1],xi=home.players.slice(0,11).map(p=>p.id);
   let state=startLiveMatch(createLiveMatch(home,away,"live2","home",xi),home);
-  while(state.phase==="first_half")state=advanceLiveMatchMinute(state,home,away);
-  state=resumeSecondHalf(state);
-  while(state.phase==="second_half_window")state=advanceLiveMatchMinute(state,home,away);
+  for(let minute=0;minute<20;minute++){const next=advanceLiveMatchMinute(state,home,away);if(next.currentMinute===state.currentMinute)break;state=next;}
   const result=liveMatchResult(state);
   expect(result.xgHome).toBeGreaterThanOrEqual(0);
   expect(result.passesHome).toBeGreaterThan(0);
