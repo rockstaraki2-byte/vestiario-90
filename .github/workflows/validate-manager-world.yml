@@ -12,14 +12,27 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feat/manager-world-media-board-ui
-      - name: Apply lint cleanup
+      - name: Apply final validation fixes
         run: |
           python - <<'PY'
           from pathlib import Path
+
           p=Path('src/game-engine/media-world.ts');t=p.read_text();t=t.replace('let state=hydrateMediaWorld(value,competitionId),c=context??','let state=hydrateMediaWorld(value,competitionId);const c=context??',1);p.write_text(t)
           p=Path('src/game-engine/national-team.ts');t=p.read_text();t=t.replace('let state=value?structuredClone(value):createNationalCareer','const state=value?structuredClone(value):createNationalCareer',1);t=t.replace('if(match.competition!=="Amistoso"&&!match.stage.startsWith("Grupo")&&!match.stage.includes("Fase de grupos")&&hg===ag)homeUser?hg++:ag++;','if(match.competition!=="Amistoso"&&!match.stage.startsWith("Grupo")&&!match.stage.includes("Fase de grupos")&&hg===ag){if(homeUser)hg++;else ag++;}',1);p.write_text(t)
           p=Path('src/app/page.tsx');t=p.read_text().replace('import WorldInboxView, { NewsFeedView } from "./world-view";','import WorldInboxView from "./world-view";',1);p.write_text(t)
           p=Path('src/app/media-center-view.tsx');t=p.read_text().replace('AtSign,Flame,MessageCircleMore','AtSign,MessageCircleMore',1);p.write_text(t)
+
+          p=Path('src/game-engine/league.ts');t=p.read_text()
+          old='function defaultNationality(competitionId:ProfessionalCompetitionId,index:number,rng:SeededRng){const home=competitionId.startsWith("BRA")?"Brasil":competitionId==="ENG1"?"Inglaterra":competitionId==="ESP1"?"Espanha":"França",foreign=["Argentina","Uruguai","Colômbia","Paraguai","Equador","Portugal","Espanha","França","Inglaterra","Alemanha","Países Baixos","Bélgica","Croácia","Marrocos","Senegal","Japão","Estados Unidos"];const localChance=competitionId.startsWith("BRA")?72:competitionId==="ENG1"?38:48;return rng.integer(1,100)<=localChance?home:foreign[(index+rng.integer(0,foreign.length-1))%foreign.length];}'
+          new='function defaultNationality(competitionId:ProfessionalCompetitionId,clubId:string,index:number){const rng=new SeededRng(`${competitionId}:${clubId}:nationality:${index}`),home=competitionId.startsWith("BRA")?"Brasil":competitionId==="ENG1"?"Inglaterra":competitionId==="ESP1"?"Espanha":"França",foreign=["Argentina","Uruguai","Colômbia","Paraguai","Equador","Portugal","Espanha","França","Inglaterra","Alemanha","Países Baixos","Bélgica","Croácia","Marrocos","Senegal","Japão","Estados Unidos"];const localChance=competitionId.startsWith("BRA")?72:competitionId==="ENG1"?38:48;return rng.integer(1,100)<=localChance?home:foreign[(index+rng.integer(0,foreign.length-1))%foreign.length];}'
+          if old not in t: raise SystemExit('defaultNationality target missing')
+          t=t.replace(old,new,1).replace('nationality:defaultNationality(competitionId,index,rng)','nationality:defaultNationality(competitionId,clubId,index)',1);p.write_text(t)
+
+          p=Path('src/game-engine/world-events.test.ts');t=p.read_text()
+          t=t.replace('import{createLivingWorld,pendingWorldEvents,resolveWorldEvent,worldAfterDay,worldAfterMatch}from"./world-events";','import{createLivingWorld,pendingWorldEvents,resolveWorldEvent,worldAfterDay,worldAfterMatch}from"./world-events";import{pendingMediaSessions}from"./media-world";',1)
+          t=t.replace('it("resultado gera coletiva e notícia contextual",()=>{const season=createSeason("world-match"),club=season.league.clubs[0];const world=worldAfterMatch(season.livingWorld,club,1,2,0);expect(world.news.some(n=>n.headline.includes("vence"))).toBe(true);expect(world.inbox.some(e=>e.kind==="Coletiva"&&!e.resolved)).toBe(true)});','it("resultado gera notícia contextual sem duplicar coletiva no inbox",()=>{const season=createSeason("world-match"),club=season.league.clubs[0];const world=worldAfterMatch(season.livingWorld,club,1,2,0);expect(world.news.some(n=>n.headline.includes("vence"))).toBe(true);expect(world.inbox.some(e=>e.kind==="Coletiva"&&!e.resolved)).toBe(false)});',1)
+          t=t.replace('expect(season.livingWorld.inbox.some(e=>e.kind==="Coletiva")).toBe(true)','expect(pendingMediaSessions(season.mediaWorld,season.competitionId).some(s=>s.format==="Coletiva pós-jogo")).toBe(true)',1)
+          p.write_text(t)
           PY
       - uses: actions/setup-node@v4
         with:
@@ -29,10 +42,10 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - name: Commit validated cleanup
+      - name: Commit validated fixes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src
-          git commit -m "fix: validar mídia, seleção e UI do pacote manager world"
+          git commit -m "fix: fechar regressões de mídia e determinismo do mercado"
           git push origin HEAD:feat/manager-world-media-board-ui
