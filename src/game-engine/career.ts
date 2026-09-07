@@ -46,15 +46,6 @@ function candidateClub(career:ManagerCareerState,league:LeagueWorld,seed:string,
   return rng.pick(shortlist);
 }
 function hasOpenCareerProcess(world:LivingWorldState){return world.inbox.some(event=>event.kind==="Carreira"&&!event.resolved&&event.choices.some(choice=>choice.careerAction&&choice.careerAction!=="ack-dismissal"));}
-function inviteForInterview(world:LivingWorldState,career:ManagerCareerState,club:LeagueClub,round:number){
-  const employed=career.status==="Empregado";
-  const next=addEvent(world,{id:`career-invite-${club.id}-r${round}-${world.sequence}`,kind:"Carreira",title:`${club.name} quer conversar com você`,body:employed?`A direção do ${club.name} acompanha seu trabalho e pediu autorização para uma conversa reservada sobre o cargo de treinador. Aceitar a entrevista pode gerar ruído no clube atual.`:`O ${club.name} abriu uma busca por treinador e incluiu seu nome na lista curta. A direção quer uma entrevista antes de decidir.`,round,unread:true,resolved:false,choices:[
-    {id:`career-interview-accept:${club.id}`,label:"Aceitar a entrevista",outcome:`Você aceitou conversar com o ${club.name}. O próximo passo é a entrevista com a direção.`,effect:{managerReputation:1,mediaPressure:employed?2:0},careerAction:"accept-interview",careerClubId:club.id},
-    {id:`career-interview-decline:${club.id}`,label:"Recusar a conversa",outcome:`Você agradeceu o interesse do ${club.name}, mas decidiu não seguir no processo.`,effect:{managerReputation:1},careerAction:"decline-interview",careerClubId:club.id},
-  ]});
-  return next;
-}
-
 export function careerAfterRound(career:ManagerCareerState,league:LeagueWorld,world:LivingWorldState,round:number,year:number,seed:string,result?:CareerRoundResult){
   const nextCareer:ManagerCareerState={...career,spells:career.spells.map(spell=>({...spell}))};
   let nextWorld=world;
@@ -76,11 +67,11 @@ export function careerAfterRound(career:ManagerCareerState,league:LeagueWorld,wo
   }
 
   if(!hasOpenCareerProcess(nextWorld)){
-    const spacing=nextCareer.status==="Sem clube"?1:5;
-    const canInvite=nextCareer.status==="Sem clube"?(nextCareer.lastDismissalRound===undefined||round>nextCareer.lastDismissalRound):(round>=6&&round%5===0);
+    const spacing=nextCareer.status==="Sem clube"?2:12;
+    const canInvite=nextCareer.status==="Sem clube"?(nextCareer.lastDismissalRound===undefined||round>nextCareer.lastDismissalRound):(round>=12&&round%12===0);
     if(canInvite&&(nextCareer.lastOpportunityRound===undefined||round-nextCareer.lastOpportunityRound>=spacing)){
       const candidate=candidateClub(nextCareer,league,seed,round);
-      if(candidate){nextWorld=inviteForInterview(nextWorld,nextCareer,candidate,round);nextCareer.lastOpportunityRound=round;}
+      if(candidate){nextCareer.offersReceived+=1;nextWorld=formalOffer(nextWorld,candidate,round);nextCareer.lastOpportunityRound=round;}
     }
   }
   return{career:nextCareer,world:nextWorld};
