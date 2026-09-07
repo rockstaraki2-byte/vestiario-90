@@ -2,8 +2,9 @@ import{BRASILEIRAO_2026_CLUBS}from"../brasileirao-2026/rosters";
 import{EUROPE_2026_COMPETITIONS,type EuropeCompetitionId}from"../europe-2026/top-leagues";
 import{EUROPE_LOWER_2026_COMPETITIONS,type EuropeLowerCompetitionId}from"../europe-2026/lower-leagues";
 import{BRAZIL_2026_EXPANDED_COMPETITIONS,type ExpandedClubRoster}from"./expanded-rosters";
+import{BRAZIL_SERIE_D_2026_CLUBS}from"./serie-d";
 
-export type BrazilProfessionalCompetitionId="BRA1"|"BRA2"|"BRA3";
+export type BrazilProfessionalCompetitionId="BRA1"|"BRA2"|"BRA3"|"BRA4";
 export type ProfessionalCompetitionId=BrazilProfessionalCompetitionId|EuropeCompetitionId|EuropeLowerCompetitionId;
 export type YouthCompetitionId="CB20"|"SPjr";
 export type GameCompetitionId=ProfessionalCompetitionId|YouthCompetitionId;
@@ -24,6 +25,7 @@ export const BRAZIL_2026_COMPETITIONS:CompetitionDefinition[]=[
  {id:"BRA1",name:"Campeonato Brasileiro Série A",shortName:"Série A",kind:"professional",country:"Brasil",season:2026,selectableAsCareer:true,startDate:"2026-01-28",roundCadenceDays:7,doubleRoundRobin:true,benchSize:12,maxSubstitutions:5,clubs:serieA},
  {id:"BRA2",name:"Campeonato Brasileiro Série B",shortName:"Série B",kind:"professional",country:"Brasil",season:2026,selectableAsCareer:true,startDate:"2026-03-21",roundCadenceDays:7,doubleRoundRobin:true,benchSize:12,maxSubstitutions:5,clubs:get("BRA2")},
  {id:"BRA3",name:"Campeonato Brasileiro Série C",shortName:"Série C",kind:"professional",country:"Brasil",season:2026,selectableAsCareer:true,startDate:"2026-04-04",roundCadenceDays:7,doubleRoundRobin:false,benchSize:12,maxSubstitutions:5,clubs:get("BRA3")},
+ {id:"BRA4",name:"Campeonato Brasileiro Série D",shortName:"Série D",kind:"professional",country:"Brasil",season:2026,selectableAsCareer:true,startDate:"2026-04-05",roundCadenceDays:7,doubleRoundRobin:false,benchSize:12,maxSubstitutions:5,clubs:BRAZIL_SERIE_D_2026_CLUBS},
  {id:"CB20",name:"Campeonato Brasileiro Sub-20",shortName:"Brasileiro Sub-20",kind:"youth",country:"Brasil",season:2026,selectableAsCareer:false,startDate:"2026-03-01",roundCadenceDays:7,doubleRoundRobin:false,benchSize:12,maxSubstitutions:5,clubs:get("CB20")},
  {id:"SPjr",name:"Copa São Paulo de Futebol Júnior",shortName:"Copinha",kind:"youth",country:"Brasil",season:2026,selectableAsCareer:false,startDate:"2026-01-02",roundCadenceDays:3,doubleRoundRobin:false,benchSize:12,maxSubstitutions:5,clubs:get("SPjr")},
 ];
