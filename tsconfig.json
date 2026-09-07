@@ -19,6 +19,7 @@
       }
     ],
     "paths": {
+      "@/game-engine/season": ["./src/game-engine/season-public.ts"],
       "@/*": ["./src/*"]
     }
   },
