@@ -2,6 +2,7 @@ import { SeededRng } from "./rng";
 import type { LeagueClub, LeaguePlayer, LeagueWorld } from "./league";
 import type { SeasonState } from "./season";
 import { applyArrivalImpact, applyDepartureImpact } from "./social";
+import { managerForClub, managerRecruitmentScore, type ClubManagerProfile } from "./club-ai";
 
 export type TransferOfferType="Compra"|"Empréstimo";
 export type TransferOfferStatus="Pendente"|"Aceita"|"Recusada"|"Concluída"|"Expirada";
@@ -10,7 +11,7 @@ export type TransferOffer={
   feeEur:number;salaryBrlMonthly:number;createdRound:number;expiresRound:number;status:TransferOfferStatus;
   message:string;
 };
-export type TransferRecord={id:string;playerName:string;fromClubId:string;toClubId:string;type:TransferOfferType;feeEur:number;round:number;year:number};
+export type TransferRecord={id:string;playerId?:string;playerName:string;fromClubId:string;toClubId:string;type:TransferOfferType;feeEur:number;round:number;year:number;managerName?:string;strategy?:string;reason?:string};
 export type MarketState={sequence:number;offers:TransferOffer[];history:TransferRecord[];freeAgents:LeaguePlayer[];lastProcessedRound?:number};
 export type MarketActionResult={state:SeasonState;message:string};
 
@@ -101,7 +102,7 @@ export function concludeAcceptedOffer(state:SeasonState,offerId:string):MarketAc
   const arrivalNote=applyArrivalImpact(buyer,player.id);
   const socialNote=buyer.id===state.selectedClubId?arrivalNote:seller.id===state.selectedClubId?departureNote:"";
   offer.status="Concluída";offer.message=`${player.name} é reforço do ${buyer.name}.${socialNote?` ${socialNote}`:""}`;
-  market.history.unshift({id:nextRecordId(market),playerName:player.name,fromClubId:seller.id,toClubId:buyer.id,type:offer.type,feeEur:offer.feeEur,round:state.currentRound,year:state.year});
+  market.history.unshift({id:nextRecordId(market),playerId:player.id,playerName:player.name,fromClubId:seller.id,toClubId:buyer.id,type:offer.type,feeEur:offer.feeEur,round:state.currentRound,year:state.year});
   const lineupIds=state.lineupIds.filter(id=>buyer.id===state.selectedClubId||id!==player.id);
   return{state:{...state,league,market,lineupIds},message:offer.message};
 }
@@ -110,6 +111,14 @@ export function respondToIncomingOffer(state:SeasonState,offerId:string,accept:b
   const {league,market}=withCopies(state),offer=market.offers.find(o=>o.id===offerId);if(!offer||offer.status!=="Pendente"||offer.sellerClubId!==state.selectedClubId)return{state,message:"Proposta não disponível."};
   if(!accept){offer.status="Recusada";offer.message="Você recusou a proposta.";return{state:{...state,league,market},message:offer.message};}
   offer.status="Aceita";const interim={...state,league,market};return concludeAcceptedOffer(interim,offer.id);
+}
+
+
+type SquadNeed={positions:string[];deficit:number;label:string};
+function managerNeed(manager:ClubManagerProfile|undefined,club:LeagueClub):SquadNeed{const groups:[string,string[],number][]=[["Gol",["GOL"],3],["Zaga",["ZAG"],4],["Laterais",["LD","LE"],4],["Meio",["VOL","MC","MEI"],6],["Pontas",["PE","PD"],4],["Ataque",["ATA"],3]],style=manager?.style;let best:SquadNeed={positions:["VOL","MC","MEI","PE","PD","ATA"],deficit:0,label:"profundidade"};for(const[label,positions,base]of groups){let desired=base;if(style==="Posse"&&label==="Meio")desired++;if(style==="Pressão alta"&&(label==="Pontas"||label==="Meio"))desired++;if(style==="Transição"&&(label==="Pontas"||label==="Ataque"))desired++;if(style==="Bloco baixo"&&(label==="Zaga"||label==="Meio"))desired++;if(manager?.formation==="4-4-2"&&label==="Ataque")desired++;const count=club.players.filter(p=>positions.includes(p.position)).length,deficit=desired-count;if(deficit>best.deficit)best={positions,deficit,label};}return best;}
+function processAiTransfers(state:SeasonState,league:LeagueWorld,market:MarketState,rng:SeededRng){const moved=new Set(market.history.filter(h=>h.year===state.year).map(h=>h.playerId).filter((id):id is string=>Boolean(id))),userId=state.selectedClubId,buyers=league.clubs.filter(c=>c.id!==userId),done=new Set<string>();let deals=0;const maxDeals=Math.max(1,Math.min(3,Math.ceil(league.clubs.length/8)));for(let pass=0;pass<buyers.length&&deals<maxDeals;pass++){const buyer=buyers[(pass+rng.integer(0,Math.max(0,buyers.length-1)))%buyers.length];if(done.has(buyer.id))continue;const manager=managerForClub(state.clubAi,buyer.id);if(rng.integer(1,100)>Math.min(88,18+(manager?.transferAggression??55)*.7))continue;const need=managerNeed(manager,buyer),wageSpend=clubWageSpend(buyer),candidates:{seller:LeagueClub;player:LeaguePlayer;score:number;fee:number}[]=[];for(const seller of league.clubs){if(seller.id===buyer.id||seller.id===userId)continue;for(const player of seller.players){const loan=player as LeaguePlayer&{loanReturnYear?:number};if(moved.has(player.id)||loan.loanReturnYear||!need.positions.includes(player.position)||player.injuryDays>18)continue;const depth=seller.players.filter(p=>p.position===player.position).length;if(depth<=2&&!player.transferListed&&!player.wantsToLeave)continue;const value=estimatedPlayerValue(player),fee=Math.round(value*(player.transferListed||player.wantsToLeave?rng.integer(88,105):rng.integer(100,119))/100/100_000)*100_000;if(fee>buyer.transferBudgetEur*.92)continue;const salary=Math.round(player.contract.salaryBrlMonthly*(1.06+rng.integer(0,10)/100)/5_000)*5_000;if(wageSpend+salary>buyer.wageBudgetBrlMonthly)continue;const score=managerRecruitmentScore(manager,player)+need.deficit*14+(player.transferListed?10:0)+(player.wantsToLeave?8:0)-fee/2_500_000;candidates.push({seller,player,score,fee});}}
+  const target=candidates.sort((a,b)=>b.score-a.score)[rng.integer(0,Math.min(2,Math.max(0,candidates.length-1)))];if(!target)continue;const index=target.seller.players.findIndex(p=>p.id===target.player.id);if(index<0)continue;const player=target.seller.players.splice(index,1)[0],salary=Math.round(player.contract.salaryBrlMonthly*(1.08+rng.integer(0,8)/100)/5_000)*5_000;buyer.players.push(player);buyer.transferBudgetEur=Math.max(0,buyer.transferBudgetEur-target.fee);target.seller.transferBudgetEur+=target.fee;player.contract={...player.contract,salaryBrlMonthly:salary,startYear:state.year,endYear:state.year+3};player.transferListed=false;player.wantsToLeave=false;player.happiness=Math.min(100,player.happiness+4);player.managerTrust=58;player.joinedClubYear=state.year;player.clubTrainedYears=0;player.associationTrained=false;moved.add(player.id);done.add(buyer.id);deals++;market.history.unshift({id:nextRecordId(market),playerId:player.id,playerName:player.name,fromClubId:target.seller.id,toClubId:buyer.id,type:"Compra",feeEur:target.fee,round:state.currentRound,year:state.year,managerName:manager?.managerName,strategy:manager?.style,reason:`${need.label}: contratação alinhada ao modelo ${manager?.style??"equilibrado"}.`});}
+  market.history=market.history.slice(0,220);
 }
 
 export function processMarketRound(state:SeasonState):SeasonState{
@@ -130,6 +139,7 @@ export function processMarketRound(state:SeasonState):SeasonState{
       market.offers.unshift({id:nextOfferId(market),type:rng.integer(1,100)<=12?"Empréstimo":"Compra",buyerClubId:buyer.id,sellerClubId:user.id,playerId:player.id,feeEur:fee,salaryBrlMonthly:Math.round(player.contract.salaryBrlMonthly*1.12/5_000)*5_000,createdRound:state.currentRound,expiresRound:state.currentRound+2,status:"Pendente",message:`${buyer.name} enviou uma proposta por ${player.name}.`});
     }
   }
+  processAiTransfers(state,league,market,rng);
   return{...state,league,market};
 }
 

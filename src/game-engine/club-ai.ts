@@ -1,5 +1,5 @@
 import { SeededRng } from "./rng";
-import type { LeagueWorld } from "./league";
+import type { LeaguePlayer, LeagueWorld, LeagueClub } from "./league";
 import type { Formation, MatchTactic, Mentality } from "./match";
 import { realManagerForClub } from "../data/real-managers-2026";
 
@@ -50,6 +50,11 @@ export function tacticForClub(state:ClubAiState|undefined,clubId:string):MatchTa
   return{formation:manager.formation,mentality:manager.mentality,pressing:manager.pressing,tempo:manager.tempo};
 }
 export function managerForClub(state:ClubAiState|undefined,clubId:string){return state?.managers.find(item=>item.clubId===clubId);}
+
+function stylePositionBonus(style:ManagerStyle,position:string){if(style==="Posse")return["VOL","MC","MEI","LD","LE"].includes(position)?12:0;if(style==="Pressão alta")return["MC","MEI","PE","PD","ATA"].includes(position)?13:0;if(style==="Transição")return["PE","PD","ATA","LD","LE"].includes(position)?14:0;if(style==="Bloco baixo")return["GOL","ZAG","VOL","LD","LE"].includes(position)?14:0;return 5;}
+export function managerRecruitmentScore(manager:ClubManagerProfile|undefined,player:LeaguePlayer){if(!manager)return player.overall*3+player.potential;const youth=(manager.youthTrust-50)*Math.max(-5,25-player.age)*.055,potential=(player.potential-player.overall)*(.7+manager.youthTrust/100),agePenalty=player.age>=31?(player.age-30)*(manager.youthTrust/14):0;return player.overall*3+potential+youth+stylePositionBonus(manager.style,player.position)-agePenalty;}
+function matchScore(manager:ClubManagerProfile|undefined,player:LeaguePlayer){const youth=manager?(manager.youthTrust-50)*(player.age<=22?.16:player.age>=30?-.08:0):0;return player.overall*4+player.condition*1.15-player.fatigue*1.25+player.form*5+(manager?stylePositionBonus(manager.style,player.position):0)+youth;}
+export function pickAiStartingXI(club:LeagueClub,state:ClubAiState|undefined){const manager=managerForClub(state,club.id),available=club.players.filter(p=>p.injuryDays===0&&p.suspensionMatches===0),used=new Set<string>(),chosen:LeaguePlayer[]=[],take=(positions:string[],count:number)=>{const pool=available.filter(p=>!used.has(p.id)&&positions.includes(p.position)).sort((a,b)=>matchScore(manager,b)-matchScore(manager,a)).slice(0,count);for(const p of pool){used.add(p.id);chosen.push(p);}};take(["GOL"],1);take(["ZAG"],2);take(["LD","LE"],2);if(manager?.formation==="4-4-2"){take(["VOL","MC","MEI","PE","PD"],4);take(["ATA","PE","PD"],2);}else if(manager?.formation==="4-3-3"){take(["VOL","MC","MEI"],3);take(["PE","PD","ATA","MEI"],3);}else{take(["VOL","MC"],2);take(["MEI","PE","PD","MC"],3);take(["ATA","PE","PD"],1);}for(const p of [...available].sort((a,b)=>matchScore(manager,b)-matchScore(manager,a))){if(chosen.length>=11)break;if(!used.has(p.id)){used.add(p.id);chosen.push(p);}}return chosen.slice(0,11);}
 
 export function processClubAiRound(state:ClubAiState,league:LeagueWorld,round:number,seed:string):ClubAiState{
   if(state.lastProcessedRound===round)return state;
