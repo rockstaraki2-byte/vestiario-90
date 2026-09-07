@@ -1,0 +1,109 @@
+
+> vestiario-90@0.1.0 test
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90m/home/runner/work/vestiario-90/vestiario-90[39m
+
+ [32m✓[39m src/game-engine/live-match.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m src/game-engine/sprint13.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1649[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 13 — Europa e evolução[2m > [22mcria convocação pré-jogo com titulares e banco conforme a liga [33m 713[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 13 — Europa e evolução[2m > [22mpersiste dados coletivos e individuais ao simular uma rodada [33m 920[2mms[22m[39m
+ [32m✓[39m src/game-engine/media-world.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m src/game-engine/real-world-calendar.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/game-engine/social.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 3871[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 7 — relações e grupos do vestiário[2m > [22mforma núcleos determinísticos que cobrem todo o elenco [33m 793[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 7 — relações e grupos do vestiário[2m > [22mconversa com atleta influente repercute nos companheiros [33m 796[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 7 — relações e grupos do vestiário[2m > [22mdeixar uma liderança saudável fora da partida mexe com seu núcleo [33m 838[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 7 — relações e grupos do vestiário[2m > [22msaída de jogador influente afeta aliados do vestiário [33m 747[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 7 — relações e grupos do vestiário[2m > [22mquímica entre os mesmos jogadores permanece estável [33m 694[2mms[22m[39m
+ [32m✓[39m src/game-engine/club-management.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 3139[2mms[22m[39m
+   [33m[2m✓[22m[39m club management[2m > [22mcria departamentos e oito jogadores de base para o clube [33m 759[2mms[22m[39m
+   [33m[2m✓[22m[39m club management[2m > [22mpermite pedir observação de atleta externo e entrega relatório em rodada futura [33m 608[2mms[22m[39m
+   [33m[2m✓[22m[39m club management[2m > [22mgera avaliação interna para jogador do próprio elenco [33m 770[2mms[22m[39m
+   [33m[2m✓[22m[39m club management[2m > [22mobserva e promove jogador da base para o profissional [33m 482[2mms[22m[39m
+   [33m[2m✓[22m[39m club management[2m > [22mdiretoria com confiança máxima aprova reforço de orçamento [33m 517[2mms[22m[39m
+ [32m✓[39m src/game-engine/market.test.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 7943[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mgera contratos e orçamentos para toda a liga [33m 936[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mlista e retira um jogador do mercado [33m 809[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mimpede transferência doméstica depois de 12 jogos [33m 699[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mregistra uma proposta enviada durante a janela [33m 689[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mrenovação nunca reduz salário nem duração [33m 746[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mdiretoria resolve proposta recebida sem decisão manual do treinador [33m 820[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mIA de mercado é determinística por rodada [33m 1450[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 6 — Mercado e contratos[2m > [22mtransferências manuais do save sobrevivem à virada da temporada quando o contrato segue vigente [33m 1789[2mms[22m[39m
+ [32m✓[39m src/game-engine/career.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/game-engine/world-crises.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 2505[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 8 — conflitos e mídia[2m > [22mmediação de conflito melhora os dois jogadores e repercute no núcleo [33m 879[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 8 — conflitos e mídia[2m > [22mambiente deteriorado pode gerar vazamento conflito ou repercussão social [33m 824[2mms[22m[39m
+   [33m[2m✓[22m[39m Sprint 8 — conflitos e mídia[2m > [22mlíder frustrado pode transformar derrota em crise de rede social [33m 800[2mms[22m[39m
+ [32m✓[39m src/game-engine/football-only-flow.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 1948[2mms[22m[39m
+   [33m[2m✓[22m[39m football-only flow[2m > [22mlimpa ruído antigo de saves sem apagar decisões de futebol [33m 1265[2mms[22m[39m
+   [33m[2m✓[22m[39m football-only flow[2m > [22mhook narrativo diário permanece silencioso [33m 682[2mms[22m[39m
+ [32m✓[39m src/game-engine/league.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 96[2mms[22m[39m
+ [32m✓[39m src/game-engine/live-match-performance.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+ [32m✓[39m src/game-engine/advanced-world.test.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 327[2mms[22m[39m
+   [33m[2m✓[22m[39m advanced world[2m > [22mnão gera eventos pessoais aleatórios e preserva histórico de temporadas [33m 315[2mms[22m[39m
+ [32m✓[39m src/game-engine/statistics-scope.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m src/game-engine/world-events.test.ts [2m([22m[2m5 tests[22m[2m)[22m[33m 3854[2mms[22m[39m
+   [33m[2m✓[22m[39m Mundo Vivo[2m > [22muma decisão altera métricas e gera repercussão [33m 877[2mms[22m[39m
+   [33m[2m✓[22m[39m Mundo Vivo[2m > [22mresultado gera notícia contextual sem duplicar coletiva no inbox [33m 855[2mms[22m[39m
+   [33m[2m✓[22m[39m Mundo Vivo[2m > [22mavançar o mesmo dia lógico não duplica evento da rodada [33m 884[2mms[22m[39m
+   [33m[2m✓[22m[39m Mundo Vivo[2m > [22mo loop da temporada persiste repercussão após uma rodada [33m 1234[2mms[22m[39m
+ [32m✓[39m src/game-engine/international-market.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 1904[2mms[22m[39m
+   [33m[2m✓[22m[39m international market[2m > [22mlista jogadores reais de outras ligas [33m 951[2mms[22m[39m
+   [33m[2m✓[22m[39m international market[2m > [22mregistra uma proposta internacional do usuário [33m 948[2mms[22m[39m
+ [32m✓[39m src/game-engine/world-competitions.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 800[2mms[22m[39m
+   [33m[2m✓[22m[39m world competitions[2m > [22mcria copas domésticas e continentais para o país ativo [33m 303[2mms[22m[39m
+   [33m[2m✓[22m[39m world competitions[2m > [22mavança mata-matas e registra campeões [33m 334[2mms[22m[39m
+ [32m✓[39m src/game-engine/football-depth.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/game-engine/tactics-layout.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/game-engine/media-context.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m src/game-engine/competitions2.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 316[2mms[22m[39m
+   [33m[2m✓[22m[39m competitions 2.0[2m > [22mnão auto-simula partida do usuário e aceita resultado jogado [33m 315[2mms[22m[39m
+ [32m✓[39m src/game-engine/people.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 3335[2mms[22m[39m
+   [33m[2m✓[22m[39m pessoas e vestiário[2m > [22mconversa altera confiança e satisfação [33m 1014[2mms[22m[39m
+   [33m[2m✓[22m[39m pessoas e vestiário[2m > [22mpromessa de minutos é criada e pode ser cumprida [33m 1733[2mms[22m[39m
+   [33m[2m✓[22m[39m pessoas e vestiário[2m > [22mtitular sem minutos desenvolve preocupação [33m 587[2mms[22m[39m
+ [32m✓[39m src/game-engine/club-ai.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/game-engine/events/engine.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/game-engine/narrative.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/game-engine/live-match2.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m src/game-engine/match.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/game-engine/rng.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [31m❯[39m src/game-engine/season.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 16984[2mms[22m[39m
+   [33m[2m✓[22m[39m season engine[2m > [22mconclui uma rodada e atualiza toda a tabela [33m 1075[2mms[22m[39m
+   [33m[2m✓[22m[39m season engine[2m > [22mé determinística para a mesma seed [33m 1979[2mms[22m[39m
+   [33m[2m✓[22m[39m season engine[2m > [22maceita o resultado jogado de forma interativa [33m 772[2mms[22m[39m
+   [33m[2m✓[22m[39m season engine[2m > [22mtroca o clube controlado ao aceitar uma proposta de emprego [33m 779[2mms[22m[39m
+[31m   [31m×[31m season engine[2m > [22mfecha 38 rodadas e permite virar a temporada[39m[33m 12377[2mms[22m[39m
+[31m     → Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".[39m
+ [32m✓[39m src/game-engine/save.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/game-engine/board-contact.test.ts [2m([22m[2m1 test[22m[2m)[22m[33m 532[2mms[22m[39m
+   [33m[2m✓[22m[39m board transfer contact[2m > [22mrecords viability before contact [33m 531[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/game-engine/season.test.ts[2m > [22mseason engine[2m > [22mfecha 38 rodadas e permite virar a temporada
+[31m[1mError[22m: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".[39m
+[36m [2m❯[22m src/game-engine/season.test.ts:[2m34:3[22m[39m
+    [90m 32| [39m    expect(result.state.lineupIds.every(id=>target.players.some(player…
+    [90m 33| [39m  })[33m;[39m
+    [90m 34| [39m  [34mit[39m([32m"fecha 38 rodadas e permite virar a temporada"[39m[33m,[39m()[33m=>[39m{
+    [90m   | [39m  [31m^[39m
+    [90m 35| [39m    [35mlet[39m season[33m=[39m[34mcreateSeason[39m([32m"carreira"[39m[33m,[39m[34m2026[39m)[33m;[39m
+    [90m 36| [39m    [35mfor[39m([35mlet[39m round[33m=[39m[34m1[39m[33m;[39mround[33m<=[39m[34m38[39m[33m;[39mround[33m++[39m)season[33m=[39m[34mplayCurrentRound[39m(season)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m30 passed[39m[22m[90m (31)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m109 passed[39m[22m[90m (110)[39m
+[2m   Start at [22m 21:00:36
+[2m   Duration [22m 21.82s[2m (transform 1.42s, setup 0ms, collect 7.34s, tests 49.46s, environment 5ms, prepare 2.68s)[22m
+
+
+::error file=/home/runner/work/vestiario-90/vestiario-90/src/game-engine/season.test.ts,title=src/game-engine/season.test.ts > season engine > fecha 38 rodadas e permite virar a temporada,line=34,column=3::Error: Test timed out in 5000ms.%0AIf this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".%0A ❯ src/game-engine/season.test.ts:34:3%0A%0A
+exit=1

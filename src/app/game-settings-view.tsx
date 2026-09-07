@@ -1,15 +1,15 @@
 "use client";
-import { BadgeCheck, Gauge, Save, Settings, ShieldCheck, SlidersHorizontal, UsersRound } from "lucide-react";
+import { BadgeCheck, Download, Gauge, Save, Settings, SlidersHorizontal, Upload, UsersRound } from "lucide-react";
 import type { GamePreferences, LandingScreen, MatchSpeedPreference } from "@/game-engine/game-preferences";
 import styles from "./game-settings-view.module.css";
 
-type Props={preferences:GamePreferences;onChange:(next:GamePreferences)=>void;onSaveNow:()=>void};
+type Props={preferences:GamePreferences;onChange:(next:GamePreferences)=>void;onSaveNow:()=>void;onExport:()=>void;onImport:(value:unknown)=>void};
 const speedLabels:Record<MatchSpeedPreference,string>={normal:"Normal",fast:"Rápido",very_fast:"Muito rápido"};
 const staff=["Treinador","Adjunto"] as const;
 const football=["Treinador","Diretor de futebol"] as const;
 const youth=["Treinador","Responsável pela base"] as const;
 
-export default function GameSettingsView({preferences,onChange,onSaveNow}:Props){
+export default function GameSettingsView({preferences,onChange,onSaveNow,onExport,onImport}:Props){
  const setResponsibility=<K extends keyof GamePreferences["responsibilities"]>(key:K,value:GamePreferences["responsibilities"][K])=>onChange({...preferences,responsibilities:{...preferences.responsibilities,[key]:value}});
  const setMatch=<K extends keyof GamePreferences["match"]>(key:K,value:GamePreferences["match"][K])=>onChange({...preferences,match:{...preferences.match,[key]:value}});
  const setGeneral=<K extends keyof GamePreferences["general"]>(key:K,value:GamePreferences["general"][K])=>onChange({...preferences,general:{...preferences.general,[key]:value}});
@@ -37,13 +37,13 @@ export default function GameSettingsView({preferences,onChange,onSaveNow}:Props)
    </section>
 
    <section className={styles.panel}><header><SlidersHorizontal/><div><b>GERAL DO SAVE</b><small>Comportamento da interface e persistência desta carreira.</small></div></header>
-    <label className={styles.label}>TELA AO CARREGAR O SAVE</label><select className={styles.select} value={preferences.general.landingScreen} onChange={e=>setGeneral("landingScreen",e.target.value as LandingScreen)}>{(["Visão geral","Caixa de entrada","Calendário","Clube"] as LandingScreen[]).map(item=><option key={item}>{item}</option>)}</select>
+    <label className={styles.label}>TELA AO CARREGAR O SAVE</label><select className={styles.select} value={preferences.general.landingScreen} onChange={e=>setGeneral("landingScreen",e.target.value as LandingScreen)}>{(["Visão geral","Caixa de entrada","Calendário","Clube","Departamento"] as LandingScreen[]).map(item=><option key={item}>{item}</option>)}</select>
     <Toggle title="Autosave" detail="Salva automaticamente a carreira após decisões e avanços. Se desligado, use Salvar agora." checked={preferences.general.autoSave} onChange={v=>setGeneral("autoSave",v)}/>
     <Toggle title="Abrir decisões importantes" detail="Ao avançar o dia, abre automaticamente Diretoria/Caixa de entrada quando houver decisão pendente." checked={preferences.general.autoOpenDecisions} onChange={v=>setGeneral("autoOpenDecisions",v)}/>
-    <Toggle title="Abrir coletivas pendentes" detail="Quando você é responsável pelas entrevistas, abre a Central de Mídia automaticamente no dia do jogo." checked={preferences.general.autoOpenPressConferences} onChange={v=>setGeneral("autoOpenPressConferences",v)}/>
+    <Toggle title="Abrir coletivas pendentes" detail="Quando você é responsável pelas entrevistas, abre a Central de Mídia automaticamente no dia do jogo." checked={preferences.general.autoOpenPressConferences} onChange={v=>setGeneral("autoOpenPressConferences",v)}/><Toggle title="Confirmar decisões irreversíveis" detail="Pede confirmação antes de importar outro save, sair da seleção ou iniciar a temporada seguinte." checked={preferences.general.confirmIrreversible} onChange={v=>setGeneral("confirmIrreversible",v)}/>
    </section>
   </div>
-  <section className={styles.saveBar}><div><BadgeCheck/><span><b>Configuração por carreira</b><small>As mudanças desta tela não alteram outros saves.</small></span></div><button onClick={onSaveNow}><Save/> SALVAR AGORA</button></section>
+  <section className={styles.saveBar}><div><BadgeCheck/><span><b>Configuração por carreira</b><small>As mudanças desta tela não alteram outros saves.</small></span></div><div className={styles.portable}><button onClick={onExport}><Download/> EXPORTAR SAVE</button><label><Upload/> IMPORTAR SAVE<input type="file" accept="application/json,.json" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{onImport(JSON.parse(await file.text()));}catch{window.alert("Arquivo de save inválido.");}e.currentTarget.value=""}}/></label><button onClick={onSaveNow}><Save/> SALVAR AGORA</button></div></section>
  </div>;
 }
 
