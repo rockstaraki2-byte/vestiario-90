@@ -1,0 +1,181 @@
+name: Apply written press conference upgrade
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/apply-written-press-conferences.yml']
+permissions:
+  contents: write
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add deterministic media response interpreter
+        run: |
+          cat > src/game-engine/media-response-interpreter.ts <<'EOF'
+          export type MediaTone="Muito negativa"|"Negativa"|"Neutra"|"Positiva"|"Muito positiva";
+          export type MediaTarget="Treinador"|"Elenco"|"Arbitragem"|"Diretoria"|"Adversário"|"Geral";
+          export type MediaStance="Assumir responsabilidade"|"Proteger"|"Cobrar"|"Elogiar"|"Provocar"|"Culpar"|"Prudente";
+          export type MediaConfidence="Baixa"|"Normal"|"Alta";
+          export type MediaRisk="Baixo"|"Moderado"|"Alto";
+          export type InterpretedMediaEffect={mediaPressure?:number;fanSupport?:number;managerReputation?:number;boardConfidence?:number;respect?:number;access?:number;tension?:number;fanMood?:number};
+          export type MediaResponseAnalysis={tone:MediaTone;target:MediaTarget;stance:MediaStance;confidence:MediaConfidence;risk:MediaRisk;effect:InterpretedMediaEffect;squadMoraleDelta:number;score:number;summary:string};
+
+          const normalize=(value:string)=>value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9\s-]/g," ").replace(/\s+/g," ").trim();
+          const has=(text:string,items:string[])=>items.some(item=>text.includes(item));
+          const count=(text:string,items:string[])=>items.reduce((sum,item)=>sum+(text.includes(item)?1:0),0);
+          const cap=(value:number,min=-5,max=5)=>Math.max(min,Math.min(max,value));
+
+          const POSITIVE=["confio","confianca","acredito","orgulho","orgulhoso","bom trabalho","muito bem","excelente","evoluindo","crescendo","fortes","preparados","mereceu","merecemos","parabens","feliz","satisfeito","positivo","vamos vencer","vamos ganhar","capazes"];
+          const NEGATIVE=["ruim","mal","pessimo","horrivel","fraco","fraca","inaceitavel","vergonha","decepcao","decepcionante","preocupante","erro","erros","falhou","falhamos","culpa","perdemos","inferior","desastre","inadmissivel"];
+          const STRONG_POS=["excelente","fantastico","perfeito","muito orgulho","totalmente confiante","certeza que vamos","vamos ganhar"];
+          const STRONG_NEG=["vergonha","desastre","pessimo","horrivel","inaceitavel","inadmissivel","ridiculo","incompetente"];
+          const RESPONSIBILITY=["responsabilidade e minha","responsabilidade eh minha","eu assumo","assumo a responsabilidade","culpa e minha","culpa foi minha","eu errei","minha decisao","minhas escolhas"];
+          const PROTECT=["protejo","proteger","confio no grupo","confio no elenco","estamos juntos","grupo unido","nao vou expor","nao vou culpar","responsabilidade minha","acredito nos jogadores","apoio aos jogadores"];
+          const DEMAND=["precisamos melhorar","tem que melhorar","precisa melhorar","vou cobrar","cobrar mais","exigencia","mais intensidade","mais entrega","nao entregou","nao entregaram","temos que reagir","precisa reagir"];
+          const PRAISE=["parabens","elogio","orgulho","jogou muito","foi excelente","foi decisivo","mereceu","grande partida","muito bem"];
+          const PROVOKE=["eles que se preocupem","nao temos medo","favorito e a gente","somos melhores","vamos atropelar","vao sofrer","quero ver parar","eles falam muito"];
+          const BLAME=["culpa dos jogadores","culpa do jogador","jogadores erraram","jogador errou","nao entregaram","arbitro decidiu","arbitragem decidiu","diretoria errou","diretoria falhou","culpa da diretoria","culpa do arbitro"];
+          const CONFIDENT=["tenho certeza","certeza","sem duvida","vamos ganhar","vamos vencer","confio muito","total confiança","estamos preparados","somos capazes"];
+          const LOW_CONF=["nao sei","talvez","vamos ver","dificil dizer","incerto","preocupado","preocupacao","nao tenho certeza"];
+          const HIGH_RISK=["roubo","roubado","vergonha","incompetente","ridiculo","arbitro nos prejudicou","arbitragem nos prejudicou","diretoria incompetente","jogador nao serve","jogadores nao servem","vamos atropelar"];
+
+          export function interpretMediaResponse(question:string,response:string):MediaResponseAnalysis{
+            const text=normalize(response),q=normalize(question);
+            let sentiment=count(text,POSITIVE)*2-count(text,NEGATIVE)*2+count(text,STRONG_POS)*2-count(text,STRONG_NEG)*2;
+            if(has(text,["nao fomos mal","nao jogamos mal","nao foi ruim"]))sentiment+=2;
+            if(has(text,["nao foi bom","nao jogamos bem","nao gostei"]))sentiment-=2;
+            const tone:MediaTone=sentiment>=6?"Muito positiva":sentiment>=2?"Positiva":sentiment<=-6?"Muito negativa":sentiment<=-2?"Negativa":"Neutra";
+
+            let target:MediaTarget="Geral";
+            if(has(text,["arbitro","arbitragem","juiz","var"]))target="Arbitragem";
+            else if(has(text,["diretoria","presidente","gestao","clube precisa me dar"]))target="Diretoria";
+            else if(has(text,["adversario","rival","eles","outro time"]))target="Adversário";
+            else if(has(text,["elenco","grupo","jogadores","jogador","vestiario","equipe","time"]))target="Elenco";
+            else if(has(text,["eu ","minha ","meu trabalho","minhas escolhas","responsabilidade"]))target="Treinador";
+
+            let stance:MediaStance="Prudente";
+            if(has(text,BLAME))stance="Culpar";
+            else if(has(text,RESPONSIBILITY))stance="Assumir responsabilidade";
+            else if(has(text,PROTECT))stance="Proteger";
+            else if(has(text,PROVOKE))stance="Provocar";
+            else if(has(text,PRAISE))stance="Elogiar";
+            else if(has(text,DEMAND))stance="Cobrar";
+
+            const confidence:MediaConfidence=has(text,CONFIDENT)?"Alta":has(text,LOW_CONF)?"Baixa":"Normal";
+            let riskPoints=count(text,HIGH_RISK)*2+(stance==="Provocar"?2:0)+(stance==="Culpar"?2:0)+(target==="Diretoria"&&sentiment<0?2:0)+(target==="Arbitragem"&&sentiment<0?1:0);
+            if(response.trim().length>320)riskPoints+=1;
+            const risk:MediaRisk=riskPoints>=4?"Alto":riskPoints>=2?"Moderado":"Baixo";
+
+            const effect:InterpretedMediaEffect={};
+            let squadMoraleDelta=0,score=0;
+            if(tone==="Muito positiva"){effect.fanSupport=2;effect.managerReputation=1;effect.mediaPressure=-1;score+=2;}
+            else if(tone==="Positiva"){effect.fanSupport=1;effect.mediaPressure=-1;score+=1;}
+            else if(tone==="Negativa"){effect.mediaPressure=2;effect.fanSupport=-1;score-=1;}
+            else if(tone==="Muito negativa"){effect.mediaPressure=4;effect.fanSupport=-2;effect.managerReputation=-1;score-=3;}
+
+            if(stance==="Assumir responsabilidade"){effect.respect=(effect.respect??0)+3;effect.tension=(effect.tension??0)-1;effect.boardConfidence=(effect.boardConfidence??0)+1;squadMoraleDelta+=1;score+=3;}
+            if(stance==="Proteger"){effect.respect=(effect.respect??0)+2;effect.access=(effect.access??0)+1;effect.tension=(effect.tension??0)-2;effect.fanMood=(effect.fanMood??0)+1;squadMoraleDelta+=1;score+=2;}
+            if(stance==="Cobrar"){effect.respect=(effect.respect??0)+1;effect.tension=(effect.tension??0)+2;effect.mediaPressure=(effect.mediaPressure??0)+1;squadMoraleDelta-=1;}
+            if(stance==="Elogiar"){effect.access=(effect.access??0)+2;effect.respect=(effect.respect??0)+1;effect.fanSupport=(effect.fanSupport??0)+1;squadMoraleDelta+=1;score+=2;}
+            if(stance==="Provocar"){effect.fanSupport=(effect.fanSupport??0)+2;effect.tension=(effect.tension??0)+4;effect.mediaPressure=(effect.mediaPressure??0)+2;effect.managerReputation=(effect.managerReputation??0)+1;score-=1;}
+            if(stance==="Culpar"){effect.tension=(effect.tension??0)+4;effect.mediaPressure=(effect.mediaPressure??0)+3;effect.managerReputation=(effect.managerReputation??0)-1;squadMoraleDelta-=2;score-=3;}
+
+            if(target==="Diretoria"&&sentiment<0){effect.boardConfidence=(effect.boardConfidence??0)-3;effect.mediaPressure=(effect.mediaPressure??0)+2;}
+            if(target==="Arbitragem"&&sentiment<0){effect.mediaPressure=(effect.mediaPressure??0)+2;effect.fanSupport=(effect.fanSupport??0)+1;effect.tension=(effect.tension??0)+2;}
+            if(target==="Adversário"&&stance==="Elogiar"){effect.respect=(effect.respect??0)+2;}
+            if(target==="Elenco"&&sentiment<=-2&&stance!=="Assumir responsabilidade"&&stance!=="Proteger")squadMoraleDelta-=1;
+            if(target==="Elenco"&&sentiment>=2)squadMoraleDelta+=1;
+            if(confidence==="Alta"){effect.managerReputation=(effect.managerReputation??0)+1;effect.boardConfidence=(effect.boardConfidence??0)+1;score+=1;}
+            if(confidence==="Baixa"){effect.mediaPressure=(effect.mediaPressure??0)+1;effect.boardConfidence=(effect.boardConfidence??0)-1;score-=1;}
+            if(risk==="Alto"){effect.mediaPressure=(effect.mediaPressure??0)+2;effect.tension=(effect.tension??0)+2;score-=2;}
+            else if(risk==="Moderado")effect.mediaPressure=(effect.mediaPressure??0)+1;
+
+            for(const key of Object.keys(effect) as (keyof InterpretedMediaEffect)[]){const value=effect[key];if(typeof value==="number")effect[key]=cap(value) as never;}
+            squadMoraleDelta=cap(squadMoraleDelta,-3,3);
+            const contextHint=q.includes("expul")&&target==="Elenco"?" A fala sobre disciplina ganhou peso extra.":"";
+            const summary=`A imprensa interpretou sua resposta como ${tone.toLowerCase()}, com postura de ${stance.toLowerCase()}, foco em ${target.toLowerCase()}, confiança ${confidence.toLowerCase()} e risco ${risk.toLowerCase()}.${contextHint}`;
+            return{tone,target,stance,confidence,risk,effect,squadMoraleDelta,score,summary};
+          }
+          EOF
+      - name: Wire free-text answer engine
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/game-engine/media-world.ts')
+          s=p.read_text()
+          imp='import { interpretMediaResponse, type MediaResponseAnalysis } from "./media-response-interpreter";\n'
+          if imp not in s:
+              anchor='import { mediaProfileById, mediaProfilesForCompetition, SOCIAL_PROFILES, type MediaProfile, type SocialPlatform } from "./media-realism";\n'
+              s=s.replace(anchor,anchor+imp)
+          fn='''\nexport function answerMediaTextSession(value:MediaWorldState|undefined,competitionId:ProfessionalCompetitionId,sessionId:string,response:string):MediaChoiceResult&{interpretation?:MediaResponseAnalysis}{\n const state=hydrateMediaWorld(value,competitionId),index=state.sessions.findIndex(item=>item.id===sessionId),clean=response.trim();\n if(index<0)return{mediaWorld:state,effect:{},message:"Coletiva não encontrada.",completed:false};\n if(clean.length<8)return{mediaWorld:state,effect:{},message:"Desenvolva um pouco mais sua resposta antes de enviá-la.",completed:false};\n const session={...state.sessions[index],questions:state.sessions[index].questions.map(question=>({...question,choices:question.choices.map(choice=>({...choice,effect:{...choice.effect}}))})),transcript:[...state.sessions[index].transcript]};\n if(session.status==="Concluída")return{mediaWorld:state,effect:{},message:"Esta coletiva já foi concluída.",completed:true};\n const question=session.questions[session.questionIndex];if(!question)return{mediaWorld:state,effect:{},message:"Pergunta não encontrada.",completed:false};\n const interpretation=interpretMediaResponse(question.prompt,clean),effect=interpretation.effect as MediaChoiceEffect,profile=mediaProfileById(session.profileId),relation={...(state.relations[session.profileId]??relationFor(profile!))};\n relation.respect=clamp(relation.respect+(effect.respect??0));relation.access=clamp(relation.access+(effect.access??0));relation.tension=clamp(relation.tension+(effect.tension??0));relation.interactions++;relation.lastRound=session.round;relation.lastOutcome=interpretation.summary;\n session.transcript.push(`${profile?.journalist??profile?.outlet??"Imprensa"}: ${question.prompt}`,`Treinador: ${clean}`,`Leitura pública: ${interpretation.summary}`);session.score+=interpretation.score;session.questionIndex++;\n const completed=session.questionIndex>=session.questions.length;if(completed)session.status="Concluída";const sessions=[...state.sessions];sessions[index]=session;let mediaWorld={...state,relations:{...state.relations,[session.profileId]:relation},sessions};if(effect.fanMood)mediaWorld=shiftFans(mediaWorld,effect.fanMood,"declaração pública");\n const name=profile?.journalist??profile?.outlet??"a imprensa",message=completed?`Coletiva com ${name} concluída. ${interpretation.summary}`:`${interpretation.summary} ${name} tem mais uma pergunta.`;return{mediaWorld,effect,message,completed,interpretation};\n}\n'''
+          marker='export function pendingMediaSessions'
+          if 'export function answerMediaTextSession' not in s:
+              s=s.replace(marker,fn+'\n'+marker)
+          p.write_text(s)
+          PY
+      - name: Apply response consequences to season
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/game-engine/season.ts')
+          s=p.read_text()
+          s=s.replace('import { answerMediaSession, createMediaWorld, hydrateMediaWorld, mediaAfterMatch, mediaBeforeMatch, pendingMediaSessions, type MediaMatchContext, type MediaWorldState } from "./media-world";', 'import { answerMediaSession, answerMediaTextSession, createMediaWorld, hydrateMediaWorld, mediaAfterMatch, mediaBeforeMatch, pendingMediaSessions, type MediaMatchContext, type MediaWorldState } from "./media-world";')
+          marker='export function resolveMediaSessionChoice(state:SeasonState,sessionId:string,choiceId:string){\n const result=answerMediaSession(state.mediaWorld,state.competitionId,sessionId,choiceId),effect=result.effect,clamp=(value:number)=>Math.max(0,Math.min(100,Math.round(value))),world={...state.livingWorld};\n world.mediaPressure=clamp(world.mediaPressure+(effect.mediaPressure??0));world.fanSupport=clamp(world.fanSupport+(effect.fanSupport??0));world.managerReputation=clamp(world.managerReputation+(effect.managerReputation??0));world.boardConfidence=clamp(world.boardConfidence+(effect.boardConfidence??0));\n return{state:{...state,livingWorld:world,mediaWorld:result.mediaWorld},message:result.message};\n}\n'
+          addition='''\n\nexport function resolveMediaSessionText(state:SeasonState,sessionId:string,response:string){\n const result=answerMediaTextSession(state.mediaWorld,state.competitionId,sessionId,response),effect=result.effect,clamp=(value:number)=>Math.max(0,Math.min(100,Math.round(value))),world={...state.livingWorld},league=cloneLeague(state.league),club=league.clubs.find(c=>c.id===state.selectedClubId)??league.clubs[0];\n world.mediaPressure=clamp(world.mediaPressure+(effect.mediaPressure??0));world.fanSupport=clamp(world.fanSupport+(effect.fanSupport??0));world.managerReputation=clamp(world.managerReputation+(effect.managerReputation??0));world.boardConfidence=clamp(world.boardConfidence+(effect.boardConfidence??0));\n const analysis=result.interpretation;if(analysis){const base=analysis.squadMoraleDelta;if(base)for(const player of club.players)player.morale=clamp(player.morale+base);const norm=(value:string)=>value.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase(),spoken=norm(response);for(const player of club.players){const full=norm(player.name),parts=full.split(/\\s+/).filter(part=>part.length>=4),mentioned=spoken.includes(full)||parts.some(part=>spoken.includes(part));if(!mentioned)continue;const personal=analysis.stance==="Elogiar"||analysis.tone==="Muito positiva"?2:analysis.stance==="Culpar"||analysis.tone==="Muito negativa"?-2:analysis.stance==="Cobrar"?-1:0;if(personal)player.morale=clamp(player.morale+personal);}}\n return{state:{...state,league,livingWorld:world,mediaWorld:result.mediaWorld},message:result.message};\n}\n'''
+          if 'export function resolveMediaSessionText' not in s:
+              if marker not in s: raise SystemExit('resolveMediaSessionChoice anchor not found')
+              s=s.replace(marker,marker+addition)
+          p.write_text(s)
+          PY
+      - name: Replace press conference choices with written answers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/app/media-center-view.tsx')
+          s=p.read_text()
+          s=s.replace('import{AtSign,MessageCircleMore,Mic2,Newspaper,Radio,ShieldCheck,UsersRound}from"lucide-react";', 'import{AtSign,MessageCircleMore,Mic2,Newspaper,Radio,Send,ShieldCheck,UsersRound}from"lucide-react";')
+          s=s.replace('export default function MediaCenterView({season,onAnswer}:{season:SeasonState;onAnswer:(sessionId:string,choiceId:string)=>void}){', 'export default function MediaCenterView({season,onAnswer}:{season:SeasonState;onAnswer:(sessionId:string,text:string)=>void}){')
+          old='const[tab,setTab]=useState<Tab>("radar"),world=season.livingWorld,club=season.league.clubs.find(c=>c.id===season.selectedClubId)??season.league.clubs[0],media=hydrateMediaWorld(season.mediaWorld,season.competitionId),profiles=mediaProfilesForCompetition(season.competitionId),open=pendingMediaSessions(media,season.competitionId),sentiment=socialSentiment(world.fanSupport,world.mediaPressure),socialNews=world.news.filter(item=>/social|instagram|threads|tiktok|youtube|\\bx\\b/i.test(item.source)),pressNews=world.news.filter(item=>!socialNews.includes(item)),completed=media.sessions.filter(item=>item.status==="Concluída").slice(0,8);'
+          new='const[tab,setTab]=useState<Tab>("radar"),[drafts,setDrafts]=useState<Record<string,string>>({}),world=season.livingWorld,club=season.league.clubs.find(c=>c.id===season.selectedClubId)??season.league.clubs[0],media=hydrateMediaWorld(season.mediaWorld,season.competitionId),profiles=mediaProfilesForCompetition(season.competitionId),open=pendingMediaSessions(media,season.competitionId),sentiment=socialSentiment(world.fanSupport,world.mediaPressure),socialNews=world.news.filter(item=>/social|instagram|threads|tiktok|youtube|\\bx\\b/i.test(item.source)),pressNews=world.news.filter(item=>!socialNews.includes(item)),completed=media.sessions.filter(item=>item.status==="Concluída").slice(0,8);'
+          if old not in s: raise SystemExit('state anchor not found')
+          s=s.replace(old,new)
+          oldmap='open.map(session=>{const profile=mediaProfileById(session.profileId),question=session.questions[session.questionIndex];return <section'
+          newmap='open.map(session=>{const profile=mediaProfileById(session.profileId),question=session.questions[session.questionIndex],draftKey=`${session.id}:${session.questionIndex}`,draft=drafts[draftKey]??"";return <section'
+          if oldmap not in s: raise SystemExit('map anchor not found')
+          s=s.replace(oldmap,newmap)
+          oldanswers='<div className={styles.answers}>{question?.choices.map(choice=><button key={choice.id} onClick={()=>onAnswer(session.id,choice.id)}><span>{choice.label}</span><small>{choice.answer}</small></button>)}</div>'
+          newanswers='<form className={styles.writtenAnswer} onSubmit={event=>{event.preventDefault();const text=draft.trim();if(text.length<8)return;onAnswer(session.id,text);setDrafts(prev=>({...prev,[draftKey]:""}))}}><textarea aria-label="Sua resposta à imprensa" rows={5} maxLength={600} value={draft} onChange={event=>setDrafts(prev=>({...prev,[draftKey]:event.target.value}))} placeholder="Escreva sua resposta como falaria na coletiva..."/><div><small>{draft.length}/600 • O jogo interpreta tom, alvo, postura, confiança e risco.</small><button type="submit" disabled={draft.trim().length<8}><Send size={15}/> RESPONDER</button></div></form>'
+          if oldanswers not in s: raise SystemExit('answers anchor not found')
+          s=s.replace(oldanswers,newanswers)
+          p.write_text(s)
+          PY
+      - name: Style written answer composer
+        run: |
+          cat >> src/app/media-center.module.css <<'EOF'
+          .writtenAnswer{display:grid;gap:10px;padding:12px 22px 22px}.writtenAnswer textarea{width:100%;resize:vertical;min-height:118px;border:1px solid #d8e0e9;border-radius:13px;background:#f8fafc;color:#17202e;padding:14px 15px;font:inherit;font-size:14px;line-height:1.5;outline:none}.writtenAnswer textarea:focus{border-color:#17202e;background:#fff;box-shadow:0 0 0 3px #17202e12}.writtenAnswer>div{display:flex;align-items:center;justify-content:space-between;gap:12px}.writtenAnswer small{font-size:10px;color:#7b8798}.writtenAnswer button{border:0;border-radius:10px;background:#17202e;color:#fff;padding:11px 15px;display:flex;align-items:center;justify-content:center;gap:7px;font-size:10px;font-weight:900;cursor:pointer}.writtenAnswer button:disabled{opacity:.35;cursor:not-allowed}@media(max-width:640px){.writtenAnswer>div{align-items:stretch;flex-direction:column}.writtenAnswer button{min-height:44px}}
+          EOF
+      - name: Wire dashboard handler
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/app/page.tsx')
+          s=p.read_text()
+          s=s.replace('resolveMediaSessionChoice, resolveSeasonWorldChoice', 'resolveMediaSessionText, resolveSeasonWorldChoice')
+          s=s.replace('function handleMediaChoice(sessionId:string,choiceId:string){const result=resolveMediaSessionChoice(season,sessionId,choiceId);persist(result.state);flash(result.message)}', 'function handleMediaText(sessionId:string,text:string){const result=resolveMediaSessionText(season,sessionId,text);persist(result.state);flash(result.message)}')
+          s=s.replace('<MediaCenterView season={season} onAnswer={handleMediaChoice}/>', '<MediaCenterView season={season} onAnswer={handleMediaText}/>')
+          p.write_text(s)
+          PY
+      - name: Validate
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+      - name: Commit upgrade and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/apply-written-press-conferences.yml
+          git add -A
+          git commit -m "feat: add written press conferences with contextual consequences"
+          git push
