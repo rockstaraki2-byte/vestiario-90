@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Gauge, Lightbulb, Pause, Play, Repeat2, ShieldAlert, Users } from "lucide-react";
 import type { LeagueClub, LeaguePlayer } from "@/game-engine/league";
 import {
@@ -42,6 +42,8 @@ export default function LiveMatchView({session,home,away,defaultSpeed,assistantT
   const [outId,setOutId]=useState("");
   const [inId,setInId]=useState("");
   const [finishing,setFinishing]=useState(false);
+  const [goalFlash,setGoalFlash]=useState(false);
+  const seenGoal=useRef("");
 
   const userSide=session.userSide;
   const userClub=userSide==="home"?home:away;
@@ -71,6 +73,11 @@ export default function LiveMatchView({session,home,away,defaultSpeed,assistantT
   const zoneTotal=Math.max(1,zones.left+zones.center+zones.right);
   const heatMax=Math.max(1,...HEAT.map(key=>heat[key]));
   const momentum=(userSide==="home"?1:-1)*(session.momentumHome??0);
+  const latestEvent=session.events[session.events.length-1];
+  const importantEvents=session.events.filter(event=>["goal","card","red_card","injury"].includes(event.type)).slice(-8).reverse();
+  const latestGoal=[...session.events].reverse().find(event=>event.type==="goal");
+  const goalKey=latestGoal?`${latestGoal.minute}:${latestGoal.team}:${latestGoal.playerId??""}:${session.homeGoals}-${session.awayGoals}`:"";
+  useEffect(()=>{if(!goalKey||goalKey===seenGoal.current)return;seenGoal.current=goalKey;setGoalFlash(true);const timer=window.setTimeout(()=>setGoalFlash(false),2600);return()=>window.clearTimeout(timer)},[goalKey]);
 
   useEffect(()=>{
     if(!running||!isLiveMatchRunning(session)||required.length)return;
@@ -116,13 +123,18 @@ export default function LiveMatchView({session,home,away,defaultSpeed,assistantT
   const start=()=>{onChange(startLiveMatch(session,home));setRunning(true)};
   const resume=()=>{const next=resumeSecondHalf(session);onChange(next);if(next.phase==="second_half_window")setRunning(true)};
   const substitute=()=>{if(!outId||!inId)return;onChange(makeSubstitution(session,userSide,outId,inId));setOutId("");setInId("")};
+  const cardedIds=new Set(session.events.filter(event=>event.team===userSide&&(event.type==="card"||event.type==="red_card")&&event.playerId).map(event=>event.playerId!));
+  const subCandidates=lineup.map(id=>({id,player:byId.get(id),state:session.playerStates[id],score:(100-(session.playerStates[id]?.condition??100))*1.4+Math.max(0,6.2-(session.playerStates[id]?.rating??6))*18+(cardedIds.has(id)?18:0)})).filter(item=>item.player).sort((a,b)=>b.score-a.score);
+  const suggestedOut=subCandidates[0],suggestedIn=bench.map(id=>byId.get(id)).filter((player):player is NonNullable<typeof player>=>Boolean(player)).sort((a,b)=>b.overall-a.overall)[0];
+  const canSuggestSub=subs.length<session.maxSubstitutions&&session.currentMinute>=50&&suggestedOut&&suggestedIn&&(suggestedOut.score>=16||momentum<-25||gf<ga);
+  const subReason=suggestedOut?(cardedIds.has(suggestedOut.id)?"está pendurado e corre risco":(suggestedOut.state?.condition??100)<68?`caiu para ${Math.round(suggestedOut.state?.condition??100)}% de condição`:(suggestedOut.state?.rating??6)<5.9?`está com nota ${(suggestedOut.state?.rating??6).toFixed(1)}`:gf<ga?"pode dar mais energia enquanto buscamos o resultado":momentum<-25?"pode ajudar a recuperar o controle":"é a troca de maior impacto agora"):"";
   const finish=()=>{if(finishing)return;setFinishing(true);onFinish(session)};
 
   return <div className={liveStyles.layout}>
     <section className={liveStyles.scoreboard}>
       <div className={liveStyles.clock}><span>{phase}</span><strong>{session.phase==="halftime"?"INT":session.phase==="fulltime"?"90′":`${session.currentMinute}′`}</strong></div>
       <div className={liveStyles.scoreLine}><b>{home.shortName}</b><strong>{session.homeGoals}<i>×</i>{session.awayGoals}</strong><b>{away.shortName}</b></div>
-      <div className={liveStyles.matchStats}><span>POSSE <b>{session.possessionHome}%</b>–<b>{100-session.possessionHome}%</b></span><span>CHUTES <b>{session.shotsHome}</b>–<b>{session.shotsAway}</b></span><span>xG <b>{session.xgHome.toFixed(2)}</b>–<b>{session.xgAway.toFixed(2)}</b></span><span>ESCANTEIOS <b>{session.cornersHome??0}</b>–<b>{session.cornersAway??0}</b></span></div>
+      <div className={liveStyles.matchStats}><span>POSSE <b>{session.possessionHome}%</b>–<b>{100-session.possessionHome}%</b></span><span>CHUTES <b>{session.shotsHome}</b>–<b>{session.shotsAway}</b></span><span>xG <b>{session.xgHome.toFixed(2)}</b>–<b>{session.xgAway.toFixed(2)}</b></span><span>ESCANTEIOS <b>{session.cornersHome??0}</b>–<b>{session.cornersAway??0}</b></span></div><div className={`${liveStyles.liveCommentary} ${goalFlash?liveStyles.goalFlash:""}`}><b>{latestEvent?.minute??0}′</b><span>{latestEvent?.type==="goal"?"⚽ ":latestEvent?.type==="card"?"🟨 ":latestEvent?.type==="red_card"?"🟥 ":latestEvent?.type==="injury"?"🩺 ":""}{latestEvent?.text??"Aguardando o início da partida."}{latestEvent?.type==="goal"&&latestEvent.assistPlayerId?<small> Assistência: {byId.get(latestEvent.assistPlayerId)?.name}</small>:null}</span></div><div className={liveStyles.eventBoard}>{importantEvents.map((event,index)=><div key={`${event.minute}-${event.type}-${index}`}><b>{event.minute}′</b><i>{event.type==="goal"?"⚽":event.type==="card"?"🟨":event.type==="red_card"?"🟥":"🩺"}</i><span>{event.playerId?byId.get(event.playerId)?.name:event.text}{event.type==="goal"&&event.assistPlayerId?<small> • assistência {byId.get(event.assistPlayerId)?.name}</small>:null}</span></div>)}</div>
       <div style={{maxWidth:680,margin:"10px auto",display:"grid",gap:5}}><small>MOMENTUM • {momentum>25?`${userClub.shortName} domina`:momentum<-25?"adversário domina":"equilibrado"}</small><div style={{height:9,borderRadius:9,background:"rgba(255,255,255,.12)",position:"relative"}}><i style={{position:"absolute",left:"50%",height:"100%",width:2,background:"#fff"}}/><em style={{position:"absolute",height:"100%",left:momentum>=0?"50%":`${50+momentum/2}%`,width:`${Math.abs(momentum)/2}%`,background:"currentColor",borderRadius:9}}/></div></div>
       <div className={liveStyles.transport}>
         {session.phase==="pre_match"?<button className={liveStyles.primary} onClick={start}><Play size={15}/> COMEÇAR</button>:session.phase==="fulltime"?<button className={liveStyles.primary} disabled={finishing} onClick={finish}>{finishing?"PROCESSANDO...":"VER PÓS-JOGO"} <ChevronRight size={16}/></button>:session.phase!=="halftime"?<button className={liveStyles.playPause} disabled={required.length>0} onClick={()=>setRunning(value=>!value)}>{running?<><Pause size={15}/> PAUSAR</>:<><Play size={15}/> CONTINUAR</>}</button>:null}
@@ -149,7 +161,7 @@ export default function LiveMatchView({session,home,away,defaultSpeed,assistantT
       </div>
 
       <div className={liveStyles.controlColumn}>
-        {showStaffAdvice&&<div className={`${liveStyles.panel} ${liveStyles.staffPanel}`}><header><Lightbulb size={16}/><b>COMISSÃO</b></header><p>{advice}</p>{patch&&<button onClick={()=>change(patch)}>APLICAR AJUSTE</button>}</div>}
+        {showStaffAdvice&&<div className={`${liveStyles.panel} ${liveStyles.staffPanel}`}><header><Lightbulb size={16}/><b>COMISSÃO</b></header><p>{advice}</p>{patch&&<button onClick={()=>change(patch)}>APLICAR AJUSTE</button>}{canSuggestSub&&<div className={liveStyles.subAdvice}><b>SUGESTÃO DE TROCA</b><span>Sair: {suggestedOut.player?.name} • Entrar: {suggestedIn.name}. {subReason}.</span><button onClick={()=>{setOutId(suggestedOut.id);setInId(suggestedIn.id)}}>PREPARAR TROCA</button></div>}</div>}
         <div className={liveStyles.panel}><header><ShieldAlert size={16}/><b>INSTRUÇÕES</b></header><Select label="Mentalidade" value={tactic.mentality} options={["Defensiva","Equilibrada","Ofensiva"] as Mentality[]} onChange={value=>change({mentality:value as Mentality})}/><Range label="Pressão" value={tactic.pressing} onChange={value=>change({pressing:value})}/><Range label="Ritmo" value={tactic.tempo} onChange={value=>change({tempo:value})}/><Select label="Ataque" value={tactic.attackFocus} options={["Equilibrado","Pelos lados","Por dentro","Esquerda","Direita"] as AttackFocus[]} onChange={value=>change({attackFocus:value as AttackFocus})}/><Select label="Linha defensiva" value={tactic.defensiveLine} options={["Baixa","Média","Alta"] as DefensiveLine[]} onChange={value=>change({defensiveLine:value as DefensiveLine})}/><Select label="Amplitude" value={tactic.width} options={["Estreita","Normal","Ampla"] as TeamWidth[]} onChange={value=>change({width:value as TeamWidth})}/><Select label="Construção" value={tactic.buildUp} options={["Curta","Mista","Direta"] as BuildUp[]} onChange={value=>change({buildUp:value as BuildUp})}/><Select label="Marcação" value={tactic.marking} options={["Zona","Individual","Mista"] as Marking[]} onChange={value=>change({marking:value as Marking})}/></div>
         <div className={liveStyles.panel}><header><ShieldAlert size={16}/><b>BOLAS PARADAS</b></header><Select label="Escanteio" value={tactic.setPieces.cornerAttack} options={["Primeiro pau","Segundo pau","Centro"] as SetPiecePost[]} onChange={value=>setPiece({cornerAttack:value as SetPiecePost})}/><Select label="Defesa" value={tactic.setPieces.cornerDefense} options={["Zona","Individual","Mista"]} onChange={value=>setPiece({cornerDefense:value as "Zona"|"Individual"|"Mista"})}/>{(["cornerTakerId","freeKickTakerId","penaltyTakerId","targetPlayerId"] as const).map((key,index)=><PlayerSelect key={key} label={["Escanteio","Falta","Pênalti","Alvo"][index]} value={tactic.setPieces[key]??""} ids={lineup} byId={byId} onChange={value=>setPiece({[key]:value||undefined})}/>)}</div>
         <div className={liveStyles.panel}>
