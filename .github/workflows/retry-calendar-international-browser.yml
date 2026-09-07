@@ -1,0 +1,37 @@
+name: Retry coordinated calendar upgrade
+on:
+  push:
+    paths:
+      - '.github/workflows/retry-calendar-international-browser.yml'
+permissions:
+  contents: write
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reapply upgrade with React Compiler fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          lines=Path('.github/workflows/upgrade-calendar-international-browser.yml').read_text().splitlines()
+          blocks=[]
+          i=0
+          while i<len(lines):
+              if lines[i].startswith('        run: |'):
+                  i+=1
+                  block=[]
+                  while i<len(lines) and (lines[i].startswith('          ') or not lines[i].strip()):
+                      block.append(lines[i][10:] if lines[i].startswith('          ') else '')
+                      i+=1
+                  blocks.append('\n'.join(block))
+                  continue
+              i+=1
+          script='\n\n'.join(blocks)
+          script=script.replace('import { useMemo,useState } from "react";','import { useState } from "react";')
+          script=script.replace('const stats=useMemo(()=>tournament?internationalTeamStats(tournament):[],[tournament]);if(!tournament)return null;','const stats=tournament?internationalTeamStats(tournament):[];if(!tournament)return null;')
+          result=subprocess.run(['bash','-euo','pipefail'],input=script,text=True)
+          raise SystemExit(result.returncode)
+          PY
