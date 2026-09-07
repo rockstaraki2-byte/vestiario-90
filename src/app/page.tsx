@@ -7,7 +7,7 @@ import styles from "./page.module.css";
 import seasonStyles from "./season.module.css";
 import LiveMatchView from "./live-match-view";
 import DressingRoomView from "./dressing-room-view";
-import WorldInboxView, { NewsFeedView } from "./world-view";
+import WorldInboxView from "./world-view";
 import MarketView from "./market-view";
 import TacticsSetupView from "./tactics-setup-view";
 import StatisticsView from "./statistics-view";

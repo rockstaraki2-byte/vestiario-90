@@ -1,7 +1,7 @@
 "use client";
 
 import{useState}from"react";
-import{AtSign,Flame,MessageCircleMore,Mic2,Newspaper,Radio,ShieldCheck,UsersRound}from"lucide-react";
+import{AtSign,MessageCircleMore,Mic2,Newspaper,Radio,ShieldCheck,UsersRound}from"lucide-react";
 import{hydrateMediaWorld,mediaRelationLabel,pendingMediaSessions}from"@/game-engine/media-world";
 import{mediaProfileById,mediaProfilesForCompetition,SOCIAL_PROFILES,socialSentiment}from"@/game-engine/media-realism";
 import type{SeasonState}from"@/game-engine/season";
