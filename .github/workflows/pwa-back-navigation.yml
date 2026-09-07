@@ -6,7 +6,6 @@ permissions:
   contents: write
 jobs:
   upgrade:
-    if: github.event.head_commit.message == 'chore: apply PWA back navigation upgrade'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
