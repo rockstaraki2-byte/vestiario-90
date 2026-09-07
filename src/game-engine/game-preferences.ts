@@ -1,0 +1,55 @@
+export type MatchSpeedPreference="normal"|"fast"|"very_fast";
+export type StaffOwner="Treinador"|"Adjunto";
+export type FootballOwner="Treinador"|"Diretor de futebol";
+export type YouthOwner="Treinador"|"Responsável pela base";
+export type LandingScreen="Visão geral"|"Caixa de entrada"|"Calendário"|"Clube";
+
+export type GamePreferences={
+ responsibilities:{
+  matchSelection:StaffOwner;
+  training:StaffOwner;
+  pressConferences:StaffOwner;
+  teamTalks:StaffOwner;
+  transferTargets:FootballOwner;
+  contractRenewals:FootballOwner;
+  outgoingTransfers:FootballOwner;
+  scouting:FootballOwner;
+  youthDevelopment:YouthOwner;
+ };
+ match:{
+  defaultSpeed:MatchSpeedPreference;
+  showStaffAdvice:boolean;
+ };
+ general:{
+  autoSave:boolean;
+  landingScreen:LandingScreen;
+  autoOpenDecisions:boolean;
+  autoOpenPressConferences:boolean;
+ };
+};
+
+export const DEFAULT_GAME_PREFERENCES:GamePreferences={
+ responsibilities:{
+  matchSelection:"Treinador",
+  training:"Treinador",
+  pressConferences:"Treinador",
+  teamTalks:"Treinador",
+  transferTargets:"Diretor de futebol",
+  contractRenewals:"Diretor de futebol",
+  outgoingTransfers:"Diretor de futebol",
+  scouting:"Diretor de futebol",
+  youthDevelopment:"Responsável pela base",
+ },
+ match:{defaultSpeed:"normal",showStaffAdvice:true},
+ general:{autoSave:true,landingScreen:"Visão geral",autoOpenDecisions:true,autoOpenPressConferences:true},
+};
+
+export function createGamePreferences():GamePreferences{return structuredClone(DEFAULT_GAME_PREFERENCES);}
+export function hydrateGamePreferences(value?:Partial<GamePreferences>):GamePreferences{
+ const base=createGamePreferences();
+ return{
+  responsibilities:{...base.responsibilities,...(value?.responsibilities??{})},
+  match:{...base.match,...(value?.match??{})},
+  general:{...base.general,...(value?.general??{})},
+ };
+}
