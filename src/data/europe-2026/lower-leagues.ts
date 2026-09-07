@@ -1,11 +1,14 @@
 import type { EuropeClubRoster, EuropeRosterPosition } from "./top-leagues";
+import { REAL_LOWER_ROSTERS } from "./real-lower-rosters.generated";
 
 export type EuropeLowerCompetitionId="ENG2"|"ENG3"|"ENG4"|"ESP2"|"ESP3"|"ESP4"|"FRA2"|"FRA3"|"FRA4";
 export type EuropeLowerCompetitionRoster={id:EuropeLowerCompetitionId;name:string;shortName:string;country:string;season:2026;startDate:string;roundCadenceDays:number;doubleRoundRobin:true;benchSize:number;maxSubstitutions:number;clubs:EuropeClubRoster[]};
 const POSITIONS:EuropeRosterPosition[]=["GOL","GOL","GOL","ZAG","ZAG","ZAG","ZAG","LE","LE","LD","LD","VOL","VOL","MC","MC","MC","MEI","MEI","PE","PE","PD","PD","ATA","ATA","ATA"];
 function slug(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]+/g,"-").replace(/(^-|-$)/g,"").toLowerCase();}
 function club(name:string,index:number,country:string,baseValue:number):EuropeClubRoster{const key=slug(name),players=POSITIONS.map((position,pIndex)=>({transfermarktId:`lower-${key}-${pIndex+1}`,name:`${name.split(/\s+/)[0]} ${String(pIndex+1).padStart(2,"0")}`,position,age:18+((pIndex*3+index)%17),marketValueEur:Math.max(250_000,Math.round((baseValue/25)*(1+((pIndex%7)-3)*.08)/50_000)*50_000),marketValueUpdated:"2026-09-01"}));return{sourceId:-(index+1),transfermarktId:-(100000+index),name,shortName:name.replace(/\b(FC|CF|CD|UD|AS|RC|Real|City|United|Club)\b/gi,"").trim().split(/\s+/).slice(0,2).map(x=>x.slice(0,4).toUpperCase()).join(" ")||name.slice(0,8).toUpperCase(),imageUrl:"/generic-club.svg",marketValueEur:baseValue+index*1_100_000,players};}
-const make=(names:string[],country:string,base:number)=>names.map((name,index)=>club(name,index,country,base));
+const realByCompetition=new Map(REAL_LOWER_ROSTERS.map(item=>[item.competitionId,item.clubs]));
+function rosterKey(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\b(fc|cf|ec|sc|afc|club|clube|real|city|united)\b/g," ").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();}
+const make=(competitionId:EuropeLowerCompetitionId,names:string[],country:string,base:number)=>{const real=realByCompetition.get(competitionId)??[],byName=new Map(real.map(c=>[rosterKey(c.name),c]));return names.map((name,index)=>byName.get(rosterKey(name))??club(name,index,country,base));};
 const ENG=["Birmingham City","Blackburn Rovers","Bolton Wanderers","Bristol City","Burnley","Cardiff City","Charlton Athletic","Derby County","Lincoln City","Middlesbrough","Millwall","Norwich City","Portsmouth","Preston North End","Queens Park Rangers","Sheffield United","Southampton","Stoke City","Swansea City","Watford","West Bromwich Albion","West Ham United","Wolverhampton Wanderers","Wrexham"];
 const ESP=["AD Ceuta","Albacete","Almería","Burgos","Cádiz","Castellón","Sabadell","Celta Fortuna","Córdoba","Eibar","Eldense","FC Andorra","Girona","Granada","Leganés","Mallorca","Real Oviedo","Real Sociedad B","Sporting Gijón","Real Valladolid","Tenerife","Las Palmas"];
 
@@ -18,13 +21,13 @@ const FRA4=["AS Furiani Agliani","Biesheim ASC","Colmar SR FA","FC Borgo","FC Ch
 
 const FRA=["Annecy","Boulogne-sur-Mer","Clermont","Dijon","Dunkerque","Grenoble","Guingamp","Laval","Metz","Montpellier","Nancy","Nantes","Pau","Red Star","Reims","Rodez","Saint-Étienne","Sochaux"];
 export const EUROPE_LOWER_2026_COMPETITIONS:EuropeLowerCompetitionRoster[]=[
-  {id:"ENG2",name:"EFL Championship",shortName:"Championship",country:"Inglaterra",season:2026,startDate:"2026-08-14",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make(ENG,"Inglaterra",95_000_000)},
-  {id:"ESP2",name:"LaLiga Hypermotion",shortName:"Segunda",country:"Espanha",season:2026,startDate:"2026-08-15",roundCadenceDays:7,doubleRoundRobin:true,benchSize:12,maxSubstitutions:5,clubs:make(ESP,"Espanha",72_000_000)},
-  {id:"FRA2",name:"Ligue 2",shortName:"Ligue 2",country:"França",season:2026,startDate:"2026-08-08",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make(FRA,"França",55_000_000)},
-  {id:"ENG3",name:"EFL League One",shortName:"League One",country:"Inglaterra",season:2026,startDate:"2026-08-15",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make(ENG3,"Inglaterra",32_000_000)},
-  {id:"ENG4",name:"EFL League Two",shortName:"League Two",country:"Inglaterra",season:2026,startDate:"2026-08-15",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make(ENG4,"Inglaterra",12_000_000)},
-  {id:"ESP3",name:"Primera Federación",shortName:"Primera Federación",country:"Espanha",season:2026,startDate:"2026-08-29",roundCadenceDays:7,doubleRoundRobin:true,benchSize:12,maxSubstitutions:5,clubs:make(ESP3,"Espanha",18_000_000)},
-  {id:"ESP4",name:"Segunda Federación",shortName:"Segunda Federación",country:"Espanha",season:2026,startDate:"2026-09-05",roundCadenceDays:7,doubleRoundRobin:true,benchSize:12,maxSubstitutions:5,clubs:make(ESP4,"Espanha",5_000_000)},
-  {id:"FRA3",name:"Ligue 3",shortName:"Ligue 3",country:"França",season:2026,startDate:"2026-08-07",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make(FRA3,"França",20_000_000)},
-  {id:"FRA4",name:"National 1",shortName:"National 1",country:"França",season:2026,startDate:"2026-08-22",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make(FRA4,"França",6_000_000)},
+  {id:"ENG2",name:"EFL Championship",shortName:"Championship",country:"Inglaterra",season:2026,startDate:"2026-08-14",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make("ENG2",ENG,"Inglaterra",95_000_000)},
+  {id:"ESP2",name:"LaLiga Hypermotion",shortName:"Segunda",country:"Espanha",season:2026,startDate:"2026-08-15",roundCadenceDays:7,doubleRoundRobin:true,benchSize:12,maxSubstitutions:5,clubs:make("ESP2",ESP,"Espanha",72_000_000)},
+  {id:"FRA2",name:"Ligue 2",shortName:"Ligue 2",country:"França",season:2026,startDate:"2026-08-08",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make("FRA2",FRA,"França",55_000_000)},
+  {id:"ENG3",name:"EFL League One",shortName:"League One",country:"Inglaterra",season:2026,startDate:"2026-08-15",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make("ENG3",ENG3,"Inglaterra",32_000_000)},
+  {id:"ENG4",name:"EFL League Two",shortName:"League Two",country:"Inglaterra",season:2026,startDate:"2026-08-15",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make("ENG4",ENG4,"Inglaterra",12_000_000)},
+  {id:"ESP3",name:"Primera Federación",shortName:"Primera Federación",country:"Espanha",season:2026,startDate:"2026-08-29",roundCadenceDays:7,doubleRoundRobin:true,benchSize:12,maxSubstitutions:5,clubs:make("ESP3",ESP3,"Espanha",18_000_000)},
+  {id:"ESP4",name:"Segunda Federación",shortName:"Segunda Federación",country:"Espanha",season:2026,startDate:"2026-09-05",roundCadenceDays:7,doubleRoundRobin:true,benchSize:12,maxSubstitutions:5,clubs:make("ESP4",ESP4,"Espanha",5_000_000)},
+  {id:"FRA3",name:"Ligue 3",shortName:"Ligue 3",country:"França",season:2026,startDate:"2026-08-07",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make("FRA3",FRA3,"França",20_000_000)},
+  {id:"FRA4",name:"National 1",shortName:"National 1",country:"França",season:2026,startDate:"2026-08-22",roundCadenceDays:7,doubleRoundRobin:true,benchSize:9,maxSubstitutions:5,clubs:make("FRA4",FRA4,"França",6_000_000)},
 ];
