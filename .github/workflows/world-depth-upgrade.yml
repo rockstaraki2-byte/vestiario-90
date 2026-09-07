@@ -1,0 +1,44 @@
+name: World depth upgrade
+on:
+  push:
+    branches: [v90-world-depth]
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Normalize patch script
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/apply-world-depth-upgrade.py')
+          s=p.read_text(encoding='utf-8')
+          duplicate="replace_once(Path('src/game-engine/season.ts'),' const sorted=[...players].sort((a,b)=>assistantSelectionScore(b)-assistantSelectionScore(a)),used=new Set<string>(),chosen:LeaguePlayer[]=[];',' const sorted=[...players].sort((a,b)=>assistantSelectionScore(b,quality)-assistantSelectionScore(a,quality)),used=new Set<string>(),chosen:LeaguePlayer[]=[];','assistant score second')\n"
+          s=s.replace(duplicate,'')
+          s=s.replace('import { scoutingSnapshot, staffByRole, type SetPiecePlan } from \"@/game-engine/football-depth\";','import { scoutingSnapshot, type SetPiecePlan } from \"@/game-engine/football-depth\";')
+          s=s.replace('let next=hydrateFootballDepth(value,league,clubId,seed,year),club=league.clubs.find(c=>c.id===clubId)??league.clubs[0];next=', 'let next=hydrateFootballDepth(value,league,clubId,seed,year);const club=league.clubs.find(c=>c.id===clubId)??league.clubs[0];next=')
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Apply integrated world-depth patch
+        run: python scripts/apply-world-depth-upgrade.py
+      - name: Validate all systems
+        run: |
+          npm ci
+          npm run lint
+          npm test
+          npm run build
+      - name: Commit validated feature branch
+        run: |
+          rm scripts/apply-world-depth-upgrade.py .github/workflows/world-depth-upgrade.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: deepen football world and manager simulation'
+          git push
