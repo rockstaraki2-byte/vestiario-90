@@ -1,6 +1,7 @@
 import type { LeagueClub, LeaguePlayer, PlayerPromise } from "./league";
 import type { SeasonState } from "./season";
 import { applyConversationRipple, applyMatchSocialEffects, buildDressingRoomNetwork, playerSocialContext } from "./social";
+import { conversationResponseModifier, underuseSensitivity } from "./personality";
 
 export type ConversationAction="Ouvir"|"Elogiar"|"Cobrar"|"Prometer minutos";
 export type ConversationResult={state:SeasonState;message:string};
@@ -32,7 +33,8 @@ export function playerConcern(player:LeaguePlayer,currentRound:number):string|nu
   if(player.managerTrust<45)return "A relação com o treinador está desgastada.";
   if(player.happiness<55)return "Está insatisfeito com a situação no clube.";
   const games=Math.max(0,currentRound-1);
-  if(games>=3&&player.starts/games<expectedStartShare(player)-.18&&(player.squadRole==="Líder"||player.squadRole==="Titular"||player.squadRole==="Rotação"))return "Quer conversar sobre a falta de minutos e titularidade.";
+  const tolerance=expectedStartShare(player)-.18-underuseSensitivity(player);
+  if(games>=3&&player.starts/games<tolerance&&(player.squadRole==="Líder"||player.squadRole==="Titular"||player.squadRole==="Rotação"))return "Quer conversar sobre a falta de minutos e titularidade.";
   return null;
 }
 
@@ -43,35 +45,36 @@ export function talkToPlayer(state:SeasonState,playerId:string,action:Conversati
   if(!player)return{state,message:"Jogador não encontrado."};
   if(player.lastConversationRound===next.currentRound)return{state,message:`Você já conversou com ${player.name} nesta rodada.`};
   let message="",sentiment:-2|-1|1|2=1;
+  const personalityModifier=conversationResponseModifier(player,action);
   if(action==="Ouvir"){
-    player.managerTrust=clamp(player.managerTrust+5);
-    player.happiness=clamp(player.happiness+4);
+    player.managerTrust=clamp(player.managerTrust+5+personalityModifier);
+    player.happiness=clamp(player.happiness+4+Math.max(0,personalityModifier));
     player.morale=clamp(player.morale+2);
-    sentiment=2;
-    message=`${player.name} valorizou o espaço para falar e saiu mais próximo do treinador.`;
+    sentiment=personalityModifier>=1?2:1;
+    message=personalityModifier>=1?`${player.name} sentiu que o treinador entendeu seu perfil e saiu claramente mais próximo.`:`${player.name} valorizou o espaço para falar e saiu mais próximo do treinador.`;
   }else if(action==="Elogiar"){
-    const bonus=player.personality==="Ambicioso"?1:3;
+    const bonus=3+personalityModifier;
     player.managerTrust=clamp(player.managerTrust+bonus);
-    player.happiness=clamp(player.happiness+2);
-    player.morale=clamp(player.morale+4);
-    sentiment=1;
-    message=`O elogio aumentou a confiança de ${player.name}.`;
+    player.happiness=clamp(player.happiness+2+Math.max(0,personalityModifier));
+    player.morale=clamp(player.morale+4+Math.max(-1,personalityModifier));
+    sentiment=personalityModifier<0?1:2;
+    message=personalityModifier<0?`O elogio ajudou, mas ${player.name} pareceu pouco impressionado.`:`O elogio aumentou a confiança de ${player.name}.`;
   }else if(action==="Cobrar"){
-    const receptive=player.personality==="Profissional"||player.personality==="Competitivo";
-    player.managerTrust=clamp(player.managerTrust+(receptive?2:-4));
+    const receptive=personalityModifier>=0;
+    player.managerTrust=clamp(player.managerTrust+(receptive?2+personalityModifier:-4+personalityModifier));
     player.happiness=clamp(player.happiness+(receptive?0:-3));
-    player.morale=clamp(player.morale+(receptive?2:-2));
+    player.morale=clamp(player.morale+(receptive?2+Math.min(2,personalityModifier):-2));
     sentiment=receptive?1:-2;
-    message=receptive?`${player.name} aceitou a cobrança como um desafio.`:`${player.name} não gostou do tom da cobrança.`;
+    message=personalityModifier>=2?`${player.name} respondeu muito bem à pressão e encarou a cobrança como combustível.`:receptive?`${player.name} aceitou a cobrança como um desafio.`:`${player.name} não gostou do tom da cobrança e reagiu mal.`;
   }else{
     const active=(player.promises??[]).some(p=>p.type==="Mais minutos"&&p.status==="Ativa");
     if(active)return{state,message:`${player.name} já tem uma promessa de minutos em andamento.`};
     const promise:PlayerPromise={id:`minutes-${player.id}-r${next.currentRound}`,type:"Mais minutos",createdRound:next.currentRound,deadlineRound:Math.min(next.league.totalRounds??38,next.currentRound+5),targetAppearances:3,progressAppearances:0,status:"Ativa"};
     player.promises=[...(player.promises??[]),promise];
-    player.managerTrust=clamp(player.managerTrust+3);
-    player.happiness=clamp(player.happiness+5);
-    sentiment=2;
-    message=`Você prometeu dar mais oportunidades a ${player.name}: 3 participações até a rodada ${promise.deadlineRound}.`;
+    player.managerTrust=clamp(player.managerTrust+3+Math.max(0,personalityModifier));
+    player.happiness=clamp(player.happiness+5+personalityModifier);
+    sentiment=personalityModifier<0?1:2;
+    message=personalityModifier>=1?`${player.name} recebeu a promessa com grande expectativa: 3 participações até a rodada ${promise.deadlineRound}. A cobrança futura será alta.`:`Você prometeu dar mais oportunidades a ${player.name}: 3 participações até a rodada ${promise.deadlineRound}.`;
   }
   const ripple=applyConversationRipple(club,player.id,sentiment);
   if(ripple.affected>0)message+=` A reação repercutiu em ${ripple.affected} companheiro${ripple.affected===1?"":"s"} do ${ripple.groupName}.`;
@@ -88,7 +91,7 @@ export function applyPeopleAfterMatch(club:LeagueClub,participantIds:string[],st
       player.happiness=clamp((player.happiness??70)+(started?2:1));
       player.managerTrust=clamp((player.managerTrust??60)+1);
     }else if(player.squadRole==="Líder"||player.squadRole==="Titular"){
-      player.happiness=clamp((player.happiness??70)-2);
+      player.happiness=clamp((player.happiness??70)-2-Math.max(0,Math.round(underuseSensitivity(player)*10)));
     }else if(player.squadRole==="Rotação")player.happiness=clamp((player.happiness??70)-1);
 
     player.promises=(player.promises??[]).map(promise=>{
@@ -99,7 +102,8 @@ export function applyPeopleAfterMatch(club:LeagueClub,participantIds:string[],st
         return{...promise,progressAppearances:progress,status:"Cumprida" as const};
       }
       if(round>=promise.deadlineRound){
-        player.happiness=clamp(player.happiness-12);player.managerTrust=clamp(player.managerTrust-14);player.morale=clamp(player.morale-6);broken.push(player.id);
+        const ambitionPenalty=Math.max(0,conversationResponseModifier(player,"Prometer minutos"));
+        player.happiness=clamp(player.happiness-12-ambitionPenalty*2);player.managerTrust=clamp(player.managerTrust-14-ambitionPenalty*2);player.morale=clamp(player.morale-6);broken.push(player.id);
         return{...promise,progressAppearances:progress,status:"Quebrada" as const};
       }
       return{...promise,progressAppearances:progress};
