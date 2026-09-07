@@ -1,0 +1,38 @@
+name: Fix tactics wrapper prop
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-tactics-wrapper-prop.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch wrapper prop
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/app/page.tsx')
+          t=p.read_text()
+          old='function TacticsView({club,opponent,isHome,competitionName,showStaffAdvice,tactic,onChange,lineupIds,benchIds,benchSize,eligiblePlayerIds,governance,workload,onSetRole,onApplySelection,trainingPlan,onTrainingPlanChange,onPlay}:{club:LeagueClub;opponent:LeagueClub;isHome:boolean;competitionName:string;showStaffAdvice:boolean;tactic:MatchTactic;onChange:(t:MatchTactic)=>void;lineupIds:string[];benchIds:string[];benchSize:number;eligiblePlayerIds?:string[];governance?:{title:string;detail:string;rule:{notes:string[]}};workload:{level:string;score:number;detail:string;rotationRecommended:boolean};onSetRole:(id:string,role:MatchdayRole)=>void;onApplySelection:(lineupIds:string[],benchIds:string[])=>void;trainingPlan:TrainingPlan;onTrainingPlanChange:(plan:TrainingPlan)=>void;onPlay:()=>void}){return <TacticsSetupView club={club} opponent={opponent} isHome={isHome} competitionName={competitionName} showStaffAdvice={showStaffAdvice} tactic={tactic} onChange={onChange} lineupIds={lineupIds} benchIds={benchIds} benchSize={benchSize} eligiblePlayerIds={eligiblePlayerIds} governance={governance}'
+          new='function TacticsView({club,opponent,isHome,competitionName,showStaffAdvice,tactic,onChange,lineupIds,benchIds,benchSize,eligiblePlayerIds,availabilityReasons,governance,workload,onSetRole,onApplySelection,trainingPlan,onTrainingPlanChange,onPlay}:{club:LeagueClub;opponent:LeagueClub;isHome:boolean;competitionName:string;showStaffAdvice:boolean;tactic:MatchTactic;onChange:(t:MatchTactic)=>void;lineupIds:string[];benchIds:string[];benchSize:number;eligiblePlayerIds?:string[];availabilityReasons?:Record<string,string>;governance?:{title:string;detail:string;rule:{notes:string[]}};workload:{level:string;score:number;detail:string;rotationRecommended:boolean};onSetRole:(id:string,role:MatchdayRole)=>void;onApplySelection:(lineupIds:string[],benchIds:string[])=>void;trainingPlan:TrainingPlan;onTrainingPlanChange:(plan:TrainingPlan)=>void;onPlay:()=>void}){return <TacticsSetupView club={club} opponent={opponent} isHome={isHome} competitionName={competitionName} showStaffAdvice={showStaffAdvice} tactic={tactic} onChange={onChange} lineupIds={lineupIds} benchIds={benchIds} benchSize={benchSize} eligiblePlayerIds={eligiblePlayerIds} availabilityReasons={availabilityReasons} governance={governance}'
+          if old not in t: raise SystemExit('wrapper pattern not found')
+          p.write_text(t.replace(old,new,1))
+          PY
+      - name: Remove workflow and commit
+        run: |
+          rm .github/workflows/fix-tactics-wrapper-prop.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(tactics): pass competition availability reasons through wrapper"
+          git push origin main
