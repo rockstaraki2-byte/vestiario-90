@@ -15,7 +15,9 @@ jobs:
           node-version: 22
           cache: npm
       - name: Apply delegation upgrade
-        run: python .github/scripts/director-market-media-patch.py
+        run: |
+          sed -i 's/;let message=!accept?/;const message=!accept?/' .github/scripts/director-market-media-patch.py
+          python .github/scripts/director-market-media-patch.py
       - name: Validate
         run: |
           npm ci
