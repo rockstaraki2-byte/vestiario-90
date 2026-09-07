@@ -1,211 +1,18 @@
-name: Director market and media delegation
-on:
+name: Director market media upgrade
+'on':
   push:
-    branches: [main]
+    branches:
+      - main
 permissions:
   contents: write
 jobs:
   upgrade:
-    if: github.event.head_commit.message == 'chore: apply director market and media delegation'
+    if: ${{ github.event.head_commit.message == 'fix: run director market media upgrade' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Implement director-managed market and assistant press delegation
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          def patch(path, old, new, count=1):
-              p=Path(path); s=p.read_text()
-              if old not in s:
-                  raise SystemExit(f'anchor missing in {path}: {old[:100]}')
-              s=s.replace(old,new,count)
-              p.write_text(s)
-
-          # Club management: coach requests, board negotiates.
-          patch('src/game-engine/club-management.ts',
-            'import { clubWageSpend, isTransferWindowOpen, makeOfferForPlayer, recommendedOffer } from "./market";',
-            'import { clubWageSpend, concludeAcceptedOffer, isTransferWindowOpen, makeOfferForPlayer, renewPlayerContract, recommendedOffer, signFreeAgent, toggleTransferList, type TransferOfferType } from "./market";')
-          patch('src/game-engine/club-management.ts',
-            'export type BoardRequestType="Orçamento de transferências"|"Teto salarial"|"Investimento em observação"|"Investimento na base"|"Estrutura médica"|"Análise de desempenho"|"Contato por jogador";',
-            'export type BoardRequestType="Orçamento de transferências"|"Teto salarial"|"Investimento em observação"|"Investimento na base"|"Estrutura médica"|"Análise de desempenho"|"Contato por jogador"|"Renovação de contrato"|"Saída de jogador"|"Contratação sem custo";')
-          patch('src/game-engine/club-management.ts',
-            'export function requestBoardTransferContact(state:ManagedSeason,targetPlayerId:string):ClubActionResult{',
-            'export function requestBoardTransferContact(state:ManagedSeason,targetPlayerId:string,type:TransferOfferType="Compra"):ClubActionResult{')
-          patch('src/game-engine/club-management.ts',
-            'const fee=recommendedOffer(player),salary=Math.round(player.contract.salaryBrlMonthly*1.14/5_000)*5_000,',
-            'const fee=type==="Empréstimo"?Math.max(100_000,Math.round(recommendedOffer(player)*.06/50_000)*50_000):recommendedOffer(player),salary=Math.round(player.contract.salaryBrlMonthly*(type==="Compra"?1.14:1.05)/5_000)*5_000,')
-          patch('src/game-engine/club-management.ts',
-            'const offer=makeOfferForPlayer(next,player.id,"Compra");next=offer.state;message+=` ${offer.message}`;const cm=hydrateClubManagement(next),saved=cm.clubs[next.selectedClubId]?.boardRequests.find(r=>r.id===record.id);if(saved)saved.message=message;next={...next,clubManagement:cm};',
-            'const offer=makeOfferForPlayer(next,player.id,type);next=offer.state;message+=` ${offer.message}`;const accepted=next.market.offers.find(o=>o.buyerClubId===next.selectedClubId&&o.playerId===player.id&&o.createdRound===state.currentRound&&o.status==="Aceita");if(accepted){const closed=concludeAcceptedOffer(next,accepted.id);next=closed.state;message+=` ${closed.message}`;}const cm=hydrateClubManagement(next),saved=cm.clubs[next.selectedClubId]?.boardRequests.find(r=>r.id===record.id);if(saved)saved.message=message;next={...next,clubManagement:cm};')
-
-          anchor='''export function requestBoardAction(state:ManagedSeason,type:BoardRequestType):ClubActionResult{'''
-          additions='''export function requestBoardContractRenewal(state:ManagedSeason,playerId:string):ClubActionResult{
-  const club=selectedClub(state),player=club.players.find(p=>p.id===playerId);if(!player)return{state,message:"Jogador não encontrado no elenco."};
-  const avg=avgOverall(club.players),priority=player.contract.endYear<=state.year+1||player.squadRole==="Titular"||player.overall>=avg-2||(player.age<=23&&player.potential>=avg+3);
-  if(!priority){const management=cloneManagement(hydrateClubManagement(state)),profile=getProfile(management,club.id),message=`Diretoria de Futebol: ${player.name} não é prioridade de renovação neste momento. O contrato atual vai até ${player.contract.endYear}.`;profile.boardRequests.unshift({id:nextId(management,"board"),type:"Renovação de contrato",round:state.currentRound,approved:false,message,targetPlayerId:player.id,targetPlayerName:player.name});return{state:{...state,clubManagement:management} as SeasonState,message};}
-  const years=player.age>=33?1:player.age>=30?2:3,result=renewPlayerContract(state,player.id,years),nextPlayer=selectedClub(result.state).players.find(p=>p.id===player.id),approved=Boolean(nextPlayer&&nextPlayer.contract.endYear>player.contract.endYear),management=cloneManagement(hydrateClubManagement(result.state)),profile=getProfile(management,club.id),message=`Diretoria de Futebol: ${result.message}`;profile.boardRequests.unshift({id:nextId(management,"board"),type:"Renovação de contrato",round:state.currentRound,approved,message,targetPlayerId:player.id,targetPlayerName:player.name});return{state:{...result.state,clubManagement:management} as SeasonState,message};
-}
-
-export function requestBoardTransferListing(state:ManagedSeason,playerId:string):ClubActionResult{
-  const club=selectedClub(state),player=club.players.find(p=>p.id===playerId);if(!player)return{state,message:"Jogador não encontrado no elenco."};
-  if(player.transferListed){const result=toggleTransferList(state,player.id),management=cloneManagement(hydrateClubManagement(result.state)),profile=getProfile(management,club.id),message=`Diretoria de Futebol: ${player.name} foi retirado da lista após sua solicitação.`;profile.boardRequests.unshift({id:nextId(management,"board"),type:"Saída de jogador",round:state.currentRound,approved:true,message,targetPlayerId:player.id,targetPlayerName:player.name});return{state:{...result.state,clubManagement:management} as SeasonState,message};}
-  const same=club.players.filter(p=>p.position===player.position),avg=avgOverall(club.players),protectedYouth=player.age<=22&&player.potential>=player.overall+7,keyPlayer=player.squadRole==="Titular"&&player.overall>=avg+1,approved=player.wantsToLeave||player.age>=31||(same.length>=3&&!protectedYouth&&!keyPlayer),base=approved?toggleTransferList(state,player.id):{state,message:""},management=cloneManagement(hydrateClubManagement(base.state)),profile=getProfile(management,club.id),message=approved?`Diretoria de Futebol: ${player.name} foi colocado no mercado após sua recomendação.`:`Diretoria de Futebol: a sugestão de saída de ${player.name} foi recusada. A diretoria considera o atleta importante para a profundidade ou para o valor futuro do elenco.`;profile.boardRequests.unshift({id:nextId(management,"board"),type:"Saída de jogador",round:state.currentRound,approved,message,targetPlayerId:player.id,targetPlayerName:player.name});return{state:{...base.state,clubManagement:management} as SeasonState,message};
-}
-
-export function requestBoardFreeAgentSigning(state:ManagedSeason,playerId:string):ClubActionResult{
-  const player=state.market.freeAgents.find(p=>p.id===playerId),club=selectedClub(state);if(!player)return{state,message:"Agente livre não encontrado."};
-  const same=club.players.filter(p=>p.position===player.position),sector=avgOverall(same.length?same:club.players),approved=same.length<3||player.overall>=sector-2||player.age<=23;
-  if(!approved){const management=cloneManagement(hydrateClubManagement(state)),profile=getProfile(management,club.id),message=`Diretoria de Futebol: ${player.name} foi descartado. O departamento entende que o setor já está coberto ou que o custo não compensa o ganho esportivo.`;profile.boardRequests.unshift({id:nextId(management,"board"),type:"Contratação sem custo",round:state.currentRound,approved:false,message,targetPlayerId:player.id,targetPlayerName:player.name});return{state:{...state,clubManagement:management} as SeasonState,message};}
-  const result=signFreeAgent(state,player.id),joined=selectedClub(result.state).players.some(p=>p.id===player.id),management=cloneManagement(hydrateClubManagement(result.state)),profile=getProfile(management,club.id),message=`Diretoria de Futebol: ${result.message}`;profile.boardRequests.unshift({id:nextId(management,"board"),type:"Contratação sem custo",round:state.currentRound,approved:joined,message,targetPlayerId:player.id,targetPlayerName:player.name});return{state:{...result.state,clubManagement:management} as SeasonState,message};
-}
-
-'''+anchor
-          patch('src/game-engine/club-management.ts',anchor,additions)
-
-          # Domestic market: board reviews incoming offers and contracts automatically.
-          patch('src/game-engine/market.ts',
-            '  const lineupIds=state.lineupIds.filter(id=>buyer.id===state.selectedClubId||id!==player.id);\n  return{state:{...state,league,market,lineupIds},message:offer.message};',
-            '  const lineupIds=state.lineupIds.filter(id=>buyer.id===state.selectedClubId||id!==player.id),benchIds=state.benchIds.filter(id=>buyer.id===state.selectedClubId||id!==player.id);\n  return{state:{...state,league,market,lineupIds,benchIds},message:offer.message};')
-          market_anchor='''\n\ntype SquadNeed={positions:string[];deficit:number;label:string};'''
-          market_add='''
-
-export function reviewIncomingOfferByBoard(state:SeasonState,offerId:string):MarketActionResult{
-  const offer=state.market.offers.find(o=>o.id===offerId),club=state.league.clubs.find(c=>c.id===state.selectedClubId);if(!offer||!club||offer.sellerClubId!==club.id||offer.status!=="Pendente")return{state,message:"A proposta não está pendente para análise da diretoria."};
-  const player=club.players.find(p=>p.id===offer.playerId);if(!player)return{state,message:"O jogador não está mais no elenco."};
-  const value=estimatedPlayerValue(player),ratio=offer.feeEur/Math.max(1,value),same=club.players.filter(p=>p.position===player.position),avg=club.players.reduce((sum,p)=>sum+p.overall,0)/Math.max(1,club.players.length),keyPlayer=player.squadRole==="Titular"||player.overall>=avg+3,preserveAssets=state.boardState?.mandate?.nonNegotiables?.some(item=>/preservar.*ativos/i.test(item))??false;
-  let accept=(player.transferListed&&ratio>=.88)||(player.wantsToLeave&&ratio>=.9)||(player.age>=31&&ratio>=.95)||(ratio>=1.16&&same.length>=3);if(keyPlayer&&ratio<1.3)accept=false;if(keyPlayer&&preserveAssets&&ratio<1.45)accept=false;if(same.length<=2&&!player.wantsToLeave)accept=false;
-  const result=respondToIncomingOffer(state,offerId,accept),resolved=result.state.market.offers.find(o=>o.id===offerId);let message:string;if(!accept)message=`Diretoria de Futebol: proposta por ${player.name} recusada. O valor e a importância esportiva do atleta não justificam a saída.`;else if(resolved?.status==="Concluída")message=`Diretoria de Futebol: proposta por ${player.name} aceita e negociação concluída por ${formatEur(offer.feeEur)}.`;else message=`Diretoria de Futebol: o clube aceitou negociar ${player.name}, mas a operação não foi concluída. ${result.message}`;if(resolved)resolved.message=message;return{state:result.state,message};
-}
-
-export function finalizeAcceptedOfferByBoard(state:SeasonState,offerId:string):MarketActionResult{const result=concludeAcceptedOffer(state,offerId);return{state:result.state,message:`Diretoria de Futebol: ${result.message}`};}
-
-function reviewExpiringContractsByBoard(state:SeasonState):SeasonState{
-  if(state.currentRound!==1&&state.currentRound!==19)return state;let next=state;const club=next.league.clubs.find(c=>c.id===next.selectedClubId);if(!club)return next;const avg=club.players.reduce((sum,p)=>sum+p.overall,0)/Math.max(1,club.players.length),ids=club.players.filter(p=>p.contract.endYear<=next.year+1&&!p.wantsToLeave&&(p.squadRole==="Titular"||p.overall>=avg-3||p.age<=23)).sort((a,b)=>b.overall-a.overall).map(p=>p.id);for(const id of ids){const current=next.league.clubs.find(c=>c.id===next.selectedClubId)?.players.find(p=>p.id===id);if(!current||current.contract.endYear>next.year+1)continue;const years=current.age>=33?1:current.age>=30?2:3;next=renewPlayerContract(next,id,years).state;}return next;
-}
-'''+market_anchor
-          patch('src/game-engine/market.ts',market_anchor,market_add)
-          patch('src/game-engine/market.ts',
-            '  processAiTransfers(state,league,market,rng);\n  return{...state,league,market};',
-            '  processAiTransfers(state,league,market,rng);\n  let nextState={...state,league,market};const directorOffers=nextState.market.offers.filter(o=>o.sellerClubId===nextState.selectedClubId&&o.status==="Pendente").map(o=>o.id);for(const id of directorOffers)nextState=reviewIncomingOfferByBoard(nextState,id).state;nextState=reviewExpiringContractsByBoard(nextState);\n  return nextState;')
-
-          # International market: board handles approaches and received bids.
-          intl_anchor='''export function respondInternationalIncoming(state:SeasonState,offerId:string,accept:boolean):InternationalMarketResult{'''
-          intl_add='''export function directorMakeInternationalOffer(state:SeasonState,targetIdValue:string):InternationalMarketResult{
- const first=makeInternationalOffer(state,targetIdValue),offer=first.state.internationalMarket.offers.find(o=>o.direction==="Entrada"&&o.targetId===targetIdValue&&o.createdRound===state.currentRound);if(!offer)return{state:first.state,message:`Diretoria de Futebol: ${first.message}`};if(offer.status!=="Aceita")return{state:first.state,message:`Diretoria de Futebol: ${first.message}`};const closed=concludeInternationalOffer(first.state,offer.id);return{state:closed.state,message:`Diretoria de Futebol: ${closed.message}`};
-}
-
-export function finalizeInternationalOfferByBoard(state:SeasonState,offerId:string):InternationalMarketResult{const result=concludeInternationalOffer(state,offerId);return{state:result.state,message:`Diretoria de Futebol: ${result.message}`};}
-
-'''+intl_anchor
-          patch('src/game-engine/international-market.ts',intl_anchor,intl_add)
-          intl_after='''\n\nfunction externalClubPool(active:ProfessionalCompetitionId){'''
-          intl_review='''
-
-export function reviewInternationalIncomingByBoard(state:SeasonState,offerId:string):InternationalMarketResult{
- const offer=state.internationalMarket.offers.find(o=>o.id===offerId),club=state.league.clubs.find(c=>c.id===state.selectedClubId);if(!offer||!club||offer.direction!=="Saída"||offer.status!=="Pendente")return{state,message:"A proposta internacional não está pendente para a diretoria."};const player=club.players.find(p=>p.id===offer.playerId);if(!player)return{state,message:"Jogador não está mais no elenco."};const value=Math.max(300_000,player.marketValueEur??1_000_000),ratio=offer.feeEur/value,same=club.players.filter(p=>p.position===player.position),avg=club.players.reduce((s,p)=>s+p.overall,0)/Math.max(1,club.players.length),key=player.squadRole==="Titular"||player.overall>=avg+3;let accept=(player.transferListed&&ratio>=.9)||(player.wantsToLeave&&ratio>=.92)||(player.age>=31&&ratio>=.98)||(ratio>=1.18&&same.length>=3);if(key&&ratio<1.35)accept=false;if(same.length<=2&&!player.wantsToLeave)accept=false;const result=respondInternationalIncoming(state,offerId,accept),resolved=result.state.internationalMarket.offers.find(o=>o.id===offerId);let message=!accept?`Diretoria de Futebol: oferta internacional por ${player.name} recusada. O atleta segue no planejamento.`:resolved?.status==="Concluída"?`Diretoria de Futebol: venda de ${player.name} para ${offer.externalClubName} concluída por €${(offer.feeEur/1_000_000).toLocaleString("pt-BR",{maximumFractionDigits:2})} mi.`:`Diretoria de Futebol: a oferta foi aceita, mas a operação não foi concluída. ${result.message}`;if(resolved)resolved.message=message;return{state:result.state,message};
-}
-'''+intl_after
-          patch('src/game-engine/international-market.ts',intl_after,intl_review)
-          patch('src/game-engine/international-market.ts',
-            ' internationalMarket.history=internationalMarket.history.slice(0,120);return{...state,league,internationalMarket};',
-            ' internationalMarket.history=internationalMarket.history.slice(0,120);let nextState={...state,league,internationalMarket};const pending=nextState.internationalMarket.offers.filter(o=>o.direction==="Saída"&&o.status==="Pendente").map(o=>o.id);for(const id of pending)nextState=reviewInternationalIncomingByBoard(nextState,id).state;return nextState;')
-
-          # Media: assistant coach can take the full press conference.
-          media_tail=''' const name=profile?.journalist??profile?.outlet??"a imprensa",message=completed?`Coletiva com ${name} concluída. ${interpretation.summary}`:`${interpretation.summary} ${name} tem mais uma pergunta.`;return{mediaWorld,effect,message,completed,interpretation};\n}\n'''
-          media_delegate=media_tail+'''
-function assistantCoachReply(topic:string,format:MediaSessionFormat){if(/desfalque|médico|lesão/i.test(topic))return"A comissão trabalha em conjunto e vai preservar quem não estiver em condição ideal, sem expor informações médicas além do necessário.";if(/desempenho|leitura|resultado/i.test(topic))return"A comissão reconhece os pontos a corrigir, mantém confiança no trabalho e vai tratar os detalhes internamente com o elenco.";if(/plano|preparação|escalação/i.test(topic))return"A preparação segue o plano definido pelo treinador. As escolhas serão feitas pelo que a comissão observar nos treinos e pela necessidade da partida.";return format==="Coletiva pós-jogo"?"O grupo vai analisar o jogo com equilíbrio, assumir o que precisa melhorar e seguir unido para a sequência.":"O elenco está concentrado, a comissão confia no planejamento e os detalhes finais ficam preservados dentro do clube.";}
-
-export function delegateMediaSession(value:MediaWorldState|undefined,competitionId:ProfessionalCompetitionId,sessionId:string):MediaChoiceResult{
- const state=hydrateMediaWorld(value,competitionId),index=state.sessions.findIndex(item=>item.id===sessionId);if(index<0)return{mediaWorld:state,effect:{},message:"Coletiva não encontrada.",completed:false};const session={...state.sessions[index],questions:state.sessions[index].questions.map(question=>({...question,choices:question.choices.map(choice=>({...choice,effect:{...choice.effect}}))})),transcript:[...state.sessions[index].transcript]};if(session.status==="Concluída")return{mediaWorld:state,effect:{},message:"Esta coletiva já foi concluída.",completed:true};const profile=mediaProfileById(session.profileId),relation={...(state.relations[session.profileId]??{profileId:session.profileId,respect:55,access:48,tension:22,interactions:0})},previous=state.sessions.filter(item=>item.transcript.some(line=>line.startsWith("Adjunto:"))).length,repeated=Math.min(3,Math.floor(previous/2)),post=session.format==="Coletiva pós-jogo",effect:MediaChoiceEffect={respect:-(post?1:0)-repeated,access:-repeated,tension:-1,mediaPressure:(post?1:0)+repeated,managerReputation:previous>=4?-1:0};const remaining=session.questions.slice(session.questionIndex);for(const question of remaining)session.transcript.push(`${profile?.journalist??profile?.outlet??"Imprensa"}: ${question.prompt}`,`Adjunto: ${assistantCoachReply(question.topic,session.format)}`);relation.respect=clamp(relation.respect+(effect.respect??0));relation.access=clamp(relation.access+(effect.access??0));relation.tension=clamp(relation.tension+(effect.tension??0));relation.interactions+=Math.max(1,remaining.length);relation.lastRound=session.round;relation.lastOutcome="Coletiva conduzida pelo adjunto";session.questionIndex=session.questions.length;session.status="Concluída";session.score+=(effect.respect??0)+(effect.access??0)-(effect.tension??0);const sessions=[...state.sessions];sessions[index]=session;const mediaWorld={...state,relations:{...state.relations,[session.profileId]:relation},sessions},name=profile?.journalist??profile?.outlet??"a imprensa",warning=previous>=4?" A imprensa começa a cobrar mais presença pessoal do treinador.":"";return{mediaWorld,effect,message:`Seu adjunto representou a comissão na coletiva com ${name}.${warning}`,completed:true};
-}
-'''
-          patch('src/game-engine/media-world.ts',media_tail,media_delegate)
-
-          # Season bridge for assistant delegation.
-          patch('src/game-engine/season.ts',
-            'import { answerMediaSession, answerMediaTextSession, createMediaWorld, hydrateMediaWorld, mediaAfterMatch, mediaBeforeMatch, pendingMediaSessions, type MediaMatchContext, type MediaWorldState } from "./media-world";',
-            'import { answerMediaSession, answerMediaTextSession, createMediaWorld, delegateMediaSession, hydrateMediaWorld, mediaAfterMatch, mediaBeforeMatch, pendingMediaSessions, type MediaMatchContext, type MediaWorldState } from "./media-world";')
-          season_tail=''' return{state:{...state,league,livingWorld:world,mediaWorld:result.mediaWorld},message:result.message};\n}\n'''
-          season_delegate=season_tail+'''
-export function delegateMediaSessionToAssistant(state:SeasonState,sessionId:string){const result=delegateMediaSession(state.mediaWorld,state.competitionId,sessionId),effect=result.effect,clamp=(value:number)=>Math.max(0,Math.min(100,Math.round(value))),world={...state.livingWorld};world.mediaPressure=clamp(world.mediaPressure+(effect.mediaPressure??0));world.fanSupport=clamp(world.fanSupport+(effect.fanSupport??0));world.managerReputation=clamp(world.managerReputation+(effect.managerReputation??0));world.boardConfidence=clamp(world.boardConfidence+(effect.boardConfidence??0));return{state:{...state,livingWorld:world,mediaWorld:result.mediaWorld},message:result.message};}\n'''
-          patch('src/game-engine/season.ts',season_tail,season_delegate)
-
-          # Dashboard wiring.
-          patch('src/app/page.tsx',
-            'playTodayNationalMatch, resignNationalTeam, resolveMediaSessionText, resolveSeasonWorldChoice,',
-            'playTodayNationalMatch, resignNationalTeam, delegateMediaSessionToAssistant, resolveMediaSessionText, resolveSeasonWorldChoice,')
-          patch('src/app/page.tsx',
-            '  function handleMediaText(sessionId:string,text:string){const result=resolveMediaSessionText(season,sessionId,text);persist(result.state);flash(result.message)}\n',
-            '  function handleMediaText(sessionId:string,text:string){const result=resolveMediaSessionText(season,sessionId,text);persist(result.state);flash(result.message)}\n  function handleMediaDelegate(sessionId:string){const result=delegateMediaSessionToAssistant(season,sessionId);persist(result.state);flash(result.message)}\n')
-          patch('src/app/page.tsx',
-            'active==="Mídia & Redes"?<MediaCenterView season={season} onAnswer={handleMediaText}/>',
-            'active==="Mídia & Redes"?<MediaCenterView season={season} onAnswer={handleMediaText} onDelegate={handleMediaDelegate}/>')
-
-          # Press conference UI.
-          patch('src/app/media-center-view.tsx',
-            'export default function MediaCenterView({season,onAnswer}:{season:SeasonState;onAnswer:(sessionId:string,text:string)=>void}){',
-            'export default function MediaCenterView({season,onAnswer,onDelegate}:{season:SeasonState;onAnswer:(sessionId:string,text:string)=>void;onDelegate:(sessionId:string)=>void}){')
-          patch('src/app/media-center-view.tsx',
-            'mas você só responde coletivas oficiais antes e depois das partidas.',
-            'e você ou seu adjunto podem representar a comissão nas coletivas oficiais antes e depois das partidas.')
-          patch('src/app/media-center-view.tsx',
-            '<div><small>{draft.length}/600 • O jogo interpreta tom, alvo, postura, confiança e risco.</small><button type="submit" disabled={draft.trim().length<8}><Send size={15}/> RESPONDER</button></div>',
-            '<div><small>{draft.length}/600 • Responda pessoalmente ou delegue toda a coletiva ao adjunto.</small><span className={styles.answerActions}><button type="button" className={styles.delegate} onClick={()=>onDelegate(session.id)}><UsersRound size={15}/> ENVIAR O ADJUNTO</button><button type="submit" disabled={draft.trim().length<8}><Send size={15}/> RESPONDER</button></span></div>')
-          p=Path('src/app/media-center.module.css');s=p.read_text();s+='''.answerActions{display:flex;align-items:center;gap:8px}.writtenAnswer .delegate{background:#eef2f6;color:#17202e;border:1px solid #d8e0e9}.writtenAnswer .delegate:hover{background:#fff;border-color:#17202e}@media(max-width:640px){.answerActions{display:grid;grid-template-columns:1fr}.answerActions button{width:100%}}\n''';p.write_text(s)
-
-          # Domestic market UI becomes coach -> director workflow.
-          patch('src/app/market-view.tsx',
-            'import { clubWageSpend, concludeAcceptedOffer, formatBrl, formatEur, isTransferWindowOpen, makeOfferForPlayer, recommendedOffer, renewPlayerContract, respondToIncomingOffer, signFreeAgent, toggleTransferList, type MarketActionResult } from "@/game-engine/market";',
-            'import { clubWageSpend, finalizeAcceptedOfferByBoard, formatBrl, formatEur, isTransferWindowOpen, recommendedOffer, reviewIncomingOfferByBoard, type MarketActionResult } from "@/game-engine/market";')
-          patch('src/app/market-view.tsx',
-            'import { requestBoardTransferContact } from "@/game-engine/club-management";',
-            'import { requestBoardContractRenewal, requestBoardFreeAgentSigning, requestBoardTransferContact, requestBoardTransferListing } from "@/game-engine/club-management";')
-          patch('src/app/market-view.tsx',
-            'const incoming=market.offers.filter(o=>o.sellerClubId===club.id&&o.status==="Pendente");',
-            'const incoming=market.offers.filter(o=>o.sellerClubId===club.id).slice(0,20),pendingIncoming=incoming.filter(o=>o.status==="Pendente");')
-          patch('src/app/market-view.tsx','value={String(incoming.length)} detail="aguardando sua decisão"','value={String(pendingIncoming.length)} detail="em análise pela diretoria"')
-          patch('src/app/market-view.tsx','Salários são mecânica do jogo, não dado do Transfermarkt.','Você define prioridades esportivas; a Diretoria de Futebol negocia contratos e transferências.')
-          patch('src/app/market-view.tsx','onResult(renewPlayerContract(season,player.id))','onResult(requestBoardContractRenewal(season,player.id))')
-          patch('src/app/market-view.tsx','<FileSignature/> Renovar','<FileSignature/> Pedir renovação')
-          patch('src/app/market-view.tsx','onResult(toggleTransferList(season,player.id))','onResult(requestBoardTransferListing(season,player.id))')
-          patch('src/app/market-view.tsx','<BriefcaseBusiness/> {player.transferListed?"Retirar":"Listar"}','<BriefcaseBusiness/> {player.transferListed?"Pedir retirada":"Sugerir saída"}')
-          p=Path('src/app/market-view.tsx');s=p.read_text();s=s.replace('onResult(makeOfferForPlayer(season,player.id,"Compra"))','onResult(requestBoardTransferContact(season,player.id,"Compra"))').replace('onResult(makeOfferForPlayer(season,player.id,"Empréstimo"))','onResult(requestBoardTransferContact(season,player.id,"Empréstimo"))').replace('onResult(makeOfferForPlayer(season,selected.player.id,"Compra"))','onResult(requestBoardTransferContact(season,selected.player.id,"Compra"))').replace('onResult(makeOfferForPlayer(season,selected.player.id,"Empréstimo"))','onResult(requestBoardTransferContact(season,selected.player.id,"Empréstimo"))').replace('onResult(signFreeAgent(season,player.id))','onResult(requestBoardFreeAgentSigning(season,player.id))');p.write_text(s)
-          patch('src/app/market-view.tsx','<h2>{incoming.length} pendente{incoming.length===1?"":"s"}</h2>','<h2>{pendingIncoming.length} em análise • decisões da diretoria</h2>')
-          patch('src/app/market-view.tsx','<span>{offer.type}</span><h3>{buyer?.name} → {player?.name}</h3>','<span>{offer.type} • {offer.status}</span><h3>{buyer?.name} → {player?.name}</h3>')
-          patch('src/app/market-view.tsx','<div className={styles.decision}><button onClick={()=>onResult(respondToIncomingOffer(season,offer.id,true))}>Aceitar</button><button onClick={()=>onResult(respondToIncomingOffer(season,offer.id,false))}>Recusar</button></div>','{offer.status==="Pendente"&&<div className={styles.decision}><button onClick={()=>onResult(reviewIncomingOfferByBoard(season,offer.id))}>DIRETORIA DECIDIR</button></div>}')
-          patch('src/app/market-view.tsx','onClick={()=>onResult(concludeAcceptedOffer(season,offer.id))}>Concluir com jogador','onClick={()=>onResult(finalizeAcceptedOfferByBoard(season,offer.id))}>Cobrar conclusão da diretoria')
-          patch('src/app/market-view.tsx','>Oferecer contrato</button>', '>Sugerir contratação</button>')
-          patch('src/app/market-view.tsx','PEDIR CONTATO À DIRETORIA','SOLICITAR À DIRETORIA')
-          patch('src/app/market-view.tsx','>Proposta direta</button>','>Solicitar compra</button>')
-          patch('src/app/market-view.tsx','>Pedir empréstimo</button>','>Solicitar empréstimo</button>')
-
-          # International market UI follows the same responsibility split.
-          patch('src/app/international-market-panel.tsx',
-            'import { concludeInternationalOffer, globalWindowLabel, isGlobalTransferWindowOpen, listInternationalTargets, makeInternationalOffer, respondInternationalIncoming, type InternationalMarketResult } from "@/game-engine/international-market";',
-            'import { directorMakeInternationalOffer, finalizeInternationalOfferByBoard, globalWindowLabel, isGlobalTransferWindowOpen, listInternationalTargets, reviewInternationalIncomingByBoard, type InternationalMarketResult } from "@/game-engine/international-market";')
-          patch('src/app/international-market-panel.tsx',
-            'incoming=market.offers.filter(o=>o.direction==="Saída"&&o.status==="Pendente"),outgoing=',
-            'incoming=market.offers.filter(o=>o.direction==="Saída").slice(0,20),pendingIncoming=incoming.filter(o=>o.status==="Pendente"),outgoing=')
-          patch('src/app/international-market-panel.tsx','onResult(makeInternationalOffer(season,target.id))}>Fazer proposta','onResult(directorMakeInternationalOffer(season,target.id))}>Solicitar à diretoria')
-          patch('src/app/international-market-panel.tsx','<h2>{incoming.length} oferta{incoming.length===1?"":"s"} recebida{incoming.length===1?"":"s"}</h2>','<h2>{pendingIncoming.length} oferta{pendingIncoming.length===1?"":"s"} em análise da diretoria</h2>')
-          patch('src/app/international-market-panel.tsx','<p>{offer.message}</p><div className={styles.decision}><button onClick={()=>onResult(respondInternationalIncoming(season,offer.id,true))}>Aceitar</button><button onClick={()=>onResult(respondInternationalIncoming(season,offer.id,false))}>Recusar</button></div>','<p>{offer.message}</p>{offer.status==="Pendente"&&<div className={styles.decision}><button onClick={()=>onResult(reviewInternationalIncomingByBoard(season,offer.id))}>DIRETORIA DECIDIR</button></div>}')
-          patch('src/app/international-market-panel.tsx','onResult(concludeInternationalOffer(season,offer.id))}>Concluir termos pessoais','onResult(finalizeInternationalOfferByBoard(season,offer.id))}>Cobrar conclusão da diretoria')
-
-          # Tests for the new delegation paths.
-          patch('src/game-engine/media-world.test.ts',
-            'import{answerMediaSession,createMediaWorld,mediaAfterMatch,mediaBeforeRound,mediaRelationLabel,pendingMediaSessions}from"./media-world";',
-            'import{answerMediaSession,createMediaWorld,delegateMediaSession,mediaAfterMatch,mediaBeforeRound,mediaRelationLabel,pendingMediaSessions}from"./media-world";')
-          patch('src/game-engine/media-world.test.ts',
-            ' it("post-match result shifts fan segments and creates social trends"',
-            ' it("allows the assistant coach to complete a press conference",()=>{const league=createLeague("assistant-press",2026,"BRA1"),club=league.clubs[0],media=mediaBeforeRound(createMediaWorld("BRA1"),"BRA1",club,1,"seed",40),session=pendingMediaSessions(media,"BRA1")[0],result=delegateMediaSession(media,"BRA1",session.id);expect(result.completed).toBe(true);expect(result.mediaWorld.sessions.find(s=>s.id===session.id)?.transcript.some(line=>line.startsWith("Adjunto:"))).toBe(true)});\n it("post-match result shifts fan segments and creates social trends"')
-          patch('src/game-engine/market.test.ts',
-            'import{createMarketState,isTransferWindowOpen,makeOfferForPlayer,processMarketRound,recommendedOffer,renewPlayerContract,toggleTransferList}from"./market";',
-            'import{createMarketState,isTransferWindowOpen,makeOfferForPlayer,processMarketRound,recommendedOffer,renewPlayerContract,reviewIncomingOfferByBoard,toggleTransferList}from"./market";')
-          patch('src/game-engine/market.test.ts',
-            ' it("IA de mercado é determinística por rodada"',
-            ' it("diretoria resolve proposta recebida sem decisão manual do treinador",()=>{const season=createSeason("board-offer"),club=season.league.clubs[0],buyer=season.league.clubs[1],player=club.players[0];season.market.offers.push({id:"board-in",type:"Compra",buyerClubId:buyer.id,sellerClubId:club.id,playerId:player.id,feeEur:recommendedOffer(player)*2,salaryBrlMonthly:player.contract.salaryBrlMonthly*2,createdRound:1,expiresRound:3,status:"Pendente",message:"teste"});const result=reviewIncomingOfferByBoard(season,"board-in"),status=result.state.market.offers.find(o=>o.id==="board-in")?.status;expect(status).not.toBe("Pendente");expect(result.message).toContain("Diretoria de Futebol")});\n it("IA de mercado é determinística por rodada"')
-          PY
+      - name: Apply delegation upgrade
+        run: python .github/scripts/director-market-media-patch.py
       - name: Validate
         run: |
           npm ci
@@ -217,6 +24,7 @@ export function delegateMediaSessionToAssistant(state:SeasonState,sessionId:stri
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           rm .github/workflows/director-market-media-delegation.yml
+          rm .github/scripts/director-market-media-patch.py
           git add -A
           git commit -m "feat: delegate market decisions and press conferences"
           git push
