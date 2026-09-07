@@ -1,0 +1,262 @@
+name: Apply staff and training upgrade
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-staff-training-upgrade.yml'
+permissions:
+  contents: write
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add training engine
+        run: |
+          cat > src/game-engine/training.ts <<'EOF'
+          import type { LeagueClub } from "./league";
+
+          export type TrainingPlan="Recuperação"|"Equilibrado"|"Intensidade física"|"Tático"|"Desenvolvimento de jovens";
+          export const DEFAULT_TRAINING_PLAN:TrainingPlan="Equilibrado";
+          export const TRAINING_PLANS:TrainingPlan[]=["Recuperação","Equilibrado","Intensidade física","Tático","Desenvolvimento de jovens"];
+          export const TRAINING_PLAN_DETAILS:Record<TrainingPlan,string>={
+            "Recuperação":"Reduz fadiga e acelera a recuperação física.",
+            "Equilibrado":"Mantém carga moderada entre físico, técnica e recuperação.",
+            "Intensidade física":"Aumenta a carga e o desenvolvimento, com maior desgaste.",
+            "Tático":"Prioriza entendimento coletivo, forma e preparação de jogo.",
+            "Desenvolvimento de jovens":"Direciona mais trabalho individual para atletas de até 23 anos.",
+          };
+          const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
+          export function suggestedTrainingPlan(club:LeagueClub):TrainingPlan{
+            const available=club.players.filter(p=>p.injuryDays===0),avg=available.length?available.reduce((sum,p)=>sum+p.condition,0)/available.length:100,highFatigue=available.filter(p=>p.fatigue>=55).length,young=available.filter(p=>p.age<=23&&p.potential>=p.overall+3).length;
+            if(avg<84||highFatigue>=5)return"Recuperação";
+            if(young>=6&&avg>=91)return"Desenvolvimento de jovens";
+            if(avg>=95&&highFatigue<=1)return"Intensidade física";
+            return"Equilibrado";
+          }
+          export function applyTrainingDay(club:LeagueClub,plan:TrainingPlan){
+            for(const player of club.players){
+              if(player.injuryDays>0){player.fatigue=clamp(player.fatigue-1,0,100);continue;}
+              if(plan==="Recuperação"){player.condition=clamp(player.condition+2,0,100);player.fatigue=clamp(player.fatigue-3,0,100);player.developmentProgress=Math.max(0,player.developmentProgress+.01);}
+              else if(plan==="Equilibrado"){player.developmentProgress=Math.max(0,player.developmentProgress+(player.age<=23?.06:.035));}
+              else if(plan==="Intensidade física"){player.condition=clamp(player.condition-1,0,100);player.fatigue=clamp(player.fatigue+2,0,100);player.developmentProgress=Math.max(0,player.developmentProgress+(player.age<=25?.14:.08));}
+              else if(plan==="Tático"){player.fatigue=clamp(player.fatigue+1,0,100);player.form=clamp(player.form+.08,0,10);player.developmentProgress=Math.max(0,player.developmentProgress+.045);}
+              else{player.fatigue=clamp(player.fatigue+1,0,100);player.developmentProgress=Math.max(0,player.developmentProgress+(player.age<=23?.18:.02));}
+            }
+          }
+          EOF
+      - name: Upgrade tactics screen
+        run: |
+          cat > src/app/tactics-setup-view.tsx <<'EOF'
+          "use client";
+
+          import{useEffect,useRef,useState,type PointerEvent}from"react";
+          import { BookmarkPlus, Dumbbell, Lightbulb, Move, Play, Save, Shield, SlidersHorizontal, Sparkles, Trash2, Users } from "lucide-react";
+          import type { LeagueClub, LeaguePlayer } from "@/game-engine/league";
+          import type { Formation, MatchTactic, Mentality } from "@/game-engine/match";
+          import type{MatchdayRole}from"@/game-engine/season";
+          import { TRAINING_PLAN_DETAILS, TRAINING_PLANS, suggestedTrainingPlan, type TrainingPlan } from "@/game-engine/training";
+          import { lineupPlacements } from "@/game-engine/tactics-layout";
+          import{clampTacticalPoint,tacticalFitMultiplier,tacticalZone,type TacticalPoint}from"@/game-engine/tactical-position";
+          import styles from "./tactics-setup.module.css";
+
+          type TacticalRole="GOL"|"ZAG"|"LD"|"LE"|"ALA D"|"ALA E"|"VOL"|"MC"|"MÉDIO-ALA D"|"MÉDIO-ALA E"|"MEI"|"PD"|"PE"|"SA"|"ATA";
+          type SavedLineup={id:string;name:string;lineupIds:string[];benchIds:string[];tactic:MatchTactic;roles:Record<string,TacticalRole>};
+          const ROLE_OPTIONS:TacticalRole[]=["GOL","ZAG","LD","LE","ALA D","ALA E","VOL","MC","MÉDIO-ALA D","MÉDIO-ALA E","MEI","PD","PE","SA","ATA"];
+          const POSITION_ORDER=["GOL","LD","ZAG","LE","VOL","MC","MEI","PD","PE","ATA"];
+          const rolePoint=(role:TacticalRole):TacticalPoint=>({GOL:{x:50,y:91},ZAG:{x:50,y:75},LD:{x:84,y:70},LE:{x:16,y:70},"ALA D":{x:88,y:52},"ALA E":{x:12,y:52},VOL:{x:50,y:58},MC:{x:50,y:49},"MÉDIO-ALA D":{x:82,y:43},"MÉDIO-ALA E":{x:18,y:43},MEI:{x:50,y:36},PD:{x:82,y:27},PE:{x:18,y:27},SA:{x:50,y:25},ATA:{x:50,y:14}}[role]);
+          const naturalRole=(p:LeaguePlayer):TacticalRole=>ROLE_OPTIONS.includes(p.position as TacticalRole)?p.position as TacticalRole:"MC";
+          const scoreYouth=(p:LeaguePlayer)=>((p.age<=21?180:p.age<=23?90:0)+(p.potential*3)+(p.overall*1.2)-p.age);
+          const positionRank=(position:string)=>{const rank=POSITION_ORDER.indexOf(position);return rank<0?99:rank};
+          function youthBalancedXI(players:LeaguePlayer[]){const available=players.filter(p=>p.injuryDays===0&&p.suspensionMatches===0),used=new Set<string>(),pick=(positions:string[],count:number)=>{const pool=available.filter(p=>!used.has(p.id)&&positions.includes(p.position)).sort((a,b)=>scoreYouth(b)-scoreYouth(a)).slice(0,count);pool.forEach(p=>used.add(p.id));return pool;};const chosen=[...pick(["GOL"],1),...pick(["ZAG"],2),...pick(["LE","LD"],2),...pick(["VOL","MC","MEI"],3),...pick(["PE","PD","ATA","MEI"],3)];for(const p of [...available].sort((a,b)=>scoreYouth(b)-scoreYouth(a))){if(chosen.length>=11)break;if(!used.has(p.id)){chosen.push(p);used.add(p.id)}}return chosen.slice(0,11);}
+
+          export default function TacticsSetupView({club,opponent,isHome,tactic,onChange,lineupIds,benchIds,benchSize,onSetRole,onApplySelection,trainingPlan,onTrainingPlanChange,onPlay}:{club:LeagueClub;opponent:LeagueClub;isHome:boolean;tactic:MatchTactic;onChange:(t:MatchTactic)=>void;lineupIds:string[];benchIds:string[];benchSize:number;onSetRole:(id:string,role:MatchdayRole)=>void;onApplySelection:(lineupIds:string[],benchIds:string[])=>void;trainingPlan:TrainingPlan;onTrainingPlanChange:(plan:TrainingPlan)=>void;onPlay:()=>void}){
+           const pitchRef=useRef<HTMLDivElement>(null),[dragging,setDragging]=useState<string|null>(null),[saved,setSaved]=useState<SavedLineup[]>([]),[presetName,setPresetName]=useState(""),[roles,setRoles]=useState<Record<string,TacticalRole>>({});
+           const storageKey=`v90:tactics-presets:${club.id}`;
+           useEffect(()=>{const timer=window.setTimeout(()=>{try{setSaved(JSON.parse(localStorage.getItem(storageKey)??"[]"))}catch{setSaved([])}},0);return()=>window.clearTimeout(timer)},[storageKey]);
+           const starters=lineupIds.map(id=>club.players.find(p=>p.id===id)).filter((p):p is NonNullable<typeof p>=>Boolean(p)),placements=lineupPlacements(starters,tactic.formation,tactic.positions),available=club.players.filter(p=>p.injuryDays===0&&p.suspensionMatches===0),requiredBench=Math.max(0,Math.min(benchSize,available.length-11)),selectionReady=lineupIds.length===11&&benchIds.length===requiredBench;
+           const sorted=[...club.players].sort((a,b)=>{const ga=lineupIds.includes(a.id)?0:benchIds.includes(a.id)?1:2,gb=lineupIds.includes(b.id)?0:benchIds.includes(b.id)?1:2;return ga-gb||positionRank(a.position)-positionRank(b.position)||b.overall-a.overall||a.name.localeCompare(b.name)});
+           const avgCondition=starters.length?Math.round(starters.reduce((s,p)=>s+p.condition,0)/starters.length):0,avgOverall=starters.length?Math.round(starters.reduce((s,p)=>s+p.overall*tacticalFitMultiplier(p,tactic.positions?.[p.id]),0)/starters.length):0;
+           const home=isHome?club:opponent,away=isHome?opponent:club,lowCondition=[...starters].filter(p=>p.condition<80).sort((a,b)=>a.condition-b.condition),strengthGap=opponent.reputation-club.reputation;
+           const staffMentality:Mentality=strengthGap>=8?(isHome?"Equilibrada":"Defensiva"):strengthGap<=-8?"Ofensiva":"Equilibrada",staffPressing=avgCondition&&avgCondition<83?Math.min(58,tactic.pressing):staffMentality==="Ofensiva"?72:62,staffTempo=avgCondition&&avgCondition<83?Math.min(56,tactic.tempo):staffMentality==="Ofensiva"?70:60,staffTraining=suggestedTrainingPlan(club);
+           function movePlayer(event:PointerEvent<HTMLElement>,id:string){if(dragging!==id||!pitchRef.current)return;const rect=pitchRef.current.getBoundingClientRect(),point=clampTacticalPoint({x:(event.clientX-rect.left)/rect.width*100,y:(event.clientY-rect.top)/rect.height*100});onChange({...tactic,positions:{...(tactic.positions??{}),[id]:point}});}
+           function startDrag(event:PointerEvent<HTMLButtonElement>,id:string){event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);setDragging(id);}
+           function formation(value:Formation){onChange({...tactic,formation:value,positions:undefined});}
+           function setTacticalRole(player:LeaguePlayer,role:TacticalRole){setRoles(prev=>({...prev,[player.id]:role}));onChange({...tactic,positions:{...(tactic.positions??{}),[player.id]:rolePoint(role)}});}
+           function persistPresets(next:SavedLineup[]){setSaved(next);localStorage.setItem(storageKey,JSON.stringify(next));}
+           function savePreset(){const name=presetName.trim()||`Escalação ${saved.length+1}`,entry:SavedLineup={id:`${Date.now()}`,name,lineupIds:[...lineupIds],benchIds:[...benchIds],tactic:{...tactic,positions:tactic.positions?{...tactic.positions}:undefined},roles:{...roles}};persistPresets([...saved,entry]);setPresetName("");}
+           function applyPreset(item:SavedLineup){const valid=new Set(available.map(p=>p.id)),xi=item.lineupIds.filter(id=>valid.has(id)).slice(0,11),xiSet=new Set(xi),bench=item.benchIds.filter(id=>valid.has(id)&&!xiSet.has(id)).slice(0,requiredBench);onApplySelection(xi,bench);setRoles(item.roles??{});onChange(item.tactic);}
+           function applyYouth(){const xi=youthBalancedXI(club.players),used=new Set(xi.map(p=>p.id)),bench=[...available].filter(p=>!used.has(p.id)).sort((a,b)=>scoreYouth(b)-scoreYouth(a)).slice(0,requiredBench),nextRoles=Object.fromEntries(xi.map(p=>[p.id,naturalRole(p)])) as Record<string,TacticalRole>;onApplySelection(xi.map(p=>p.id),bench.map(p=>p.id));setRoles(nextRoles);onChange({...tactic,positions:Object.fromEntries(xi.map(p=>[p.id,rolePoint(nextRoles[p.id])]))});}
+           return <div className={styles.layout}>
+            <section className={styles.pitchCard}>
+             <header><div><span>QUADRO TÁTICO FLEXÍVEL • {isHome?"CASA":"FORA"}</span><h2>{home.name} <i>vs</i> {away.name}</h2></div><div className={styles.summary}><b>{tactic.formation}</b><small>{lineupIds.length}/11 titulares • {benchIds.length}/{requiredBench} banco</small></div></header>
+             <div className={styles.pitch} ref={pitchRef}><div className={styles.half}/><div className={styles.circle}/><div className={`${styles.box} ${styles.topBox}`}/><div className={`${styles.box} ${styles.bottomBox}`}/>{placements.map(({player,point})=>{const fit=Math.round(tacticalFitMultiplier(player,point)*100),role=roles[player.id]??naturalRole(player);return <button key={player.id} className={`${styles.player} ${dragging===player.id?styles.dragging:""}`} style={{left:`${point.x}%`,top:`${point.y}%`}} onPointerDown={event=>startDrag(event,player.id)} onPointerMove={event=>movePlayer(event,player.id)} onPointerUp={()=>setDragging(null)} onPointerCancel={()=>setDragging(null)} title={`${player.name} • ${role} • ${tacticalZone(point)} • encaixe ${fit}%`}><span>{role}</span><b>{player.name.split(" ")[0]}</b><small>OVR {player.overall} • {fit}%</small></button>})}</div>
+             <div className={styles.pitchFooter}><span><Users/> OVR efetivo <b>{avgOverall||"—"}</b></span><span><Shield/> Condição <b>{avgCondition||"—"}%</b></span><small><Move/> Arraste os jogadores ou atribua uma função tática.</small></div>
+            </section>
+            <section className={styles.side}>
+             <button className={styles.play} disabled={!selectionReady} onClick={onPlay}><Play size={16} fill="currentColor"/>{selectionReady?"IR PARA A PARTIDA":lineupIds.length!==11?`SELECIONE 11 TITULARES`:`COMPLETE O BANCO (${benchIds.length}/${requiredBench})`}</button>
+             <div className={styles.panel}><header><Lightbulb/><div><b>SUGESTÃO DA COMISSÃO</b><small>Leitura do adversário, mando e condição do seu XI.</small></div></header><div className={styles.staffCards}><div><b>PLANO PARA O JOGO</b><span>{isHome?"Em casa":"Fora de casa"} contra {strengthGap>=8?"um adversário mais forte":strengthGap<=-8?"um adversário teoricamente inferior":"um rival de força semelhante"}. A comissão sugere <strong>{staffMentality}</strong>, pressão {staffPressing} e ritmo {staffTempo}.</span></div><div><b>ELENCO</b><span>{lowCondition.length?`${lowCondition.slice(0,3).map(p=>`${p.name} (${p.condition}%)`).join(", ")} chegam abaixo do ideal e merecem atenção.`:"O XI escolhido chega em boa condição física."}</span></div></div><button className={styles.staffApply} onClick={()=>onChange({...tactic,mentality:staffMentality,pressing:staffPressing,tempo:staffTempo})}>APLICAR AJUSTE SUGERIDO</button></div>
+             <div className={styles.panel}><header><Dumbbell/><div><b>PLANO DE TREINO</b><small>Você define a diretriz; a comissão técnica executa automaticamente a cada dia avançado.</small></div></header><div className={styles.trainingRec}><span>Comissão recomenda</span><b>{staffTraining}</b><small>{TRAINING_PLAN_DETAILS[staffTraining]}</small>{staffTraining!==trainingPlan&&<button onClick={()=>onTrainingPlanChange(staffTraining)}>USAR SUGESTÃO</button>}</div><div className={styles.trainingOptions}>{TRAINING_PLANS.map(plan=><button key={plan} className={trainingPlan===plan?styles.trainingActive:""} onClick={()=>onTrainingPlanChange(plan)}><b>{plan}</b><small>{TRAINING_PLAN_DETAILS[plan]}</small></button>)}</div></div>
+             <div className={styles.panel}><header><SlidersHorizontal/><div><b>PLANO DE JOGO</b><small>A formação cria a base; depois você pode mover cada jogador livremente.</small></div></header><label>FORMAÇÃO BASE</label><div className={styles.options}>{(["4-2-3-1","4-3-3","4-4-2"] as Formation[]).map(value=><button key={value} className={tactic.formation===value?styles.active:""} onClick={()=>formation(value)}>{value}</button>)}</div><label>MENTALIDADE</label><div className={styles.options}>{(["Defensiva","Equilibrada","Ofensiva"] as Mentality[]).map(value=><button key={value} className={tactic.mentality===value?styles.active:""} onClick={()=>onChange({...tactic,mentality:value})}>{value}</button>)}</div><Range label="Pressão" value={tactic.pressing} onChange={pressing=>onChange({...tactic,pressing})}/><Range label="Ritmo" value={tactic.tempo} onChange={tempo=>onChange({...tactic,tempo})}/></div>
+             <div className={styles.panel}><header><BookmarkPlus/><div><b>ESCALAÇÕES SALVAS</b><small>Salve XI, banco, funções e plano tático para trocar de equipe em segundos.</small></div></header><div className={styles.presetActions}><button onClick={applyYouth}><Sparkles size={13}/> JOVENS PROMESSAS</button></div><div className={styles.saveRow}><input value={presetName} onChange={e=>setPresetName(e.target.value)} placeholder="Ex.: Time jovem / Copa"/><button onClick={savePreset} disabled={lineupIds.length!==11}><Save size={13}/> SALVAR</button></div>{saved.length>0&&<div className={styles.savedList}>{saved.map(item=><div key={item.id}><button className={styles.savedMain} onClick={()=>applyPreset(item)}><b>{item.name}</b><small>{item.tactic.formation} • {item.lineupIds.length} titulares</small></button><button className={styles.deletePreset} title="Excluir" onClick={()=>persistPresets(saved.filter(x=>x.id!==item.id))}><Trash2 size={13}/></button></div>)}</div>}</div>
+             <div className={styles.panel}><header><Users/><div><b>CONVOCAÇÃO DA PARTIDA</b><small>Titulares primeiro, depois banco e demais jogadores; cada grupo fica ordenado por posição.</small></div></header><div className={styles.selectionSummary}><b>XI {lineupIds.length}/11</b><b>BANCO {benchIds.length}/{requiredBench}</b><b>FORA {club.players.length-lineupIds.length-benchIds.length}</b></div><div className={styles.players}>{sorted.map(p=>{const starter=lineupIds.includes(p.id),bench=benchIds.includes(p.id),blocked=p.injuryDays>0||p.suspensionMatches>0,role=roles[p.id]??naturalRole(p);return <div key={p.id} className={`${styles.playerRow} ${starter?styles.selected:bench?styles.benchSelected:""}`}><i>{p.position}</i><span><b>{p.name}</b><small>{blocked?p.status:`${p.age}a • OVR ${p.overall} • POT ${p.potential} • Cond. ${p.condition}%`}</small>{starter&&<select className={styles.tacticalRole} value={role} onChange={e=>setTacticalRole(p,e.target.value as TacticalRole)}>{ROLE_OPTIONS.map(option=><option key={option}>{option}</option>)}</select>}</span><div className={styles.roles}><button disabled={blocked} className={starter?styles.roleActive:""} onClick={()=>onSetRole(p.id,"starter")}>XI</button><button disabled={blocked} className={bench?styles.roleActive:""} onClick={()=>onSetRole(p.id,"bench")}>B</button><button disabled={blocked} className={!starter&&!bench?styles.roleActive:""} onClick={()=>onSetRole(p.id,"out")}>F</button></div></div>})}</div></div>
+            </section>
+           </div>;
+          }
+          function Range({label,value,onChange}:{label:string;value:number;onChange:(value:number)=>void}){return <label className={styles.range}><span>{label}<b>{value}</b></span><input type="range" min="20" max="90" value={value} onChange={e=>onChange(Number(e.target.value))}/></label>}
+          EOF
+      - name: Upgrade live match screen
+        run: |
+          cat > src/app/live-match-view.tsx <<'EOF'
+          "use client";
+
+          import { useEffect, useMemo, useState } from "react";
+          import { ChevronRight, Gauge, Lightbulb, Pause, Play, Repeat2, ShieldAlert, Users } from "lucide-react";
+          import type { LeagueClub } from "@/game-engine/league";
+          import { advanceLiveMatchMinute, isLiveMatchRunning, makeSubstitution, requiredUserSubstitutions, resumeSecondHalf, setTeamTalk, startLiveMatch, updateLiveTactic, type LiveMatchState, type MatchSpeed, type TeamTalk } from "@/game-engine/live-match";
+          import type { Mentality } from "@/game-engine/match";
+          import { layoutLineup } from "@/game-engine/tactics-layout";
+          import liveStyles from "./live-match.module.css";
+
+          const SPEED_MS:Record<MatchSpeed,number>={normal:900,fast:300,very_fast:90};
+          const SPEED_LABEL:Record<MatchSpeed,string>={normal:"NORMAL",fast:"RÁPIDO",very_fast:"MUITO RÁPIDO"};
+          const POSITION_ORDER=["GOL","LD","ZAG","LE","VOL","MC","MEI","PD","PE","ATA"];
+          const positionRank=(position?:string)=>{const rank=POSITION_ORDER.indexOf(position??"");return rank<0?99:rank};
+
+          export default function LiveMatchView({session,home,away,onChange,onFinish}:{session:LiveMatchState;home:LeagueClub;away:LeagueClub;onChange:(next:LiveMatchState)=>void;onFinish:(session:LiveMatchState)=>void}){
+           const [running,setRunning]=useState(false),[speed,setSpeed]=useState<MatchSpeed>("normal"),[outId,setOutId]=useState(""),[inId,setInId]=useState("");
+           const userClub=session.userSide==="home"?home:away,userLineupIds=session.userSide==="home"?session.homeLineupIds:session.awayLineupIds,userBenchIds=session.userSide==="home"?session.homeBenchIds:session.awayBenchIds,userTactic=session.userSide==="home"?session.homeTactic:session.awayTactic;
+           const substitutions=session.substitutions.filter(s=>s.side===session.userSide),required=requiredUserSubstitutions(session);
+           const playerById=useMemo(()=>new Map([...home.players,...away.players].map(p=>[p.id,p])),[home,away]);
+           const sortIds=(ids:string[])=>[...ids].sort((a,b)=>positionRank(playerById.get(a)?.position)-positionRank(playerById.get(b)?.position)||(playerById.get(b)?.overall??0)-(playerById.get(a)?.overall??0)||(playerById.get(a)?.name??"").localeCompare(playerById.get(b)?.name??""));
+           const sortedLineupIds=sortIds(userLineupIds),sortedBenchIds=sortIds(userBenchIds);
+           const homeAssignments=layoutLineup(session.homeLineupIds.map(id=>playerById.get(id)).filter((p):p is NonNullable<typeof p>=>Boolean(p)),session.homeTactic.formation);
+           const awayAssignments=layoutLineup(session.awayLineupIds.map(id=>playerById.get(id)).filter((p):p is NonNullable<typeof p>=>Boolean(p)),session.awayTactic.formation);
+
+           useEffect(()=>{
+            if(!running||!isLiveMatchRunning(session)||required.length)return;
+            const timer=window.setTimeout(()=>{const next=advanceLiveMatchMinute(session,home,away);onChange(next);if(next.phase==="halftime"||next.phase==="fulltime"||requiredUserSubstitutions(next).length)setRunning(false);},SPEED_MS[speed]);
+            return()=>window.clearTimeout(timer);
+           },[running,speed,session,home,away,onChange,required.length]);
+
+           function changeTactic(patch:Partial<typeof userTactic>){onChange(updateLiveTactic(session,session.userSide,{...userTactic,...patch}));}
+           function substitute(){if(!outId||!inId)return;onChange(makeSubstitution(session,session.userSide,outId,inId));setOutId("");setInId("");}
+           function start(){onChange(startLiveMatch(session,home));setRunning(true)}
+           function resume(){const next=resumeSecondHalf(session);onChange(next);if(next.phase==="second_half_window")setRunning(true)}
+           const phaseLabel=session.phase==="pre_match"?"PRÉ-JOGO":session.phase==="first_half"?"1º TEMPO":session.phase==="halftime"?"INTERVALO":session.phase==="second_half_window"?"2º TEMPO":"ENCERRADO";
+           const userGoals=session.userSide==="home"?session.homeGoals:session.awayGoals,oppGoals=session.userSide==="home"?session.awayGoals:session.homeGoals,userShots=session.userSide==="home"?session.shotsHome:session.shotsAway,oppShots=session.userSide==="home"?session.shotsAway:session.shotsHome,userPossession=session.userSide==="home"?session.possessionHome:100-session.possessionHome,scoreDiff=userGoals-oppGoals;
+           const fatigueCandidates=sortedLineupIds.map(id=>({id,p:playerById.get(id),state:session.playerStates[id]})).filter(x=>x.p&&x.state).sort((a,b)=>((a.state?.condition??100)+(a.state?.rating??6)*5-(a.state?.fatigue??0))-((b.state?.condition??100)+(b.state?.rating??6)*5-(b.state?.fatigue??0))),tired=fatigueCandidates[0],forcedId=required[0],subOutId=forcedId??((session.currentMinute>=55&&(tired?.state?.condition??100)<74)?tired?.id:undefined),subOutPlayer=subOutId?playerById.get(subOutId):undefined,subInId=subOutPlayer?(sortedBenchIds.find(id=>playerById.get(id)?.position===subOutPlayer.position)??sortedBenchIds[0]):undefined;
+           let staffTitle="Manter o plano",staffDetail="A comissão não vê necessidade de uma mudança estrutural neste momento.",staffPatch:Partial<typeof userTactic>|undefined;
+           if(required.length){staffTitle="Troca obrigatória";staffDetail=`${playerById.get(required[0])?.name??"Um jogador"} não consegue continuar. A comissão já separou a melhor reposição disponível.`;}
+           else if(session.phase==="pre_match"){staffTitle="Entrada controlada";staffDetail="Comece lendo o adversário e ajuste a pressão depois dos primeiros minutos.";}
+           else if(session.currentMinute>=65&&scoreDiff<0){staffTitle="Buscar o resultado";staffDetail=`Estamos atrás no placar e temos ${userShots} finalizações contra ${oppShots}. A comissão sugere aumentar risco, pressão e ritmo.`;staffPatch={mentality:"Ofensiva",pressing:Math.min(90,userTactic.pressing+12),tempo:Math.min(90,userTactic.tempo+10)};}
+           else if(session.currentMinute>=70&&scoreDiff>0){staffTitle="Controlar a vantagem";staffDetail=`Vencendo por ${userGoals} a ${oppGoals}, vale reduzir transições e preservar o time para os minutos finais.`;staffPatch={mentality:"Equilibrada",pressing:Math.max(38,userTactic.pressing-10),tempo:Math.max(40,userTactic.tempo-12)};}
+           else if(session.currentMinute>=35&&userShots+3<=oppShots){staffTitle="Reagir sem esperar o placar";staffDetail=`O adversário finaliza mais (${oppShots} a ${userShots}). A comissão recomenda pressionar mais e acelerar a circulação.`;staffPatch={pressing:Math.min(90,userTactic.pressing+8),tempo:Math.min(90,userTactic.tempo+8)};}
+           else if(session.currentMinute>=30&&userPossession<42){staffTitle="Recuperar controle";staffDetail=`Posse em ${userPossession}%. A sugestão é subir a pressão sem alterar totalmente a mentalidade.`;staffPatch={pressing:Math.min(90,userTactic.pressing+7)};}
+
+           return <div className={liveStyles.layout}>
+            <section className={liveStyles.scoreboard}>
+             <div className={liveStyles.clock}><span>{phaseLabel}</span><strong>{session.phase==="halftime"?"INT":session.phase==="fulltime"?"90′":`${String(session.currentMinute).padStart(2,"0")}′`}</strong></div>
+             <div className={liveStyles.scoreLine}><b>{home.shortName}</b><strong>{session.homeGoals}<i>×</i>{session.awayGoals}</strong><b>{away.shortName}</b></div>
+             <div className={liveStyles.matchStats}><span>POSSE <b>{session.possessionHome}%</b>–<b>{100-session.possessionHome}%</b></span><span>FINALIZAÇÕES <b>{session.shotsHome}</b>–<b>{session.shotsAway}</b></span><span>xG <b>{session.xgHome.toFixed(2)}</b>–<b>{session.xgAway.toFixed(2)}</b></span><span>GRANDES CHANCES <b>{session.bigChancesHome}</b>–<b>{session.bigChancesAway}</b></span><span>TROCAS <b>{substitutions.length}/5</b></span></div>
+             <div className={liveStyles.transport}>{session.phase==="pre_match"?<button className={liveStyles.primary} onClick={start}><Play size={15} fill="currentColor"/> COMEÇAR PARTIDA</button>:session.phase==="fulltime"?<button className={liveStyles.primary} onClick={()=>onFinish(session)}>ENCERRAR RODADA <ChevronRight size={16}/></button>:session.phase!=="halftime"?<button className={liveStyles.playPause} disabled={required.length>0} onClick={()=>setRunning(v=>!v)}>{running?<><Pause size={15} fill="currentColor"/> PAUSAR</>:<><Play size={15} fill="currentColor"/> CONTINUAR</>}</button>:null}{session.phase!=="pre_match"&&session.phase!=="fulltime"&&<div className={liveStyles.speed}><Gauge size={15}/>{(["normal","fast","very_fast"] as MatchSpeed[]).map(value=><button key={value} className={speed===value?liveStyles.speedActive:""} onClick={()=>setSpeed(value)}>{SPEED_LABEL[value]}</button>)}</div>}</div>
+            </section>
+            {required.length>0&&<div className={liveStyles.injuryStop}><ShieldAlert/><div><b>PARTIDA PAUSADA POR LESÃO</b><span>{required.map(id=>playerById.get(id)?.name).filter(Boolean).join(", ")} precisa ser substituído para o relógio continuar.</span></div></div>}
+            {session.phase==="halftime"&&<section className={liveStyles.halftime}><div><Users/><span>INTERVALO</span><h3>Qual é a mensagem para o elenco?</h3><p>A resposta influencia o início do segundo tempo e perde força gradualmente.</p></div><div className={liveStyles.talks}>{(["Cobrar","Incentivar","Acalmar"] as TeamTalk[]).map(talk=><button key={talk} className={session.teamTalk===talk?liveStyles.active:""} onClick={()=>onChange(setTeamTalk(session,talk))}>{talk}</button>)}</div><button className={liveStyles.primary} disabled={required.length>0} onClick={resume}><Play size={15} fill="currentColor"/> INICIAR 2º TEMPO</button></section>}
+            <section className={liveStyles.matchGrid}>
+             <div className={liveStyles.pitchPanel}><header><div><b>CAMPO AO VIVO</b><small>{home.name} × {away.name}</small></div><span>{userTactic.formation} • {userTactic.mentality}</span></header><div className={liveStyles.pitch}><div className={liveStyles.centerCircle}/><div className={`${liveStyles.box} ${liveStyles.topBox}`}/><div className={`${liveStyles.box} ${liveStyles.bottomBox}`}/>{homeAssignments.map(({slot,player})=><div key={`h-${player.id}`} className={`${liveStyles.pitchPlayer} ${liveStyles.homePlayer} ${session.userSide==="home"?liveStyles.userPlayer:""}`} style={{left:`${slot.x}%`,top:`${slot.y}%`}}><i>{player.position}</i><b>{player.name.split(" ")[0]}</b><small>{session.playerStates[player.id]?.rating.toFixed(1)??"6.0"}</small></div>)}{awayAssignments.map(({slot,player})=><div key={`a-${player.id}`} className={`${liveStyles.pitchPlayer} ${liveStyles.awayPlayer} ${session.userSide==="away"?liveStyles.userPlayer:""}`} style={{left:`${100-slot.x}%`,top:`${100-slot.y}%`}}><i>{player.position}</i><b>{player.name.split(" ")[0]}</b><small>{session.playerStates[player.id]?.rating.toFixed(1)??"6.0"}</small></div>)}</div></div>
+             <div className={liveStyles.controlColumn}>
+              <div className={`${liveStyles.panel} ${liveStyles.staffPanel}`}><header><Lightbulb size={16}/><div><b>COMISSÃO TÉCNICA</b><small>Leitura atualizada conforme o jogo acontece.</small></div></header><div className={liveStyles.staffAdvice}><b>{staffTitle}</b><span>{staffDetail}</span></div><div className={liveStyles.staffActions}>{staffPatch&&<button onClick={()=>changeTactic(staffPatch)}>APLICAR AJUSTE</button>}{subOutId&&subInId&&session.phase!=="pre_match"&&session.phase!=="fulltime"&&<button onClick={()=>{setOutId(subOutId);setInId(subInId)}}>PREPARAR TROCA: {playerById.get(subInId)?.name}</button>}</div></div>
+              <div className={liveStyles.panel}><header><ShieldAlert size={16}/><div><b>AJUSTE TÁTICO</b><small>As mudanças passam a valer no próximo minuto.</small></div></header><label>Mentalidade</label><div className={liveStyles.choices}>{(["Defensiva","Equilibrada","Ofensiva"] as Mentality[]).map(value=><button key={value} className={userTactic.mentality===value?liveStyles.active:""} onClick={()=>changeTactic({mentality:value})}>{value}</button>)}</div><label>Pressão <b>{userTactic.pressing}</b></label><input type="range" min="20" max="90" value={userTactic.pressing} onChange={e=>changeTactic({pressing:Number(e.target.value)})}/><label>Ritmo <b>{userTactic.tempo}</b></label><input type="range" min="20" max="90" value={userTactic.tempo} onChange={e=>changeTactic({tempo:Number(e.target.value)})}/></div>
+              <div className={liveStyles.panel}><header><Repeat2 size={16}/><div><b>SUBSTITUIÇÕES • {substitutions.length}/5</b><small>Jogadores em campo e banco ficam ordenados por posição.</small></div></header><div className={liveStyles.subRow}><label>SAI<select value={outId} onChange={e=>setOutId(e.target.value)}><option value="">Selecione</option>{sortedLineupIds.map(id=>{const p=playerById.get(id);return <option key={id} value={id}>{required.includes(id)?"🩺 ":""}{p?.position} • {p?.name} • {session.playerStates[id]?.condition.toFixed(0)??p?.condition}% • N {session.playerStates[id]?.rating.toFixed(1)??"6.0"}</option>})}</select></label><label>ENTRA<select value={inId} onChange={e=>setInId(e.target.value)}><option value="">Selecione</option>{sortedBenchIds.map(id=>{const p=playerById.get(id);return <option key={id} value={id}>{p?.position} • {p?.name} • OVR {p?.overall} • COND {session.playerStates[id]?.condition.toFixed(0)??p?.condition}%</option>})}</select></label><button disabled={!outId||!inId||substitutions.length>=5||session.phase==="pre_match"||session.phase==="fulltime"} onClick={substitute}>TROCAR</button></div>{substitutions.length>0&&<div className={liveStyles.subHistory}>{substitutions.slice().reverse().map((sub,i)=><span key={`${sub.outPlayerId}-${i}`}><small>{sub.minute} min</small> {playerById.get(sub.outPlayerId)?.name} → <b>{playerById.get(sub.inPlayerId)?.name}</b></span>)}</div>}</div>
+             </div>
+            </section>
+            <section className={liveStyles.commentary}><header><b>DADOS AVANÇADOS</b><small>Passes {session.passesHome}–{session.passesAway} • Desarmes {session.tacklesHome}–{session.tacklesAway} • Interceptações {session.interceptionsHome}–{session.interceptionsAway} • Expulsões {session.sentOffPlayerIds.length}</small></header></section>
+            <section className={liveStyles.commentary}><header><b>NARRAÇÃO EVENTO A EVENTO</b><small>{session.events.length} acontecimentos • relógio {session.currentMinute} min</small></header><div>{session.events.slice().reverse().map((event,index)=><article key={`${event.minute}-${event.type}-${index}`} className={event.type==="goal"?liveStyles.goal:event.type==="injury"?liveStyles.injury:""}><time>{event.minute===0?"00′":`${event.minute}′`}</time><span>{event.type==="goal"?"⚽":event.type==="card"?"🟨":event.type==="red_card"?"🟥":event.type==="injury"?"🩺":event.type==="halftime"?"⏸":"•"}</span><p>{event.text}</p></article>)}</div></section>
+            <section className={liveStyles.squads}><div><b>{userClub.name} EM CAMPO • ORDEM POR POSIÇÃO</b>{sortedLineupIds.map(id=>{const p=playerById.get(id);return <span key={id}><i>{p?.position}</i>{p?.name}<small>COND {session.playerStates[id]?.condition.toFixed(0)??p?.condition}% • FAD {session.playerStates[id]?.fatigue.toFixed(0)??p?.fatigue}% • N {session.playerStates[id]?.rating.toFixed(1)??"6.0"}</small></span>})}</div><div><b>BANCO • ORDEM POR POSIÇÃO</b>{sortedBenchIds.map(id=>{const p=playerById.get(id);return <span key={id}><i>{p?.position}</i>{p?.name}<small>OVR {p?.overall}</small></span>})}</div></section>
+           </div>;
+          }
+          EOF
+      - name: Add UI styles
+        run: |
+          cat >> src/app/tactics-setup.module.css <<'EOF'
+          .staffCards{display:flex;flex-direction:column;gap:7px}.staffCards>div{border:1px solid #28483f;background:#10251f;border-radius:7px;padding:9px;display:flex;flex-direction:column;gap:4px}.staffCards b,.trainingRec>span{font-size:7px;color:#7f9b92;letter-spacing:.7px}.staffCards span{font-size:8px;color:#aec1bb;line-height:1.45}.staffCards strong{color:#d9ff43}.staffApply,.trainingRec button{margin-top:8px;width:100%;border:1px solid #536c2c;background:#1a2b18;color:#d9ff43;border-radius:6px;padding:8px;font-size:7px;font-weight:900;cursor:pointer}.trainingRec{border:1px solid #365249;background:#0e211c;border-radius:7px;padding:9px;display:grid;gap:3px}.trainingRec>b{font-size:10px;color:#d9ff43}.trainingRec small{font-size:7px;color:#78958c;line-height:1.4}.trainingOptions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.trainingOptions button{border:1px solid #28483f;background:#10251f;color:#9bb1aa;border-radius:7px;padding:8px;text-align:left;display:flex;flex-direction:column;gap:3px;cursor:pointer}.trainingOptions button b{font-size:7px}.trainingOptions button small{font-size:6px;line-height:1.35;color:#66847b}.trainingOptions .trainingActive{border-color:#d9ff43;background:#1b2c19;color:#d9ff43}.trainingOptions .trainingActive small{color:#a9bd88}@media(max-width:700px){.trainingOptions{grid-template-columns:1fr}}
+          EOF
+          cat >> src/app/live-match.module.css <<'EOF'
+          .staffPanel{border-color:#40542c}.staffAdvice{border:1px solid #334d44;background:#0f241e;border-radius:7px;padding:10px;display:flex;flex-direction:column;gap:4px}.staffAdvice b{font-size:9px;color:#d9ff43}.staffAdvice span{font-size:8px;line-height:1.45;color:#a4b9b2}.staffActions{display:flex;flex-direction:column;gap:5px;margin-top:8px}.staffActions button{border:1px solid #526c2d;background:#1a2c18;color:#d9ff43;border-radius:6px;padding:8px;font-size:7px;font-weight:900;cursor:pointer}
+          EOF
+      - name: Wire training into season and dashboard
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          season_path=Path('src/game-engine/season.ts')
+          s=season_path.read_text()
+          import_anchor='import { applyForNationalTeam as applyNationalJob, createNationalCareer, hydrateNationalCareer, playNationalFixture, resignNationalTeam as leaveNationalJob, toggleNationalCallUp, todayNationalFixture, type NationalCareerState } from "./national-team";'
+          if 'from "./training"' not in s:
+              assert import_anchor in s
+              s=s.replace(import_anchor,import_anchor+'\nimport { DEFAULT_TRAINING_PLAN, applyTrainingDay, type TrainingPlan } from "./training";')
+          if 'trainingPlan:TrainingPlan;' not in s:
+              assert '  currentDate:string;\n' in s
+              s=s.replace('  currentDate:string;\n','  currentDate:string;\n  trainingPlan:TrainingPlan;\n',1)
+          create_anchor='competitionId,currentDate:addIsoDays(firstDate,-7)};'
+          if 'trainingPlan:DEFAULT_TRAINING_PLAN' not in s:
+              assert create_anchor in s
+              s=s.replace(create_anchor,'competitionId,currentDate:addIsoDays(firstDate,-7),trainingPlan:DEFAULT_TRAINING_PLAN};',1)
+          if 'applyTrainingDay(club,state.trainingPlan??DEFAULT_TRAINING_PLAN)' not in s:
+              marker='export function advanceSeasonDay(state:SeasonState,calendarDay=1):SeasonState{'
+              start=s.index(marker)
+              tail=s[start:]
+              needle='\n  const selection=normalizeMatchdaySelection'
+              idx=tail.index(needle)
+              tail=tail[:idx]+'\n  if(state.career?.status!=="Sem clube")applyTrainingDay(club,state.trainingPlan??DEFAULT_TRAINING_PLAN);'+tail[idx:]
+              s=s[:start]+tail
+          if 'export function setTrainingPlan' not in s:
+              needle='export function toggleBenchPlayer(state:SeasonState,playerId:string):SeasonState{return setMatchdayRole(state,playerId,(state.benchIds??[]).includes(playerId)?"out":"bench");}\n'
+              assert needle in s
+              s=s.replace(needle,needle+'export function setTrainingPlan(state:SeasonState,trainingPlan:TrainingPlan):SeasonState{return{...state,trainingPlan};}\n')
+          if 'if(!parsed.trainingPlan)parsed.trainingPlan=DEFAULT_TRAINING_PLAN;' not in s:
+              needle='if(!parsed.career){const club='
+              assert needle in s
+              s=s.replace(needle,'if(!parsed.trainingPlan)parsed.trainingPlan=DEFAULT_TRAINING_PLAN;'+needle,1)
+          season_path.write_text(s)
+
+          page_path=Path('src/app/page.tsx')
+          p=page_path.read_text()
+          if 'type { TrainingPlan } from "@/game-engine/training"' not in p:
+              anchor='import { pendingMediaSessions } from "@/game-engine/media-world";\n'
+              assert anchor in p
+              p=p.replace(anchor,anchor+'import type { TrainingPlan } from "@/game-engine/training";\n',1)
+          if 'setMatchdayRole, setTrainingPlan, startNextSeason' not in p:
+              assert 'setMatchdayRole, startNextSeason' in p
+              p=p.replace('setMatchdayRole, startNextSeason','setMatchdayRole, setTrainingPlan, startNextSeason',1)
+          if 'function handleTrainingPlan' not in p:
+              anchor='  function handleApplyMatchdaySelection(lineupIds:string[],benchIds:string[]){let next=season;for(const player of club.players)next=setMatchdayRole(next,player.id,"out");for(const id of lineupIds)next=setMatchdayRole(next,id,"starter");for(const id of benchIds)next=setMatchdayRole(next,id,"bench");persist(next)}'
+              assert anchor in p
+              p=p.replace(anchor,anchor+'\n  function handleTrainingPlan(plan:TrainingPlan){persist(setTrainingPlan(season,plan));flash(`Plano de treino: ${plan}. A comissão técnica executará a diretriz nos próximos dias.`)}',1)
+          old_call='onApplySelection={handleApplyMatchdaySelection} onPlay={handlePlay}'
+          if 'trainingPlan={season.trainingPlan}' not in p:
+              assert old_call in p
+              p=p.replace(old_call,'onApplySelection={handleApplyMatchdaySelection} trainingPlan={season.trainingPlan} onTrainingPlanChange={handleTrainingPlan} onPlay={handlePlay}',1)
+          if 'trainingPlan:TrainingPlan;onTrainingPlanChange' not in p:
+              pattern=r'function TacticsView\(\{club,opponent,isHome,tactic,onChange,lineupIds,benchIds,benchSize,onSetRole,onApplySelection,onPlay\}:\{.*?\}\)\{return <TacticsSetupView .*?/?>\}'
+              match=re.search(pattern,p)
+              assert match, 'TacticsView wrapper not found'
+              replacement='function TacticsView({club,opponent,isHome,tactic,onChange,lineupIds,benchIds,benchSize,onSetRole,onApplySelection,trainingPlan,onTrainingPlanChange,onPlay}:{club:LeagueClub;opponent:LeagueClub;isHome:boolean;tactic:MatchTactic;onChange:(t:MatchTactic)=>void;lineupIds:string[];benchIds:string[];benchSize:number;onSetRole:(id:string,role:MatchdayRole)=>void;onApplySelection:(lineupIds:string[],benchIds:string[])=>void;trainingPlan:TrainingPlan;onTrainingPlanChange:(plan:TrainingPlan)=>void;onPlay:()=>void}){return <TacticsSetupView club={club} opponent={opponent} isHome={isHome} tactic={tactic} onChange={onChange} lineupIds={lineupIds} benchIds={benchIds} benchSize={benchSize} onSetRole={onSetRole} onApplySelection={onApplySelection} trainingPlan={trainingPlan} onTrainingPlanChange={onTrainingPlanChange} onPlay={onPlay}/>}'
+              p=p[:match.start()]+replacement+p[match.end():]
+          page_path.write_text(p)
+          PY
+      - name: Validate
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+      - name: Commit upgrade and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/apply-staff-training-upgrade.yml
+          git add src/game-engine/training.ts src/game-engine/season.ts src/app/tactics-setup-view.tsx src/app/tactics-setup.module.css src/app/live-match-view.tsx src/app/live-match.module.css src/app/page.tsx
+          git commit -m "feat: add staff advice, training plans and squad ordering"
+          git push
