@@ -1,0 +1,33 @@
+name: Apply matchday live FM UI patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-matchday-live-fm-ui.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply targeted patch
+        run: python scripts/patch-matchday-live-fm-ui.py
+      - name: Remove one-shot patch files
+        run: rm scripts/patch-matchday-live-fm-ui.py .github/workflows/apply-matchday-live-fm-ui.yml
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(match): fix eligibility and add FM-style live experience"
+          git push origin main
