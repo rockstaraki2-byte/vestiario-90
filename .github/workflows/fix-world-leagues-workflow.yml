@@ -1,0 +1,34 @@
+name: Fix world leagues workflow
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-world-leagues-workflow.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix lint issues in generated world leagues engine
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/apply-world-leagues-active-board.yml')
+          s=p.read_text()
+          s=s.replace('function weightedPick<T>(rng:SeededRng,items:T[],weight:(item:T)=>number){let total=', 'function weightedPick<T>(rng:SeededRng,items:T[],weight:(item:T)=>number){const total=')
+          s=s.replace('export function hydrateWorldLeagues(value:WorldLeaguesState|undefined,baseSeed:string,year:number,currentCompetitionId:ProfessionalCompetitionId,currentDate:string){let state=', 'export function hydrateWorldLeagues(value:WorldLeaguesState|undefined,baseSeed:string,year:number,currentCompetitionId:ProfessionalCompetitionId,currentDate:string){const state=')
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/apply-world-leagues-active-board.yml
+          git commit -m "fix: satisfy lint in world leagues engine"
+          git push
+      - name: Remove fix workflow
+        run: |
+          git pull --rebase
+          rm .github/workflows/fix-world-leagues-workflow.yml
+          git add -A
+          git commit -m "chore: remove temporary workflow fix"
+          git push
