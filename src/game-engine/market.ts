@@ -103,14 +103,29 @@ export function concludeAcceptedOffer(state:SeasonState,offerId:string):MarketAc
   const socialNote=buyer.id===state.selectedClubId?arrivalNote:seller.id===state.selectedClubId?departureNote:"";
   offer.status="Concluída";offer.message=`${player.name} é reforço do ${buyer.name}.${socialNote?` ${socialNote}`:""}`;
   market.history.unshift({id:nextRecordId(market),playerId:player.id,playerName:player.name,fromClubId:seller.id,toClubId:buyer.id,type:offer.type,feeEur:offer.feeEur,round:state.currentRound,year:state.year});
-  const lineupIds=state.lineupIds.filter(id=>buyer.id===state.selectedClubId||id!==player.id);
-  return{state:{...state,league,market,lineupIds},message:offer.message};
+  const lineupIds=state.lineupIds.filter(id=>buyer.id===state.selectedClubId||id!==player.id),benchIds=state.benchIds.filter(id=>buyer.id===state.selectedClubId||id!==player.id);
+  return{state:{...state,league,market,lineupIds,benchIds},message:offer.message};
 }
 
 export function respondToIncomingOffer(state:SeasonState,offerId:string,accept:boolean):MarketActionResult{
   const {league,market}=withCopies(state),offer=market.offers.find(o=>o.id===offerId);if(!offer||offer.status!=="Pendente"||offer.sellerClubId!==state.selectedClubId)return{state,message:"Proposta não disponível."};
   if(!accept){offer.status="Recusada";offer.message="Você recusou a proposta.";return{state:{...state,league,market},message:offer.message};}
   offer.status="Aceita";const interim={...state,league,market};return concludeAcceptedOffer(interim,offer.id);
+}
+
+
+export function reviewIncomingOfferByBoard(state:SeasonState,offerId:string):MarketActionResult{
+  const offer=state.market.offers.find(o=>o.id===offerId),club=state.league.clubs.find(c=>c.id===state.selectedClubId);if(!offer||!club||offer.sellerClubId!==club.id||offer.status!=="Pendente")return{state,message:"A proposta não está pendente para análise da diretoria."};
+  const player=club.players.find(p=>p.id===offer.playerId);if(!player)return{state,message:"O jogador não está mais no elenco."};
+  const value=estimatedPlayerValue(player),ratio=offer.feeEur/Math.max(1,value),same=club.players.filter(p=>p.position===player.position),avg=club.players.reduce((sum,p)=>sum+p.overall,0)/Math.max(1,club.players.length),keyPlayer=player.squadRole==="Titular"||player.overall>=avg+3,preserveAssets=state.boardState?.mandate?.nonNegotiables?.some(item=>/preservar.*ativos/i.test(item))??false;
+  let accept=(player.transferListed&&ratio>=.88)||(player.wantsToLeave&&ratio>=.9)||(player.age>=31&&ratio>=.95)||(ratio>=1.16&&same.length>=3);if(keyPlayer&&ratio<1.3)accept=false;if(keyPlayer&&preserveAssets&&ratio<1.45)accept=false;if(same.length<=2&&!player.wantsToLeave)accept=false;
+  const result=respondToIncomingOffer(state,offerId,accept),resolved=result.state.market.offers.find(o=>o.id===offerId);let message:string;if(!accept)message=`Diretoria de Futebol: proposta por ${player.name} recusada. O valor e a importância esportiva do atleta não justificam a saída.`;else if(resolved?.status==="Concluída")message=`Diretoria de Futebol: proposta por ${player.name} aceita e negociação concluída por ${formatEur(offer.feeEur)}.`;else message=`Diretoria de Futebol: o clube aceitou negociar ${player.name}, mas a operação não foi concluída. ${result.message}`;if(resolved)resolved.message=message;return{state:result.state,message};
+}
+
+export function finalizeAcceptedOfferByBoard(state:SeasonState,offerId:string):MarketActionResult{const result=concludeAcceptedOffer(state,offerId);return{state:result.state,message:`Diretoria de Futebol: ${result.message}`};}
+
+function reviewExpiringContractsByBoard(state:SeasonState):SeasonState{
+  if(state.currentRound!==1&&state.currentRound!==19)return state;let next=state;const club=next.league.clubs.find(c=>c.id===next.selectedClubId);if(!club)return next;const avg=club.players.reduce((sum,p)=>sum+p.overall,0)/Math.max(1,club.players.length),ids=club.players.filter(p=>p.contract.endYear<=next.year+1&&!p.wantsToLeave&&(p.squadRole==="Titular"||p.overall>=avg-3||p.age<=23)).sort((a,b)=>b.overall-a.overall).map(p=>p.id);for(const id of ids){const current=next.league.clubs.find(c=>c.id===next.selectedClubId)?.players.find(p=>p.id===id);if(!current||current.contract.endYear>next.year+1)continue;const years=current.age>=33?1:current.age>=30?2:3;next=renewPlayerContract(next,id,years).state;}return next;
 }
 
 
@@ -140,7 +155,8 @@ export function processMarketRound(state:SeasonState):SeasonState{
     }
   }
   processAiTransfers(state,league,market,rng);
-  return{...state,league,market};
+  let nextState={...state,league,market};const directorOffers=nextState.market.offers.filter(o=>o.sellerClubId===nextState.selectedClubId&&o.status==="Pendente").map(o=>o.id);for(const id of directorOffers)nextState=reviewIncomingOfferByBoard(nextState,id).state;nextState=reviewExpiringContractsByBoard(nextState);
+  return nextState;
 }
 
 export function prepareNextMarketSeason(state:SeasonState,nextYear:number,league:LeagueWorld):{league:LeagueWorld;market:MarketState}{
