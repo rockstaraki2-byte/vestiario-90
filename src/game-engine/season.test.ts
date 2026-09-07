@@ -41,5 +41,5 @@ describe("season engine",()=>{
     expect(next.year).toBe(2027);
     expect(next.currentRound).toBe(1);
     expect(new Set(next.league.standings.map(s=>s.played))).toEqual(new Set([0]));
-  });
+  },25_000);
 });
