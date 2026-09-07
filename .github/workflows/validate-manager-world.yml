@@ -1,0 +1,38 @@
+name: Validate manager world package
+on:
+  push:
+    branches: [feat/manager-world-media-board-ui]
+permissions:
+  contents: write
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/manager-world-media-board-ui
+      - name: Apply lint cleanup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/game-engine/media-world.ts');t=p.read_text();t=t.replace('let state=hydrateMediaWorld(value,competitionId),c=context??','let state=hydrateMediaWorld(value,competitionId);const c=context??',1);p.write_text(t)
+          p=Path('src/game-engine/national-team.ts');t=p.read_text();t=t.replace('let state=value?structuredClone(value):createNationalCareer','const state=value?structuredClone(value):createNationalCareer',1);t=t.replace('if(match.competition!=="Amistoso"&&!match.stage.startsWith("Grupo")&&!match.stage.includes("Fase de grupos")&&hg===ag)homeUser?hg++:ag++;','if(match.competition!=="Amistoso"&&!match.stage.startsWith("Grupo")&&!match.stage.includes("Fase de grupos")&&hg===ag){if(homeUser)hg++;else ag++;}',1);p.write_text(t)
+          p=Path('src/app/page.tsx');t=p.read_text().replace('import WorldInboxView, { NewsFeedView } from "./world-view";','import WorldInboxView from "./world-view";',1);p.write_text(t)
+          p=Path('src/app/media-center-view.tsx');t=p.read_text().replace('AtSign,Flame,MessageCircleMore','AtSign,MessageCircleMore',1);p.write_text(t)
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Commit validated cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src
+          git commit -m "fix: validar mídia, seleção e UI do pacote manager world"
+          git push origin HEAD:feat/manager-world-media-board-ui
