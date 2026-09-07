@@ -1,12 +1,13 @@
 import { SeededRng } from "./rng";
 import type { LeagueWorld } from "./league";
 import type { Formation, MatchTactic, Mentality } from "./match";
+import { realManagerForClub } from "../data/real-managers-2026";
 
 export type ManagerStyle="Posse"|"Pressão alta"|"Transição"|"Bloco baixo"|"Equilibrado";
 export type ClubManagerProfile={
   clubId:string;managerName:string;style:ManagerStyle;formation:Formation;mentality:Mentality;
   pressing:number;tempo:number;youthTrust:number;transferAggression:number;patience:number;
-  jobSecurity:number;hiredRound:number;lossStreak:number;unbeatenStreak:number;
+  jobSecurity:number;hiredRound:number;lossStreak:number;unbeatenStreak:number;realWorldBase?:boolean;realWorldAsOf?:string;
 };
 export type ManagerMovement={id:string;round:number;clubId:string;clubName:string;oldManager:string;newManager:string;reason:string};
 export type ClubAiState={sequence:number;managers:ClubManagerProfile[];history:ManagerMovement[];lastProcessedRound?:number};
@@ -16,7 +17,7 @@ const LAST=["Almeida","Moraes","Ferreira","Santos","Barbosa","Tavares","Costa","
 const STYLES:ManagerStyle[]=["Posse","Pressão alta","Transição","Bloco baixo","Equilibrado"];
 const FORMATIONS:Formation[]=["4-2-3-1","4-3-3","4-4-2"];
 
-function managerName(rng:SeededRng){return`${rng.pick(FIRST)} ${rng.pick(LAST)}`;}
+function generatedManagerName(rng:SeededRng){return`${rng.pick(FIRST)} ${rng.pick(LAST)}`;}
 function clamp(v:number,min=0,max=100){return Math.max(min,Math.min(max,Math.round(v)));}
 function styleDefaults(style:ManagerStyle){
   if(style==="Posse")return{mentality:"Equilibrada" as Mentality,pressing:64,tempo:52};
@@ -25,18 +26,23 @@ function styleDefaults(style:ManagerStyle){
   if(style==="Bloco baixo")return{mentality:"Defensiva" as Mentality,pressing:38,tempo:46};
   return{mentality:"Equilibrada" as Mentality,pressing:58,tempo:58};
 }
-function makeManager(clubId:string,rng:SeededRng,round:number):ClubManagerProfile{
-  const style=rng.pick(STYLES),defaults=styleDefaults(style);
-  return{clubId,managerName:managerName(rng),style,formation:rng.pick(FORMATIONS),mentality:defaults.mentality,pressing:clamp(defaults.pressing+rng.integer(-7,7)),tempo:clamp(defaults.tempo+rng.integer(-7,7)),youthTrust:rng.integer(35,88),transferAggression:rng.integer(35,92),patience:rng.integer(38,82),jobSecurity:rng.integer(62,84),hiredRound:round,lossStreak:0,unbeatenStreak:0};
+function makeManager(clubId:string,rng:SeededRng,round:number,clubName?:string,useRealBase=false):ClubManagerProfile{
+  const style=rng.pick(STYLES),defaults=styleDefaults(style),real=useRealBase&&clubName?realManagerForClub(clubName):undefined,fallbackName=generatedManagerName(rng);
+  return{clubId,managerName:real?.manager??fallbackName,style,formation:rng.pick(FORMATIONS),mentality:defaults.mentality,pressing:clamp(defaults.pressing+rng.integer(-7,7)),tempo:clamp(defaults.tempo+rng.integer(-7,7)),youthTrust:rng.integer(35,88),transferAggression:rng.integer(35,92),patience:rng.integer(38,82),jobSecurity:rng.integer(62,84),hiredRound:round,lossStreak:0,unbeatenStreak:0,realWorldBase:Boolean(real),realWorldAsOf:real?.asOf};
+}
+function realBaseManager(clubId:string,clubName:string,rng:SeededRng,round:number,previous?:ClubManagerProfile){
+ const real=realManagerForClub(clubName);if(!real)return previous??makeManager(clubId,rng,round,clubName,false);
+ if(previous?.realWorldBase&&previous.managerName===real.manager)return previous;
+ const profile=makeManager(clubId,rng,round,clubName,true);if(previous)return{...previous,managerName:real.manager,realWorldBase:true,realWorldAsOf:real.asOf};return profile;
 }
 export function createClubAiState(league:LeagueWorld,seed:string):ClubAiState{
   const rng=new SeededRng(`${seed}:club-ai:init`);
-  return{sequence:0,managers:league.clubs.map(club=>makeManager(club.id,rng,1)),history:[]};
+  return{sequence:0,managers:league.clubs.map(club=>makeManager(club.id,rng,1,club.name,true)),history:[]};
 }
 export function hydrateClubAi(state:ClubAiState|undefined,league:LeagueWorld,seed:string):ClubAiState{
   if(!state)return createClubAiState(league,seed);
   const rng=new SeededRng(`${seed}:club-ai:hydrate`),existing=new Map(state.managers.map(item=>[item.clubId,item]));
-  return{...state,managers:league.clubs.map(club=>existing.get(club.id)??makeManager(club.id,rng,1)),history:state.history??[]};
+  return{...state,managers:league.clubs.map(club=>{const previous=existing.get(club.id);if(previous&&state.history.some(move=>move.clubId===club.id))return previous;return realBaseManager(club.id,club.name,rng,1,previous);}),history:state.history??[]};
 }
 export function tacticForClub(state:ClubAiState|undefined,clubId:string):MatchTactic{
   const manager=state?.managers.find(item=>item.clubId===clubId);
@@ -63,7 +69,7 @@ export function processClubAiRound(state:ClubAiState,league:LeagueWorld,round:nu
     if(manager.unbeatenStreak>=4){manager.tempo=clamp(manager.tempo+rng.integer(1,4),35,90);manager.pressing=clamp(manager.pressing+rng.integer(1,4),30,90);}
     const sackThreshold=Math.max(13,28-Math.round(manager.patience/8));
     if(round>=5&&manager.jobSecurity<=sackThreshold){
-      const oldManager=manager.managerName,replacement=makeManager(club.id,rng,round);Object.assign(manager,replacement,{jobSecurity:68});
+      const oldManager=manager.managerName,replacement=makeManager(club.id,rng,round,club.name,false);Object.assign(manager,replacement,{jobSecurity:68,realWorldBase:false,realWorldAsOf:undefined});
       next.sequence++;next.history.unshift({id:`manager-move-${next.sequence}`,round,clubId:club.id,clubName:club.name,oldManager,newManager:manager.managerName,reason:`sequência ruim e ${position}º lugar`});
     }
   }

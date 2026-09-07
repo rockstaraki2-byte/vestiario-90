@@ -2,6 +2,7 @@ import { SeededRng } from "./rng";
 import type { LeagueClub, LeaguePlayer, LeagueWorld, PlayerPersonality } from "./league";
 import type { SeasonState } from "./season";
 import type { LivingWorldState, WorldInboxEvent } from "./world-events";
+import { clubWageSpend, isTransferWindowOpen, makeOfferForPlayer, recommendedOffer } from "./market";
 
 export type DepartmentKey="Futebol"|"Observação"|"Base"|"Análise"|"Médico";
 export type DepartmentState={key:DepartmentKey;label:string;headName:string;level:number;description:string};
@@ -14,8 +15,8 @@ export type DepartmentTask={
   id:string;clubId:string;department:DepartmentKey;kind:DepartmentTaskKind;title:string;targetPlayerId?:string;
   targetClubId?:string;requestedRound:number;dueRound:number;status:"Em andamento"|"Concluída";result:string;
 };
-export type BoardRequestType="Orçamento de transferências"|"Teto salarial"|"Investimento em observação"|"Investimento na base"|"Estrutura médica"|"Análise de desempenho";
-export type BoardRequestRecord={id:string;type:BoardRequestType;round:number;approved:boolean;message:string};
+export type BoardRequestType="Orçamento de transferências"|"Teto salarial"|"Investimento em observação"|"Investimento na base"|"Estrutura médica"|"Análise de desempenho"|"Contato por jogador";
+export type BoardRequestRecord={id:string;type:BoardRequestType;round:number;approved:boolean;message:string;targetPlayerId?:string;targetPlayerName?:string;targetClubId?:string;estimatedFeeEur?:number;viability?:"Viável"|"Atenção"|"Inviável"};
 export type ClubOperationsProfile={clubId:string;departments:Record<DepartmentKey,DepartmentState>;youth:YouthProspect[];tasks:DepartmentTask[];boardRequests:BoardRequestRecord[]};
 export type ClubManagementState={sequence:number;clubs:Record<string,ClubOperationsProfile>};
 export type ClubActionResult={state:SeasonState;message:string};
@@ -176,6 +177,19 @@ export function promoteYouthProspect(state:ManagedSeason,prospectId:string):Club
 function boardCooldown(profile:ClubOperationsProfile,type:BoardRequestType,round:number){const last=profile.boardRequests.find(item=>item.type===type);return last&&round-last.round<5?5-(round-last.round):0;}
 function departmentForRequest(type:BoardRequestType):DepartmentKey|undefined{
   if(type==="Investimento em observação")return"Observação";if(type==="Investimento na base")return"Base";if(type==="Estrutura médica")return"Médico";if(type==="Análise de desempenho")return"Análise";return undefined;
+}
+
+export function requestBoardTransferContact(state:ManagedSeason,targetPlayerId:string):ClubActionResult{
+  if(state.career.status==="Sem clube")return{state,message:"Você precisa estar empregado para pedir uma abordagem no mercado."};
+  const found=findPlayer(state.league,targetPlayerId),user=selectedClub(state);if(!found||found.club.id===user.id)return{state,message:"Escolha um jogador de outro clube."};
+  const player=found.player,seller=found.club,management=hydrateClubManagement(state),profile=getProfile(management,user.id),previous=profile.boardRequests.find(r=>r.type==="Contato por jogador"&&r.targetPlayerId===player.id&&state.currentRound-r.round<3);
+  if(previous)return{state,message:`A diretoria já avaliou ${player.name} recentemente. Aguarde ${3-(state.currentRound-previous.round)} rodada(s).`};
+  const fee=recommendedOffer(player),salary=Math.round(player.contract.salaryBrlMonthly*1.14/5_000)*5_000,wageHeadroom=Math.max(0,user.wageBudgetBrlMonthly-clubWageSpend(user)),same=user.players.filter(p=>p.position===player.position),sector=same.length?same.reduce((s,p)=>s+p.overall,0)/same.length:65,technicalGap=player.overall-sector,budgetRatio=fee/Math.max(1,user.transferBudgetEur),wageRatio=salary/Math.max(1,wageHeadroom),viability:BoardRequestRecord["viability"]=budgetRatio>1.25||wageRatio>1.35?"Inviável":budgetRatio>.82||wageRatio>.85||technicalGap<-2?"Atenção":"Viável";
+  const {league,clubManagement}=copies(state),clubCopy=selectedClub(state,league),profileCopy=getProfile(clubManagement,clubCopy.id),world={...state.livingWorld},rng=new SeededRng(`${state.baseSeed}:${state.year}:board-player:${player.id}:r${state.currentRound}`),scouting=profile.departments["Observação"].level,sporting=Math.max(-18,Math.min(22,technicalGap*4+(player.age<=24?5:player.age>=32?-6:1))),financial=viability==="Viável"?18:viability==="Atenção"?-4:-45,chance=Math.max(5,Math.min(96,38+world.boardConfidence*.35+scouting*4+sporting+financial)),approved=viability!=="Inviável"&&rng.integer(1,100)<=chance;
+  let message=approved?`A diretoria aprovou contato por ${player.name}. Avaliação: ${viability}; referência ${formatEur(fee)} e salário projetado ${formatBrl(salary)}/mês.`:`A diretoria não autorizou a abordagem por ${player.name}. Avaliação: ${viability}. Custo, encaixe esportivo e margem salarial pesaram na decisão.`;
+  const record:BoardRequestRecord={id:nextId(clubManagement,"board"),type:"Contato por jogador",round:state.currentRound,approved,message,targetPlayerId:player.id,targetPlayerName:player.name,targetClubId:seller.id,estimatedFeeEur:fee,viability};profileCopy.boardRequests.unshift(record);world.boardConfidence=clamp(world.boardConfidence+(approved?1:viability==="Inviável"?0:-1));let next={...state,league,clubManagement,livingWorld:world} as SeasonState;
+  if(approved){if(!isTransferWindowOpen(state.currentRound)){message+=` A sondagem foi autorizada, mas a proposta formal só poderá ser enviada quando a janela abrir.`;record.message=message;return{state:next,message};}const offer=makeOfferForPlayer(next,player.id,"Compra");next=offer.state;message+=` ${offer.message}`;const cm=hydrateClubManagement(next),saved=cm.clubs[next.selectedClubId]?.boardRequests.find(r=>r.id===record.id);if(saved)saved.message=message;next={...next,clubManagement:cm};}
+  return{state:next,message};
 }
 
 export function requestBoardAction(state:ManagedSeason,type:BoardRequestType):ClubActionResult{

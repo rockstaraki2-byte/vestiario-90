@@ -33,3 +33,5 @@ a {
 }
 
 button{font:inherit}
+
+input,select,textarea{font:inherit}input::placeholder,textarea::placeholder{color:#7b8780;opacity:1}
