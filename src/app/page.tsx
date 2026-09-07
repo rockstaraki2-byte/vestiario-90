@@ -32,7 +32,7 @@ import { talkToPlayer, type ConversationAction } from "@/game-engine/people";
 import { pendingWorldEvents } from "@/game-engine/world-events";
 import { pendingMediaSessions } from "@/game-engine/media-world";
 import type { TrainingPlan } from "@/game-engine/training";
-import { advanceCalendarDay, applyForNationalTeam, createSeason, getCupMatchContext, getCurrentUserFixture, getSelectedClub, getTodayUserCupMatch, getTodayUserFixture, getUserFixtures, hydrateSeasonState, matchdaySelectionReady, playCurrentCupMatch, playCurrentRound, playTodayNationalMatch, resignNationalTeam, resolveMediaSessionChoice, resolveSeasonWorldChoice, setMatchdayRole, setTrainingPlan, startNextSeason, toggleLineupPlayer, toggleNationalSelection, type MatchdayRole, type SeasonState } from "@/game-engine/season";
+import { advanceCalendarDay, applyForNationalTeam, createSeason, getCupMatchContext, getCurrentUserFixture, getSelectedClub, getTodayUserCupMatch, getTodayUserFixture, getUserFixtures, hydrateSeasonState, matchdaySelectionReady, playCurrentCupMatch, playCurrentRound, playTodayNationalMatch, resignNationalTeam, resolveMediaSessionText, resolveSeasonWorldChoice, setMatchdayRole, setTrainingPlan, startNextSeason, toggleLineupPlayer, toggleNationalSelection, type MatchdayRole, type SeasonState } from "@/game-engine/season";
 
 const NAV=[["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["Vestiário",MessageSquareText],["Clube",Building2],["Táticas",LayoutGrid],["Calendário",CalendarDays],["Classificação",Trophy],["Central de Dados",BarChart3],["Mídia & Redes",Megaphone],["Seleção",Flag],["Mundo",Globe2],["Gestão & Legado",Landmark],["Mercado",BarChart3],["Carreira",BriefcaseBusiness],["Notícias",Newspaper]] as const;
 
@@ -55,7 +55,7 @@ export default function Dashboard(){
   function handleTrainingPlan(plan:TrainingPlan){persist(setTrainingPlan(season,plan));flash(`Plano de treino: ${plan}. A comissão técnica executará a diretriz nos próximos dias.`)}
   function handleConversation(playerId:string,action:ConversationAction){const result=talkToPlayer(season,playerId,action);persist(result.state);flash(result.message)}
   function handleWorldChoice(eventId:string,choiceId:string){const result=resolveSeasonWorldChoice(season,eventId,choiceId);persist(result.state);flash(result.message)}
-  function handleMediaChoice(sessionId:string,choiceId:string){const result=resolveMediaSessionChoice(season,sessionId,choiceId);persist(result.state);flash(result.message)}
+  function handleMediaText(sessionId:string,text:string){const result=resolveMediaSessionText(season,sessionId,text);persist(result.state);flash(result.message)}
   function handleNationalApply(teamId:string){const result=applyForNationalTeam(season,teamId);persist(result.state);flash(result.message)}
   function handleNationalToggle(playerId:string){const result=toggleNationalSelection(season,playerId);persist(result.state);flash(result.message)}
   function handleNationalPlay(){const result=playTodayNationalMatch(season);persist(result.state);setActive("Mídia & Redes");flash(result.message)}
@@ -90,7 +90,7 @@ export default function Dashboard(){
         active==="Mercado"?<MarketView season={season} onResult={({state:next,message})=>{persist(next);flash(message)}}/>:
         active==="Seleção"?<NationalTeamView season={season} onApply={handleNationalApply} onToggle={handleNationalToggle} onPlay={handleNationalPlay} onResign={handleNationalResign}/>:active==="Mundo"?<FootballWorldView season={season}/>:active==="Gestão & Legado"?<AdvancedClubView season={season} onOpenClub={()=>setActive("Clube")}/>:
         active==="Central de Dados"?<StatisticsView season={season}/>:
-        active==="Mídia & Redes"?<MediaCenterView season={season} onAnswer={handleMediaChoice}/>:
+        active==="Mídia & Redes"?<MediaCenterView season={season} onAnswer={handleMediaText}/>:
         active==="Táticas"?(liveMatch&&liveHome&&liveAway?<LiveMatchView session={liveMatch} home={liveHome} away={liveAway} onChange={handleLiveChange} onFinish={handleLiveFinish}/>:match&&matchHome&&matchAway?<MatchCenter home={matchHome} away={matchAway} result={match} onContinue={()=>{setMatch(null);setActiveCupMatchId(null);setActive(pendingMediaSessions(season.mediaWorld,season.competitionId).some(s=>s.format==="Coletiva pós-jogo"&&s.status==="Aberta")?"Mídia & Redes":"Visão geral")}}/>:season.completed?<SeasonEnd season={season} standings={standings} clubs={league.clubs} onNext={handleNextSeason}/>:opponent?<TacticsView club={club} opponent={opponent} isHome={cupContext?cupContext.userSide==="home":currentFixture?.homeClubId===club.id} tactic={tactic} onChange={setTactic} lineupIds={season.lineupIds} benchIds={season.benchIds} benchSize={competition.benchSize} onSetRole={handleMatchdayRole} onApplySelection={handleApplyMatchdaySelection} trainingPlan={season.trainingPlan} onTrainingPlanChange={handleTrainingPlan} onPlay={handlePlay}/>:<ComingSoon title="Partida"/>):
         active==="Classificação"?<TableView clubs={league.clubs} standings={standings} selectedClubId={club.id} competitionName={competition.name} totalRounds={totalRounds}/>:
         active==="Calendário"?<CalendarView season={season}/>:
