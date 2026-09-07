@@ -27,8 +27,8 @@ function styleDefaults(style:ManagerStyle){
   return{mentality:"Equilibrada" as Mentality,pressing:58,tempo:58};
 }
 function makeManager(clubId:string,rng:SeededRng,round:number,clubName?:string,useRealBase=false):ClubManagerProfile{
-  const style=rng.pick(STYLES),defaults=styleDefaults(style),real=useRealBase&&clubName?realManagerForClub(clubName):undefined;
-  return{clubId,managerName:real?.manager??generatedManagerName(rng),style,formation:rng.pick(FORMATIONS),mentality:defaults.mentality,pressing:clamp(defaults.pressing+rng.integer(-7,7)),tempo:clamp(defaults.tempo+rng.integer(-7,7)),youthTrust:rng.integer(35,88),transferAggression:rng.integer(35,92),patience:rng.integer(38,82),jobSecurity:rng.integer(62,84),hiredRound:round,lossStreak:0,unbeatenStreak:0,realWorldBase:Boolean(real),realWorldAsOf:real?.asOf};
+  const style=rng.pick(STYLES),defaults=styleDefaults(style),real=useRealBase&&clubName?realManagerForClub(clubName):undefined,fallbackName=generatedManagerName(rng);
+  return{clubId,managerName:real?.manager??fallbackName,style,formation:rng.pick(FORMATIONS),mentality:defaults.mentality,pressing:clamp(defaults.pressing+rng.integer(-7,7)),tempo:clamp(defaults.tempo+rng.integer(-7,7)),youthTrust:rng.integer(35,88),transferAggression:rng.integer(35,92),patience:rng.integer(38,82),jobSecurity:rng.integer(62,84),hiredRound:round,lossStreak:0,unbeatenStreak:0,realWorldBase:Boolean(real),realWorldAsOf:real?.asOf};
 }
 function realBaseManager(clubId:string,clubName:string,rng:SeededRng,round:number,previous?:ClubManagerProfile){
  const real=realManagerForClub(clubName);if(!real)return previous??makeManager(clubId,rng,round,clubName,false);
