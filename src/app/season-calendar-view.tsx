@@ -1,0 +1,32 @@
+"use client";
+import { useMemo, useState } from "react";
+import { CalendarDays, Flag, Globe2, Shield, Trophy } from "lucide-react";
+import { professionalCompetitionById } from "@/data/brazil-2026/competitions";
+import { nationalCalendarForSeason } from "@/data/national-teams-2026";
+import { getUserFixtures, type SeasonState } from "@/game-engine/season";
+import { userWorldCompetitionMatches, worldCompetitionCalendar } from "@/game-engine/world-competitions";
+import styles from "./season-calendar-view.module.css";
+
+type Filter="Meu clube"|"Copas"|"Seleções"|"Tudo";
+type CalendarItem={id:string;date:string;competition:string;stage:string;detail:string;kind:"Liga"|"Clube"|"Copa"|"Seleção";status?:string;score?:string;accent?:boolean};
+const monthName=(iso:string)=>new Intl.DateTimeFormat("pt-BR",{month:"long",year:"numeric",timeZone:"UTC"}).format(new Date(`${iso.slice(0,7)}-15T12:00:00Z`));
+const dateLabel=(iso:string)=>new Intl.DateTimeFormat("pt-BR",{day:"2-digit",month:"short",weekday:"short",timeZone:"UTC"}).format(new Date(`${iso}T12:00:00Z`));
+
+export default function SeasonCalendarView({season}:{season:SeasonState}){
+ const[filter,setFilter]=useState<Filter>("Meu clube"),club=season.league.clubs.find(c=>c.id===season.selectedClubId)??season.league.clubs[0],leagueName=professionalCompetitionById(season.competitionId).shortName;
+ const items=useMemo(()=>{
+  const league:CalendarItem[]=getUserFixtures(season).map(f=>{const home=season.league.clubs.find(c=>c.id===f.homeClubId),away=season.league.clubs.find(c=>c.id===f.awayClubId);return{id:`league-${f.id}`,date:f.date??`${season.year}-01-01`,competition:leagueName,stage:`Rodada ${f.round}`,detail:`${home?.name??"Casa"} × ${away?.name??"Fora"}`,kind:"Liga",score:f.played?`${f.homeGoals??0} × ${f.awayGoals??0}`:undefined,status:f.played?"Final":f.date===season.currentDate?"HOJE":f.round===season.currentRound?"Próximo":"Agendado",accent:f.date===season.currentDate};});
+  const userCups:CalendarItem[]=userWorldCompetitionMatches(season.worldCompetitions,club.id).map(({tournament,match})=>({id:`cup-${match.id}`,date:match.date,competition:tournament.definition.shortName,stage:match.stage,detail:`${match.home.name} × ${match.away.name}${match.leg?` • ${match.leg}º jogo`:""}`,kind:"Clube",score:match.played?`${match.homeGoals??0} × ${match.awayGoals??0}`:undefined,status:match.played?(match.decidedByPenalties?"Final • pênaltis":"Final"):match.date===season.currentDate?"HOJE":"Agendado",accent:match.date===season.currentDate}));
+  const cupMilestones:CalendarItem[]=worldCompetitionCalendar(season.year).map((event,index)=>({id:`world-${event.competitionId}-${event.stage}-${index}-${event.date}`,date:event.date,competition:event.competition,stage:event.stage,detail:`${event.rule} • ${event.format}`,kind:"Copa",status:"Data oficial"}));
+  const nations:CalendarItem[]=nationalCalendarForSeason(season.year).map((event,index)=>({id:`national-${event.competitionId}-${index}-${event.date}`,date:event.date,competition:event.competition,stage:event.stage,detail:`${event.rule} • ${event.format}`,kind:"Seleção",status:"Data oficial"}));
+  return{league,userCups,cupMilestones,nations};
+ },[season,club.id,leagueName]);
+ const visible=useMemo(()=>{const source=filter==="Meu clube"?[...items.league,...items.userCups]:filter==="Copas"?[...items.userCups,...items.cupMilestones]:filter==="Seleções"?items.nations:[...items.league,...items.userCups,...items.cupMilestones,...items.nations];return source.sort((a,b)=>a.date.localeCompare(b.date)||a.competition.localeCompare(b.competition));},[filter,items]);
+ const groups=useMemo(()=>{const map=new Map<string,CalendarItem[]>();for(const item of visible){const key=item.date.slice(0,7);map.set(key,[...(map.get(key)??[]),item]);}return[...map.entries()];},[visible]);
+ return <div className={styles.shell}>
+  <section className={styles.hero}><div><span>CALENDÁRIO MUNDIAL • {season.year}</span><h2>Liga, copas e seleções no mesmo calendário</h2><p>Datas reais e regras de entrada das principais competições. Os compromissos do seu clube aparecem junto das janelas internacionais e dos marcos das copas.</p></div><CalendarDays/></section>
+  <div className={styles.filters}>{(["Meu clube","Copas","Seleções","Tudo"] as Filter[]).map(item=><button key={item} className={filter===item?styles.active:""} onClick={()=>setFilter(item)}>{item==="Seleções"?<Flag/>:item==="Copas"?<Trophy/>:item==="Tudo"?<Globe2/>:<Shield/>}{item}</button>)}</div>
+  <section className={styles.summary}><div><small>HOJE NO SAVE</small><b>{dateLabel(season.currentDate)}</b></div><div><small>JOGOS DO CLUBE</small><b>{items.league.length+items.userCups.length}</b></div><div><small>COPAS MAPEADAS</small><b>{new Set(items.cupMilestones.map(i=>i.competition)).size}</b></div><div><small>TORNEIOS DE SELEÇÕES</small><b>{new Set(items.nations.map(i=>i.competition)).size}</b></div></section>
+  <div className={styles.months}>{groups.map(([month,events])=><section key={month} className={styles.month}><header><b>{monthName(`${month}-01`)}</b><span>{events.length} evento{events.length===1?"":"s"}</span></header><div className={styles.events}>{events.map(item=><article key={item.id} className={`${styles.event} ${item.accent?styles.today:""}`}><time>{dateLabel(item.date)}</time><i className={styles[item.kind.toLowerCase().replace("ç","c")]??""}>{item.kind==="Seleção"?<Flag/>:item.kind==="Liga"?<Shield/>:<Trophy/>}</i><div className={styles.info}><span>{item.competition}</span><b>{item.stage}</b><small>{item.detail}</small></div>{item.score&&<strong>{item.score}</strong>}<em>{item.status}</em></article>)}</div></section>)}</div>
+ </div>;
+}
