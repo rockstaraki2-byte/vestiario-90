@@ -14,7 +14,7 @@ export type LeaguePlayer={
  injuryDays:number;suspensionMatches:number;status:string;personality:PlayerPersonality;squadRole:SquadRole;happiness:number;managerTrust:number;appearances:number;starts:number;minutes:number;promises:PlayerPromise[];contract:PlayerContract;transferListed:boolean;wantsToLeave:boolean;lastConversationRound?:number;
 };
 export type LeagueClub={id:string;sourceId:number;transfermarktId:number;name:string;shortName:string;imageUrl:string;color:string;reputation:number;marketValueEur:number;transferBudgetEur:number;wageBudgetBrlMonthly:number;players:LeaguePlayer[]};
-export type LeagueFixture={id:string;round:number;homeClubId:string;awayClubId:string;played:boolean;date?:string;homeGoals?:number;awayGoals?:number;homeShots?:number;awayShots?:number;possessionHome?:number;homeYellowCards?:number;awayYellowCards?:number};
+export type LeagueFixture={id:string;round:number;homeClubId:string;awayClubId:string;played:boolean;date?:string;originalDate?:string;rescheduledReason?:string;homeGoals?:number;awayGoals?:number;homeShots?:number;awayShots?:number;possessionHome?:number;homeYellowCards?:number;awayYellowCards?:number};
 export type LeagueStanding={clubId:string;played:number;won:number;drawn:number;lost:number;goalsFor:number;goalsAgainst:number;points:number};
 export type LeagueWorld={clubs:LeagueClub[];fixtures:LeagueFixture[];standings:LeagueStanding[];competitionId?:ProfessionalCompetitionId;competitionName?:string;totalRounds?:number};
 
