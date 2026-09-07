@@ -60,13 +60,6 @@ export function worldAfterMatch(world:LivingWorldState,club:LeagueClub,round:num
    {id:"reject",label:"Recusar pressão externa",outcome:"O empresário saiu irritado e a relação ficou mais tensa.",effect:{playerTrust:-5,playerHappiness:-5,mediaPressure:3}},
   ]});
  }
- if(round%5===0){
-  next=addEvent(next,{id:`board-r${round}-${next.sequence}`,kind:"Diretoria",title:"Reunião de acompanhamento",body:"A diretoria quer uma leitura do momento esportivo e do controle sobre o vestiário.",round,unread:true,resolved:false,choices:[
-   {id:"accountability",label:"Assumir resultados",outcome:"A postura de responsabilidade aumentou a confiança institucional.",effect:{boardConfidence:5,managerReputation:2}},
-   {id:"time",label:"Pedir tempo para evolução",outcome:"A diretoria aceita a explicação, mas passa a observar a sequência com mais atenção.",effect:{boardConfidence:-1,mediaPressure:-2}},
-   {id:"squad",label:"Defender o trabalho do grupo",outcome:"O elenco se sente protegido, embora a diretoria cobre resultados concretos.",effect:{playerTrust:3,boardConfidence:-2,fanSupport:1}},
-  ]});
- }
  const network=buildDressingRoomNetwork(club);
  const leaders=club.players.filter(p=>playerInfluence(p)>=72).sort((a,b)=>playerInfluence(b)-playerInfluence(a));
  const voice=leaders[0];

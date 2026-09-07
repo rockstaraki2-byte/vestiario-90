@@ -1,6 +1,6 @@
 "use client";
 
-import{Activity,BarChart3,BriefcaseBusiness,Building2,ChevronRight,ClipboardList,Coins,GraduationCap,HeartPulse,Search,ShieldCheck,TrendingUp}from"lucide-react";
+import{Activity,BarChart3,BriefcaseBusiness,Building2,ChevronRight,ClipboardList,Coins,GraduationCap,HeartPulse,MessageSquareQuote,Search,ShieldCheck,Target,TrendingUp}from"lucide-react";
 import type{SeasonState}from"@/game-engine/season";
 import{clubOperationsProfile,promoteYouthProspect,requestBoardAction,requestBoardTransferContact,requestExternalScout,requestOpponentAnalysis,observeYouthProspect,scoutingTargets,type ClubActionResult,type DepartmentKey}from"@/game-engine/club-management";
 import styles from"./club-management-view.module.css";
@@ -12,10 +12,16 @@ export default function ClubManagementView({season,onResult,onOpenInbox}:{season
  const activeTasks=profile.tasks.filter(task=>task.status==="Em andamento");
  const finished=profile.tasks.filter(task=>task.status==="Concluída");
  const board=season.livingWorld.boardConfidence;
- const boardMeeting=season.livingWorld.inbox.find(event=>event.kind==="Diretoria"&&event.unread&&!event.resolved);
+ const boardMeeting=season.livingWorld.inbox.find(event=>event.kind==="Diretoria"&&event.unread&&!event.resolved),activeBoard=season.boardState,latestEvaluation=activeBoard?.evaluations?.[0],latestStatements=activeBoard?.statements?.slice(0,3)??[];
  return <div className={styles.shell}>
   {boardMeeting&&<section className={styles.panel}><header><div><span>AGENDA DA DIRETORIA</span><h3>{boardMeeting.title}</h3></div><Building2/></header><p className={styles.intro}>{boardMeeting.body}</p><button className={styles.bigAction} onClick={onOpenInbox}><ClipboardList/> ABRIR PAUTA E RESPONDER <ChevronRight/></button></section>}
   <section className={styles.hero}><div><span>ESTRUTURA DO CLUBE</span><h2>{club.name}</h2><p>Você é o treinador. Cada área tem seu responsável, sua estrutura e decisões que precisam passar pelos canais corretos.</p></div><div className={styles.heroMetrics}><HeroMetric label="DIRETORIA" value={`${board}%`} detail={board>=70?"confiança alta":board>=45?"relação estável":"relação pressionada"}/><HeroMetric label="ORÇ. TRANSF." value={eur(club.transferBudgetEur)} detail="disponível"/><HeroMetric label="TETO SALARIAL" value={brl(club.wageBudgetBrlMonthly)} detail="por mês"/></div></section>
+
+  {activeBoard&&<div className={styles.activeBoardGrid}>
+   <section className={styles.panel}><header><div><span>PLANEJAMENTO DA TEMPORADA</span><h3>O que a diretoria espera do seu trabalho</h3></div><Target/></header><p className={styles.intro}>{activeBoard.philosophy}</p><div className={styles.objectives}>{activeBoard.objectives.map(objective=><article key={objective.id}><div><b>{objective.title}</b><span>{objective.category} • prioridade {objective.priority}</span></div><strong>{objective.progress}%</strong><em className={objective.status==="Atenção"||objective.status==="Falhou"?styles.objectiveRisk:""}>{objective.status}</em></article>)}</div></section>
+   <section className={styles.panel}><header><div><span>AVALIAÇÃO DO TRABALHO</span><h3>{latestEvaluation?`${latestEvaluation.verdict} • ${latestEvaluation.score}/100`:"Primeiro ciclo em andamento"}</h3></div><BarChart3/></header>{latestEvaluation?<><p className={styles.intro}>{latestEvaluation.summary}</p><div className={styles.evaluationStrip}><span>Posição <b>{latestEvaluation.position}º</b></span><span>Meta <b>Top {latestEvaluation.targetPosition}</b></span><span>Forma <b>{latestEvaluation.form}</b></span><span>Confiança <b>{season.livingWorld.boardConfidence}%</b></span></div></>:<p className={styles.intro}>A primeira avaliação formal será produzida conforme a temporada avançar. Resultados, ambiente, salários e planejamento entram na análise.</p>}</section>
+   <section className={`${styles.panel} ${styles.boardStatements}`}><header><div><span>DECLARAÇÕES DA DIRETORIA</span><h3>Posicionamentos públicos no mundo do save</h3></div><MessageSquareQuote/></header>{latestStatements.length?latestStatements.map(item=><article key={item.id}><span>R{item.round}</span><div><b>{item.headline}</b><p>{item.body}</p></div></article>):<p className={styles.intro}>A diretoria ainda não publicou uma avaliação formal sobre o trabalho. Os comunicados surgirão nos ciclos de análise.</p>}</section>
+  </div>}
 
   <section className={styles.departments}><DepartmentCard icon={<BriefcaseBusiness/>} department={profile.departments.Futebol}/><DepartmentCard icon={<Search/>} department={profile.departments.Observação}/><DepartmentCard icon={<GraduationCap/>} department={profile.departments.Base}/><DepartmentCard icon={<BarChart3/>} department={profile.departments.Análise}/><DepartmentCard icon={<HeartPulse/>} department={profile.departments.Médico}/></section>
 
