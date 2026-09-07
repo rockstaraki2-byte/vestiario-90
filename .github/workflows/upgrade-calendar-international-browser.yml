@@ -1,0 +1,317 @@
+name: Apply coordinated calendar and international browser
+on:
+  push:
+    paths:
+      - '.github/workflows/upgrade-calendar-international-browser.yml'
+permissions:
+  contents: write
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add competition qualification rules
+        run: |
+          cat > src/game-engine/competition-rules.ts <<'EOF'
+          import type { ProfessionalCompetitionId } from "../data/brazil-2026/competitions";
+
+          export type QualificationTone="champions"|"continental"|"promotion"|"playoff"|"danger";
+          export type QualificationZone={label:string;tone:QualificationTone};
+
+          export function qualificationForPosition(id:ProfessionalCompetitionId,position:number,total:number):QualificationZone|undefined{
+            if(id==="BRA1"){
+              if(position<=4)return{label:"Libertadores • grupos",tone:"champions"};
+              if(position===5)return{label:"Libertadores • fase prévia",tone:"champions"};
+              if(position<=11)return{label:"Sul-Americana",tone:"continental"};
+              if(position>=Math.max(17,total-3))return{label:"Rebaixamento",tone:"danger"};
+            }
+            if(id==="BRA2"){
+              if(position<=2)return{label:"Acesso direto",tone:"promotion"};
+              if(position<=6)return{label:"Play-off do acesso",tone:"playoff"};
+              if(position>=Math.max(17,total-3))return{label:"Rebaixamento",tone:"danger"};
+            }
+            if(id==="BRA3"){
+              if(position<=8)return{label:"2ª fase",tone:"promotion"};
+              if(position>=Math.max(19,total-1))return{label:"Rebaixamento",tone:"danger"};
+            }
+            if(id==="ENG1"||id==="ESP1"){
+              if(position<=4)return{label:"Champions League",tone:"champions"};
+              if(position===5)return{label:"Europa League",tone:"continental"};
+              if(position===6)return{label:"Conference League",tone:"continental"};
+              if(position>=total-2)return{label:"Rebaixamento",tone:"danger"};
+            }
+            if(id==="FRA1"){
+              if(position<=3)return{label:"Champions League",tone:"champions"};
+              if(position===4)return{label:"Champions • fase prévia",tone:"champions"};
+              if(position===5)return{label:"Europa League",tone:"continental"};
+              if(position===6)return{label:"Conference League",tone:"continental"};
+              if(position===total-2)return{label:"Play-off rebaixamento",tone:"playoff"};
+              if(position>=total-1)return{label:"Rebaixamento",tone:"danger"};
+            }
+            return undefined;
+          }
+
+          export function qualificationSummary(id:ProfessionalCompetitionId){
+            if(id==="BRA1")return"Zonas-base 2026: 1º–4º Libertadores (grupos), 5º Libertadores (fase prévia), 6º–11º Sul-Americana e 17º–20º rebaixamento. Vagas de campeões da Copa do Brasil e torneios CONMEBOL podem deslocar a linha efetiva.";
+            if(id==="BRA2")return"Série B 2026: 1º e 2º sobem diretamente; 3º–6º disputam o play-off do acesso; os quatro últimos são rebaixados.";
+            if(id==="BRA3")return"Série C 2026: os oito primeiros avançam à segunda fase; os dois últimos da primeira fase são rebaixados.";
+            if(id==="ENG1"||id==="ESP1")return"As faixas continentais mostram a referência-base. Campeões de copas e vagas extras por desempenho UEFA podem deslocar a linha efetiva ao fim da temporada.";
+            return"As faixas continentais mostram a referência-base; vagas de copas nacionais e ajustes UEFA podem alterar a linha efetiva.";
+          }
+          EOF
+
+      - name: Add international competition table helpers
+        run: |
+          cat > src/game-engine/international-browser.ts <<'EOF'
+          import type { WorldCompetitionId, WorldCompetitionMatch, WorldParticipant, WorldTournamentState } from "./world-competitions";
+
+          export type InternationalTableRow={participant:WorldParticipant;played:number;won:number;drawn:number;lost:number;goalsFor:number;goalsAgainst:number;points:number};
+          export type InternationalQualification={label:string;tone:"direct"|"playoff"|"transfer"|"out"};
+
+          function table(matches:WorldCompetitionMatch[],participants:WorldParticipant[]){
+            const rows=new Map(participants.map(participant=>[participant.id,{participant,played:0,won:0,drawn:0,lost:0,goalsFor:0,goalsAgainst:0,points:0} as InternationalTableRow]));
+            for(const match of matches.filter(item=>item.played)){
+              const home=rows.get(match.home.id),away=rows.get(match.away.id);if(!home||!away)continue;
+              const hg=match.homeGoals??0,ag=match.awayGoals??0;home.played++;away.played++;home.goalsFor+=hg;home.goalsAgainst+=ag;away.goalsFor+=ag;away.goalsAgainst+=hg;
+              if(hg>ag){home.won++;away.lost++;home.points+=3}else if(ag>hg){away.won++;home.lost++;away.points+=3}else{home.drawn++;away.drawn++;home.points++;away.points++;}
+            }
+            return[...rows.values()].sort((a,b)=>b.points-a.points||(b.goalsFor-b.goalsAgainst)-(a.goalsFor-a.goalsAgainst)||b.goalsFor-a.goalsFor||b.won-a.won||b.participant.reputation-a.participant.reputation);
+          }
+
+          export function competitionGroupTables(tournament:WorldTournamentState){
+            const groupMatches=tournament.matches.filter(match=>Boolean(match.group));
+            return[...new Set(groupMatches.map(match=>match.group!).filter(Boolean))].sort().map(group=>{
+              const matches=groupMatches.filter(match=>match.group===group),ids=new Set(matches.flatMap(match=>[match.home.id,match.away.id])),participants=tournament.participants.filter(participant=>ids.has(participant.id));
+              return{group,rows:table(matches,participants)};
+            });
+          }
+
+          export function competitionLeagueTable(tournament:WorldTournamentState){
+            const matches=tournament.matches.filter(match=>match.tableStage&&!match.group),ids=new Set(matches.flatMap(match=>[match.home.id,match.away.id])),participants=tournament.participants.filter(participant=>ids.has(participant.id));
+            return table(matches,participants);
+          }
+
+          export function internationalQualification(id:WorldCompetitionId,position:number):InternationalQualification|undefined{
+            if(id==="LIB"){
+              if(position<=2)return{label:"Oitavas",tone:"direct"};
+              if(position===3)return{label:"Play-off Sul-Americana",tone:"transfer"};
+              return{label:"Eliminado",tone:"out"};
+            }
+            if(id==="SUD"){
+              if(position===1)return{label:"Oitavas",tone:"direct"};
+              if(position===2)return{label:"Play-off",tone:"playoff"};
+              return{label:"Eliminado",tone:"out"};
+            }
+            if(id==="UCL"||id==="UEL"||id==="UECL"){
+              if(position<=8)return{label:"Oitavas",tone:"direct"};
+              if(position<=24)return{label:"Play-off",tone:"playoff"};
+              return{label:"Eliminado",tone:"out"};
+            }
+            return undefined;
+          }
+
+          export function internationalTeamStats(tournament:WorldTournamentState){
+            const rows=new Map<string,{participant:WorldParticipant;played:number;won:number;goalsFor:number;goalsAgainst:number}>();
+            for(const participant of tournament.participants)rows.set(participant.id,{participant,played:0,won:0,goalsFor:0,goalsAgainst:0});
+            for(const match of tournament.matches.filter(item=>item.played)){
+              if(!rows.has(match.home.id))rows.set(match.home.id,{participant:match.home,played:0,won:0,goalsFor:0,goalsAgainst:0});
+              if(!rows.has(match.away.id))rows.set(match.away.id,{participant:match.away,played:0,won:0,goalsFor:0,goalsAgainst:0});
+              const home=rows.get(match.home.id)!,away=rows.get(match.away.id)!,hg=match.homeGoals??0,ag=match.awayGoals??0;home.played++;away.played++;home.goalsFor+=hg;home.goalsAgainst+=ag;away.goalsFor+=ag;away.goalsAgainst+=hg;if(hg>ag)home.won++;if(ag>hg)away.won++;
+            }
+            return[...rows.values()];
+          }
+          EOF
+
+      - name: Add global calendar coordinator
+        run: |
+          cat > src/game-engine/calendar-coordinator.ts <<'EOF'
+          import type { SeasonState } from "./season";
+          import type { LeagueFixture } from "./league";
+          import type { WorldCompetitionMatch, WorldParticipant } from "./world-competitions";
+
+          const DAY=86400000;
+          const aliases:Record<string,string>={"man city":"manchester city","man utd":"manchester united","paris":"paris saint germain","atleti":"atletico de madrid","vasco":"vasco da gama","atletico mg":"atletico mineiro","red bull bragantino sp":"red bull bragantino","sao paulo futebol clube":"sao paulo","ucv":"universidad central","ucv fc":"universidad central"};
+          function normalize(value:string){const key=value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\b(fc|afc|cf|ec|sc|saf|club|clube)\b/g," ").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();return aliases[key]??key;}
+          function dateAdd(iso:string,days:number){const date=new Date(`${iso}T12:00:00Z`);date.setUTCDate(date.getUTCDate()+days);return date.toISOString().slice(0,10);}
+          function dayDistance(a:string,b:string){return Math.abs(new Date(`${a}T12:00:00Z`).getTime()-new Date(`${b}T12:00:00Z`).getTime())/DAY;}
+          function participantKey(participant:WorldParticipant){return participant.activeClubId?`active:${participant.activeClubId}`:`name:${normalize(participant.name)}`;}
+          function cupKeys(match:WorldCompetitionMatch){return[participantKey(match.home),participantKey(match.away)];}
+          function priority(kind:string){return kind==="Continental"?3:2;}
+          function roundForDate(state:SeasonState,date:string){const dates=[...(state.worldCompetitions.roundDates??[])].sort((a,b)=>a.date.localeCompare(b.date));return dates.find(item=>item.date>=date)?.round??dates.at(-1)?.round??state.currentRound;}
+          function cupIndex(state:SeasonState){const index=new Map<string,string[]>();for(const tournament of state.worldCompetitions.tournaments)for(const match of tournament.matches.filter(item=>!item.played)){for(const key of cupKeys(match))index.set(key,[...(index.get(key)??[]),match.date]);}return index;}
+          function nearAny(index:Map<string,string[]>,keys:string[],date:string,minGap=2){return keys.some(key=>(index.get(key)??[]).some(item=>dayDistance(item,date)<minGap));}
+          function clone(state:SeasonState):SeasonState{return{...state,league:{...state.league,fixtures:state.league.fixtures.map(fixture=>({...fixture}))},worldCompetitions:structuredClone(state.worldCompetitions),worldLeagues:structuredClone(state.worldLeagues)};}
+
+          function coordinateCupConflicts(state:SeasonState){
+            const tournaments=state.worldCompetitions.tournaments,all=tournaments.flatMap(tournament=>tournament.matches.filter(match=>!match.played).map(match=>({tournament,match}))).sort((a,b)=>a.match.date.localeCompare(b.match.date)||priority(b.tournament.definition.kind)-priority(a.tournament.definition.kind));
+            const occupied=new Map<string,Array<{date:string;matchId:string}>>();
+            for(const item of all){
+              const keys=cupKeys(item.match),conflict=keys.some(key=>(occupied.get(key)??[]).some(entry=>entry.date===item.match.date));
+              if(conflict){
+                const original=item.match.date;let chosen=original;
+                for(const delta of [2,-2,3,-3,4,-4,5,-5,6,7]){const candidate=dateAdd(original,delta);if(candidate<state.currentDate)continue;const safe=keys.every(key=>(occupied.get(key)??[]).every(entry=>dayDistance(entry.date,candidate)>=2));if(safe){chosen=candidate;break;}}
+                if(chosen!==original){item.match.originalDate=item.match.originalDate??original;item.match.date=chosen;item.match.roundDue=roundForDate(state,chosen);item.match.rescheduledReason="Conflito entre competições: torneio de maior prioridade preservado.";}
+              }
+              for(const key of keys)occupied.set(key,[...(occupied.get(key)??[]),{date:item.match.date,matchId:item.match.id}]);
+            }
+          }
+
+          function mainClubKey(state:SeasonState,id:string){const club=state.league.clubs.find(item=>item.id===id);return club?`active:${club.id}`:`name:${normalize(id)}`;}
+          function coordinateMainLeague(state:SeasonState){
+            const cups=cupIndex(state),rounds=[...new Set(state.league.fixtures.filter(f=>!f.played).map(f=>f.round))].sort((a,b)=>a-b),roundDates=new Map<number,string>();
+            for(const round of rounds){const fixtures=state.league.fixtures.filter(f=>!f.played&&f.round===round),original=fixtures.find(f=>f.date)?.date;if(!original)continue;const keys=[...new Set(fixtures.flatMap(f=>[mainClubKey(state,f.homeClubId),mainClubKey(state,f.awayClubId)]))],hasConflict=keys.some(key=>(cups.get(key)??[]).includes(original));let date=original;
+              if(hasConflict){for(let delta=2;delta<=18;delta++){const candidate=dateAdd(original,delta);if(candidate<state.currentDate)continue;const noCup=!nearAny(cups,keys,candidate,2),noRound=[...roundDates.values()].every(other=>dayDistance(other,candidate)>=2);if(noCup&&noRound){date=candidate;break;}}}
+              roundDates.set(round,date);if(date!==original)for(const fixture of fixtures){fixture.originalDate=fixture.originalDate??fixture.date;fixture.date=date;fixture.rescheduledReason="Rodada remarcada para evitar choque com copa/competição internacional.";}
+            }
+          }
+
+          function parallelKeys(league:{teams:Array<{id:string;name:string}>},fixture:LeagueFixture){const names=[league.teams.find(team=>team.id===fixture.homeClubId)?.name,league.teams.find(team=>team.id===fixture.awayClubId)?.name].filter(Boolean) as string[];return names.map(name=>`name:${normalize(name)}`);}
+          function coordinateParallelLeagues(state:SeasonState){
+            const cups=cupIndex(state);
+            for(const league of Object.values(state.worldLeagues.leagues)){if(!league)continue;const clubDates=new Map<string,string[]>();for(const fixture of league.fixtures.filter(item=>!item.played).sort((a,b)=>(a.date??"").localeCompare(b.date??""))){if(!fixture.date)continue;const keys=parallelKeys(league,fixture),original=fixture.date,conflict=keys.some(key=>(cups.get(key)??[]).includes(original));let date=original;if(conflict){for(let delta=2;delta<=18;delta++){const candidate=dateAdd(original,delta),noCup=!nearAny(cups,keys,candidate,2),noLeague=keys.every(key=>(clubDates.get(key)??[]).every(other=>dayDistance(other,candidate)>=2));if(noCup&&noLeague){date=candidate;break;}}}if(date!==original){fixture.originalDate=fixture.originalDate??original;fixture.date=date;fixture.rescheduledReason="Partida de liga remarcada por compromisso de copa.";}for(const key of keys)clubDates.set(key,[...(clubDates.get(key)??[]),date]);}}
+          }
+
+          export function coordinateSeasonCalendars(source:SeasonState){const state=clone(source);coordinateCupConflicts(state);coordinateMainLeague(state);coordinateParallelLeagues(state);state.worldCompetitions.roundDates=state.league.fixtures.filter(f=>Boolean(f.date)).map(f=>({round:f.round,date:f.date!})).sort((a,b)=>a.date.localeCompare(b.date));return state;}
+          EOF
+
+      - name: Add international competition browser UI
+        run: |
+          cat > src/app/international-competition-browser.tsx <<'EOF'
+          "use client";
+          import { useMemo,useState } from "react";
+          import { BarChart3,CalendarDays,GitBranch,ListOrdered,Trophy } from "lucide-react";
+          import type { WorldCompetitionId,WorldCompetitionsState,WorldTournamentState } from "@/game-engine/world-competitions";
+          import { competitionGroupTables,competitionLeagueTable,internationalQualification,internationalTeamStats } from "@/game-engine/international-browser";
+          import styles from "./international-competition-browser.module.css";
+
+          const IDS:WorldCompetitionId[]=["LIB","SUD","UCL","UEL","UECL"];
+          type View="Classificação"|"Calendário"|"Mata-mata"|"Estatísticas";
+          export default function InternationalCompetitionBrowser({state}:{state:WorldCompetitionsState}){
+            const tournaments=state.tournaments.filter(item=>IDS.includes(item.definition.id)),[id,setId]=useState<WorldCompetitionId>(tournaments[0]?.definition.id??"LIB"),[view,setView]=useState<View>("Classificação"),tournament=tournaments.find(item=>item.definition.id===id)??tournaments[0];
+            const stats=useMemo(()=>tournament?internationalTeamStats(tournament):[],[tournament]);if(!tournament)return null;
+            return <section className={styles.shell}><header><div><span>COMPETIÇÕES INTERNACIONAIS</span><h3>O continente inteiro dentro do seu save</h3><p>Classificações, calendário, mata-mata e estatísticas evoluem com os resultados simulados do universo do Vestiário 90.</p></div><Trophy/></header>
+              <div className={styles.picker}>{tournaments.map(item=><button key={item.definition.id} className={item.definition.id===tournament.definition.id?styles.active:""} onClick={()=>setId(item.definition.id)}><b>{item.definition.shortName}</b><small>{item.currentStage}</small></button>)}</div>
+              <div className={styles.competitionHead}><div><span>{tournament.definition.format}</span><h4>{tournament.definition.name}</h4><p>{tournament.definition.rulesSummary}</p></div><strong>{tournament.completed?"ENCERRADA":tournament.currentStage.toUpperCase()}</strong></div>
+              <nav>{(["Classificação","Calendário","Mata-mata","Estatísticas"] as const).map(item=><button key={item} className={view===item?styles.viewActive:""} onClick={()=>setView(item)}>{item==="Classificação"?<ListOrdered/>:item==="Calendário"?<CalendarDays/>:item==="Mata-mata"?<GitBranch/>:<BarChart3/>}{item}</button>)}</nav>
+              {view==="Classificação"&&<Classification tournament={tournament}/>} {view==="Calendário"&&<Calendar tournament={tournament}/>} {view==="Mata-mata"&&<Knockout tournament={tournament}/>} {view==="Estatísticas"&&<div className={styles.stats}><Ranking title="MELHORES ATAQUES" rows={[...stats].sort((a,b)=>b.goalsFor-a.goalsFor).slice(0,10).map(x=>({name:x.participant.name,sub:`${x.played} jogos`,value:String(x.goalsFor)}))}/><Ranking title="MAIS VITÓRIAS" rows={[...stats].sort((a,b)=>b.won-a.won).slice(0,10).map(x=>({name:x.participant.name,sub:`${x.played} jogos`,value:String(x.won)}))}/><Ranking title="MELHORES DEFESAS" rows={[...stats].filter(x=>x.played).sort((a,b)=>a.goalsAgainst-b.goalsAgainst).slice(0,10).map(x=>({name:x.participant.name,sub:`${x.played} jogos`,value:String(x.goalsAgainst)}))}/></div>}
+            </section>;
+          }
+          function Classification({tournament}:{tournament:WorldTournamentState}){const groups=competitionGroupTables(tournament);if(groups.length)return <div className={styles.groups}>{groups.map(({group,rows})=><section key={group}><b>GRUPO {group}</b><Table rows={rows} id={tournament.definition.id}/></section>)}</div>;const rows=competitionLeagueTable(tournament);return rows.length?<div className={styles.singleTable}><Table rows={rows} id={tournament.definition.id}/></div>:<p className={styles.empty}>Esta competição está em fase eliminatória. Consulte a aba Mata-mata.</p>}
+          function Table({rows,id}:{rows:ReturnType<typeof competitionLeagueTable>;id:WorldCompetitionId}){return <div className={styles.table}><header><span>#</span><span>CLUBE</span><span>J</span><span>SG</span><span>PTS</span></header>{rows.map((row,index)=>{const zone=internationalQualification(id,index+1);return <article key={row.participant.id}><strong>{index+1}</strong><div><b>{row.participant.name}</b>{zone&&<small data-tone={zone.tone}>{zone.label}</small>}</div><span>{row.played}</span><span>{row.goalsFor-row.goalsAgainst}</span><b>{row.points}</b></article>})}</div>}
+          function Calendar({tournament}:{tournament:WorldTournamentState}){const matches=[...tournament.matches].sort((a,b)=>a.date.localeCompare(b.date)||a.stage.localeCompare(b.stage));return <div className={styles.calendar}>{matches.map(match=><article key={match.id}><div><span>{match.date}</span><small>{match.group?`Grupo ${match.group} • `:""}{match.stage}{match.matchday?` • J${match.matchday}`:""}</small>{match.originalDate&&<em>remarcado de {match.originalDate}</em>}</div><b>{match.home.name}</b><strong>{match.played?`${match.homeGoals} × ${match.awayGoals}`:"×"}</strong><b>{match.away.name}</b></article>)}</div>}
+          function Knockout({tournament}:{tournament:WorldTournamentState}){const stages=tournament.definition.stages.filter(stage=>stage.kind==="knockout"),matches=tournament.matches.filter(match=>!match.tableStage);return <div className={styles.knockout}>{stages.map(stage=>{const stageMatches=matches.filter(match=>match.stage===stage.name);return <section key={stage.name}><header><div><b>{stage.name}</b><small>{stage.rule}</small></div><span>{stage.dates.join(" • ")}</span></header>{stageMatches.length?<div>{stageMatches.map(match=><article key={match.id}><span>{match.date}</span><b>{match.home.name}</b><strong>{match.played?`${match.homeGoals} × ${match.awayGoals}`:"×"}</strong><b>{match.away.name}</b>{match.decidedByPenalties&&<em>PÊNALTIS</em>}</article>)}</div>:<p>Confrontos serão definidos quando a fase anterior terminar.</p>}</section>})}</div>}
+          function Ranking({title,rows}:{title:string;rows:Array<{name:string;sub:string;value:string}>}){return <section><b>{title}</b>{rows.map((row,index)=><article key={`${title}-${row.name}`}><i>{index+1}</i><div><strong>{row.name}</strong><small>{row.sub}</small></div><em>{row.value}</em></article>)}</section>}
+          EOF
+          cat > src/app/international-competition-browser.module.css <<'EOF'
+          .shell{background:#fff;border:1px solid #e1e7e3;border-radius:17px;padding:18px;color:#243027;display:grid;gap:14px}.shell>header{display:flex;align-items:center;justify-content:space-between;gap:16px}.shell>header span{font-size:10px;font-weight:900;letter-spacing:.09em;color:#7c887f}.shell>header h3{font-size:18px;margin:3px 0}.shell>header p{font-size:10px;color:#768179;margin:0;line-height:1.45}.shell>header svg{width:28px;color:#3a7251}.picker{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}.picker button{border:1px solid #dfe6e1;border-radius:10px;background:#f8faf9;padding:10px;text-align:left;display:grid;gap:2px;cursor:pointer;color:#334038}.picker b{font-size:10px}.picker small{font-size:8px;color:#7f8a82}.picker .active{background:#173d2a;color:#fff;border-color:#173d2a}.picker .active small{color:#c9d8cf}.competitionHead{display:flex;justify-content:space-between;align-items:center;gap:16px;background:#f4f8f5;border-radius:12px;padding:13px}.competitionHead span{font-size:8px;font-weight:900;color:#43805b}.competitionHead h4{margin:2px 0;font-size:15px}.competitionHead p{font-size:9px;line-height:1.45;color:#78827b;margin:0;max-width:780px}.competitionHead>strong{font-size:9px;background:#e4f1e9;color:#286744;padding:7px 9px;border-radius:999px;white-space:nowrap}.shell>nav{display:flex;gap:7px;flex-wrap:wrap}.shell>nav button{border:1px solid #dfe5e1;background:#fafbfa;border-radius:9px;padding:8px 10px;font-size:9px;font-weight:900;color:#67736b;display:flex;gap:6px;align-items:center;cursor:pointer}.shell>nav svg{width:14px}.shell>nav .viewActive{background:#28513b;color:#fff;border-color:#28513b}.groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.groups>section,.singleTable{border:1px solid #e5eae7;border-radius:12px;padding:10px}.groups>section>b{font-size:9px;color:#2d6747;letter-spacing:.07em}.table{display:grid;margin-top:6px}.table>header,.table article{display:grid;grid-template-columns:28px minmax(130px,1fr) 30px 36px 38px;gap:6px;align-items:center;padding:7px 3px;border-top:1px solid #edf1ee}.table>header{border-top:0;font-size:7px;font-weight:900;color:#839087}.table article>strong,.table article>span,.table article>b{text-align:center;font-size:9px}.table article>div{display:grid}.table article>div>b{font-size:9px}.table small{font-size:7px;margin-top:2px;color:#5d7665}.table small[data-tone="direct"]{color:#1d7046}.table small[data-tone="playoff"]{color:#8b6722}.table small[data-tone="transfer"]{color:#346aa4}.table small[data-tone="out"]{color:#9b5550}.calendar{display:grid;gap:5px;max-height:570px;overflow:auto}.calendar article{display:grid;grid-template-columns:125px minmax(130px,1fr) 60px minmax(130px,1fr);gap:8px;align-items:center;border:1px solid #e7ece8;border-radius:9px;padding:8px}.calendar article>div{display:grid}.calendar span{font-size:8px;font-weight:900;color:#3b6c4e}.calendar small{font-size:8px;color:#87918b}.calendar em{font-size:7px;color:#a05e35;font-style:normal}.calendar article>b{font-size:9px}.calendar article>strong{text-align:center;font-size:11px}.knockout{display:grid;gap:10px}.knockout>section{border:1px solid #e4eae6;border-radius:11px;padding:11px}.knockout>section>header{display:flex;justify-content:space-between;gap:10px;align-items:center}.knockout>section>header div{display:grid}.knockout>section>header b{font-size:11px}.knockout>section>header small,.knockout>section>header span{font-size:8px;color:#7c8780}.knockout>section>div{display:grid;margin-top:7px}.knockout article{display:grid;grid-template-columns:82px 1fr 52px 1fr auto;gap:7px;padding:7px 0;border-top:1px solid #eef1ef;align-items:center}.knockout article span{font-size:8px;color:#78847c}.knockout article b{font-size:9px}.knockout article strong{text-align:center;font-size:10px}.knockout article em{font-size:7px;font-style:normal;color:#805f2c}.knockout p,.empty{font-size:9px;color:#838d86}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}.stats>section{border:1px solid #e5eae7;border-radius:11px;padding:11px}.stats>section>b{font-size:8px;letter-spacing:.07em;color:#657269}.stats article{display:grid;grid-template-columns:20px 1fr 35px;gap:6px;align-items:center;padding:7px 0;border-top:1px solid #eef1ef}.stats article i{font-style:normal;font-size:8px;color:#849087}.stats article div{display:grid}.stats article strong{font-size:9px}.stats article small{font-size:7px;color:#8a948e}.stats article em{text-align:right;font-size:11px;font-weight:900;font-style:normal;color:#286a47}@media(max-width:850px){.picker{grid-template-columns:repeat(3,1fr)}.groups{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}}@media(max-width:600px){.picker{grid-template-columns:1fr 1fr}.competitionHead{align-items:flex-start;flex-direction:column}.calendar article{grid-template-columns:86px 1fr 40px 1fr}.stats{grid-template-columns:1fr}.knockout article{grid-template-columns:65px 1fr 42px 1fr}.knockout article em{display:none}}
+          EOF
+
+      - name: Patch engines and views
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # league fixture metadata
+          p=Path('src/game-engine/league.ts');s=p.read_text()
+          old='export type LeagueFixture={id:string;round:number;homeClubId:string;awayClubId:string;played:boolean;date?:string;homeGoals?:number;awayGoals?:number;homeShots?:number;awayShots?:number;possessionHome?:number;homeYellowCards?:number;awayYellowCards?:number};'
+          new='export type LeagueFixture={id:string;round:number;homeClubId:string;awayClubId:string;played:boolean;date?:string;originalDate?:string;rescheduledReason?:string;homeGoals?:number;awayGoals?:number;homeShots?:number;awayShots?:number;possessionHome?:number;homeYellowCards?:number;awayYellowCards?:number};'
+          if old not in s: raise SystemExit('LeagueFixture anchor missing')
+          p.write_text(s.replace(old,new,1))
+
+          # world competition dates + metadata + real Libertadores thirds in Sudamericana
+          p=Path('src/game-engine/world-competitions.ts');s=p.read_text()
+          old='export type WorldCompetitionMatch={id:string;competitionId:WorldCompetitionId;stage:string;roundDue:number;date:string;home:WorldParticipant;away:WorldParticipant;played:boolean;homeGoals?:number;awayGoals?:number;winnerId?:string;decidedByPenalties?:boolean;leg?:1|2;tieId?:string;group?:string;matchday?:number;tableStage?:boolean};'
+          new='export type WorldCompetitionMatch={id:string;competitionId:WorldCompetitionId;stage:string;roundDue:number;date:string;originalDate?:string;rescheduledReason?:string;home:WorldParticipant;away:WorldParticipant;played:boolean;homeGoals?:number;awayGoals?:number;winnerId?:string;decidedByPenalties?:boolean;leg?:1|2;tieId?:string;group?:string;matchday?:number;tableStage?:boolean};'
+          if old not in s: raise SystemExit('WorldCompetitionMatch anchor missing')
+          s=s.replace(old,new,1)
+          for a,b in {
+            '["2026-08-12","2026-08-19"]':'["2026-08-11","2026-08-18"]',
+            '["2026-09-09","2026-09-16"]':'["2026-09-08","2026-09-15"]',
+            '["2026-10-14","2026-10-21"]':'["2026-10-13","2026-10-20"]',
+            '["2026-07-22","2026-07-29"]':'["2026-07-21","2026-07-28"]',
+            'H:["UCV FC","Libertad","Rosario Central","Independiente del Valle"]':'H:["Universidad Central","Libertad","Rosario Central","Independiente del Valle"]'
+          }.items(): s=s.replace(a,b)
+          anchor='function groupQualifiers(t:WorldTournamentState,matches:WorldCompetitionMatch[],take:number){const result:WorldParticipant[]=[];for(const group of [...new Set(matches.map(m=>m.group).filter(Boolean))] as string[]){const gm=matches.filter(m=>m.group===group),ids=new Set(gm.flatMap(m=>[m.home.id,m.away.id])),participants=t.participants.filter(p=>ids.has(p.id));result.push(...table(gm,participants).slice(0,take).map(r=>r.p));}return result;}\n'
+          addition='function libertadoresThirdPlaces(state:WorldCompetitionsState){const lib=state.tournaments.find(item=>item.definition.id==="LIB");if(!lib)return[];const matches=lib.matches.filter(match=>match.group&&match.stage==="Fase de grupos"),result:WorldParticipant[]=[];for(const group of [...new Set(matches.map(match=>match.group!).filter(Boolean))]){const gm=matches.filter(match=>match.group===group),ids=new Set(gm.flatMap(match=>[match.home.id,match.away.id])),participants=lib.participants.filter(participant=>ids.has(participant.id)),third=table(gm,participants)[2]?.p;if(third)result.push(third);}return result;}\n'
+          if anchor not in s: raise SystemExit('groupQualifiers anchor missing')
+          s=s.replace(anchor,anchor+addition,1)
+          old='t.directQualifierIds=leaders.map(p=>p.id);nextParticipants=[...runners,...Array.from({length:8},(_,i)=>virtual(`3º Libertadores Grupo ${String.fromCharCode(65+i)}`,"CONMEBOL",`lib3-${i}`))];'
+          new='t.directQualifierIds=leaders.map(p=>p.id);const libThirds=libertadoresThirdPlaces(state),thirds=libThirds.length===8?libThirds:Array.from({length:8},(_,i)=>virtual(`3º Libertadores Grupo ${String.fromCharCode(65+i)}`,"CONMEBOL",`lib3-${i}`));nextParticipants=[...runners,...thirds];'
+          if old not in s: raise SystemExit('Sudamericana third-place anchor missing')
+          p.write_text(s.replace(old,new,1))
+
+          # season calendar coordinator integration
+          p=Path('src/game-engine/season.ts');s=p.read_text()
+          anchor='import { createActiveBoard, hydrateActiveBoard, processActiveBoardAfterRound, type ActiveBoardState } from "./active-board";\n'
+          addition='import { coordinateSeasonCalendars } from "./calendar-coordinator";\n'
+          if addition not in s:s=s.replace(anchor,anchor+addition,1)
+          old='return{baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,benchIds,recentForm:[],completed:false,livingWorld:createLivingWorld(club.name,competitionId),mediaWorld:createMediaWorld(competitionId),market:createMarketState(),career:createManagerCareer(club,year),clubManagement:createClubManagementState(league,baseSeed,year),clubAi:createClubAiState(league,baseSeed),worldCompetitions:createWorldCompetitions(competitionId,league,year,baseSeed),internationalMarket:createInternationalMarket(),advancedWorld:createAdvancedWorld(league,baseSeed,year),nationalCareer:createNationalCareer(league,baseSeed,year,55,1),competitionId,currentDate:addIsoDays(firstDate,-7),trainingPlan:DEFAULT_TRAINING_PLAN,worldLeagues:createWorldLeagues(baseSeed,year,competitionId),boardState:createActiveBoard(club,league,year)};'
+          new='return coordinateSeasonCalendars({baseSeed,year,league,currentRound:1,selectedClubId:club.id,lineupIds,benchIds,recentForm:[],completed:false,livingWorld:createLivingWorld(club.name,competitionId),mediaWorld:createMediaWorld(competitionId),market:createMarketState(),career:createManagerCareer(club,year),clubManagement:createClubManagementState(league,baseSeed,year),clubAi:createClubAiState(league,baseSeed),worldCompetitions:createWorldCompetitions(competitionId,league,year,baseSeed),internationalMarket:createInternationalMarket(),advancedWorld:createAdvancedWorld(league,baseSeed,year),nationalCareer:createNationalCareer(league,baseSeed,year,55,1),competitionId,currentDate:addIsoDays(firstDate,-7),trainingPlan:DEFAULT_TRAINING_PLAN,worldLeagues:createWorldLeagues(baseSeed,year,competitionId),boardState:createActiveBoard(club,league,year)});'
+          if old not in s: raise SystemExit('createSeason return anchor missing')
+          s=s.replace(old,new,1)
+          old='const processed=processInternationalMarketRound(processMarketRound(processClubManagementRound(nextState)));return processActiveBoardAfterRound(processed);'
+          new='const processed=processInternationalMarketRound(processMarketRound(processClubManagementRound(nextState)));return coordinateSeasonCalendars(processActiveBoardAfterRound(processed));'
+          if old not in s: raise SystemExit('playCurrentRound return anchor missing')
+          s=s.replace(old,new,1)
+          old='return processMarketRound({...state,league,lineupIds:selection.lineupIds,benchIds:selection.benchIds,livingWorld,mediaWorld,advancedWorld,worldLeagues});'
+          new='return coordinateSeasonCalendars(processMarketRound({...state,league,lineupIds:selection.lineupIds,benchIds:selection.benchIds,livingWorld,mediaWorld,advancedWorld,worldLeagues}));'
+          if old not in s: raise SystemExit('advanceSeasonDay return anchor missing')
+          s=s.replace(old,new,1)
+          old='return processMarketRound(processClubManagementRound({...state,league,lineupIds:selection.lineupIds,benchIds:selection.benchIds,livingWorld,mediaWorld,worldCompetitions,advancedWorld,lastUserMatch:{fixtureId:matchId,homeClubId:context.home.id,awayClubId:context.away.id,result}}));'
+          new='return coordinateSeasonCalendars(processMarketRound(processClubManagementRound({...state,league,lineupIds:selection.lineupIds,benchIds:selection.benchIds,livingWorld,mediaWorld,worldCompetitions,advancedWorld,lastUserMatch:{fixtureId:matchId,homeClubId:context.home.id,awayClubId:context.away.id,result}})));'
+          if old not in s: raise SystemExit('cup return anchor missing')
+          s=s.replace(old,new,1)
+          old='return{...state,year:nextYear,league:prepared.league,currentRound:1,lineupIds,benchIds,recentForm:[],completed:false,championClubId:undefined,lastUserMatch:undefined,livingWorld,mediaWorld,market:prepared.market,career:state.career??createManagerCareer(club,nextYear),clubManagement,clubAi,worldCompetitions,internationalMarket,advancedWorld,nationalCareer:hydrateNationalCareer(state.nationalCareer,prepared.league,state.baseSeed,nextYear,livingWorld.managerReputation,1),competitionId,currentDate:addIsoDays(firstDate,-7),worldLeagues:createWorldLeagues(state.baseSeed,nextYear,competitionId),boardState:createActiveBoard(club,prepared.league,nextYear)};'
+          new='return coordinateSeasonCalendars({...state,year:nextYear,league:prepared.league,currentRound:1,lineupIds,benchIds,recentForm:[],completed:false,championClubId:undefined,lastUserMatch:undefined,livingWorld,mediaWorld,market:prepared.market,career:state.career??createManagerCareer(club,nextYear),clubManagement,clubAi,worldCompetitions,internationalMarket,advancedWorld,nationalCareer:hydrateNationalCareer(state.nationalCareer,prepared.league,state.baseSeed,nextYear,livingWorld.managerReputation,1),competitionId,currentDate:addIsoDays(firstDate,-7),worldLeagues:createWorldLeagues(state.baseSeed,nextYear,competitionId),boardState:createActiveBoard(club,prepared.league,nextYear)});'
+          if old not in s: raise SystemExit('startNextSeason return anchor missing')
+          s=s.replace(old,new,1)
+          old='parsed.boardState=hydrateActiveBoard(parsed.boardState,parsed);return parsed;'
+          new='parsed.boardState=hydrateActiveBoard(parsed.boardState,parsed);return coordinateSeasonCalendars(parsed);'
+          if old not in s: raise SystemExit('hydrate return anchor missing')
+          p.write_text(s.replace(old,new,1))
+
+          # football world UI
+          p=Path('src/app/football-world-view.tsx');s=p.read_text()
+          anchor='import { parallelLeagueById, parallelTopPlayers, sortedParallelStandings } from "@/game-engine/world-leagues";\n'
+          addition='import { qualificationForPosition, qualificationSummary } from "@/game-engine/competition-rules";\nimport InternationalCompetitionBrowser from "./international-competition-browser";\n'
+          if addition not in s:s=s.replace(anchor,anchor+addition,1)
+          old='{leagueView==="Tabela"&&<div className={styles.worldTable}><header><span>#</span><span>CLUBE</span><span>J</span><span>V</span><span>E</span><span>D</span><span>SG</span><span>PTS</span></header>{leagueStandings.map((row,index)=><article key={row.clubId}><strong>{index+1}</strong><div><b>{teamName(row.clubId)}</b></div><span>{row.played}</span><span>{row.won}</span><span>{row.drawn}</span><span>{row.lost}</span><span>{row.goalsFor-row.goalsAgainst}</span><b>{row.points}</b></article>)}</div>}'
+          new='{leagueView==="Tabela"&&<><p className={styles.qualificationNote}>{qualificationSummary(leagueId)}</p><div className={styles.worldTable}><header><span>#</span><span>CLUBE</span><span>J</span><span>V</span><span>E</span><span>D</span><span>SG</span><span>PTS</span></header>{leagueStandings.map((row,index)=>{const zone=qualificationForPosition(leagueId,index+1,leagueStandings.length);return <article key={row.clubId}><strong>{index+1}</strong><div><b>{teamName(row.clubId)}</b>{zone&&<small className={styles.zone} data-tone={zone.tone}>{zone.label}</small>}</div><span>{row.played}</span><span>{row.won}</span><span>{row.drawn}</span><span>{row.lost}</span><span>{row.goalsFor-row.goalsAgainst}</span><b>{row.points}</b></article>})}</div></>}'
+          if old not in s: raise SystemExit('national table UI anchor missing')
+          s=s.replace(old,new,1)
+          old='<div><span>{f.date}</span><small>Rodada {f.round}</small></div><b>{teamName(f.homeClubId)}</b>'
+          new='<div><span>{f.date}</span><small>Rodada {f.round}</small>{f.originalDate&&<em>remarcado de {f.originalDate}</em>}</div><b>{teamName(f.homeClubId)}</b>'
+          s=s.replace(old,new)
+          old='  {tab==="Competições"&&<div className={styles.grid}>\n'
+          new='  {tab==="Competições"&&<><InternationalCompetitionBrowser state={world}/><div className={styles.grid}>\n'
+          if old not in s: raise SystemExit('competitions open anchor missing')
+          s=s.replace(old,new,1)
+          marker='  {tab==="Seleções"&&<div className={styles.grid}>'
+          idx=s.find(marker)
+          if idx<0: raise SystemExit('selections marker missing')
+          before=s[:idx]
+          last=before.rfind('  </div>}\n')
+          if last<0: raise SystemExit('competitions close anchor missing')
+          before=before[:last]+'  </div></>}\n'+before[last+len('  </div>}\n'):]
+          p.write_text(before+s[idx:])
+
+          p=Path('src/app/football-world-view.module.css');s=p.read_text()
+          addition='''.qualificationNote{font-size:9px;line-height:1.45;color:#758078;background:#f5f8f6;border-radius:9px;padding:9px 10px;margin:0 0 8px}.worldTable article>div{display:grid}.worldTable .zone{font-size:7px;font-weight:800;margin-top:2px}.zone[data-tone="champions"]{color:#2e5da8}.zone[data-tone="continental"]{color:#27734c}.zone[data-tone="promotion"]{color:#247248}.zone[data-tone="playoff"]{color:#91692a}.zone[data-tone="danger"]{color:#b1463e}.worldCalendar article>div em{font-size:7px;color:#a25c35;font-style:normal;margin-top:2px}\n'''
+          if '.qualificationNote{' not in s:s+='\n'+addition
+          p.write_text(s)
+          PY
+
+      - name: Validate
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
+      - name: Commit upgrade
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src
+          git commit -m "feat: coordinate calendars and expand international competitions"
+          git push
