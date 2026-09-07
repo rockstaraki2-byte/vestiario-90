@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BarChart3, Bell, BriefcaseBusiness, Building2, CalendarDays, ChevronRight, CircleUserRound, ClipboardList, Flag, Globe2, Home, Inbox, LayoutGrid, Landmark, MessageSquareText, Megaphone, Newspaper, Play, RotateCcw, Settings, Shield, Shirt, Trophy, Users, Zap } from "lucide-react";
 import styles from "./page.module.css";
 import seasonStyles from "./season.module.css";
@@ -39,7 +39,32 @@ const NAV=[["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["V
 
 export default function Dashboard(){
   const [screen,setScreen]=useState<"menu"|"game">("menu"),[saveId,setSaveId]=useState<string|null>(null),[season,setSeason]=useState<SeasonState>(()=>createSeason("vestiario-90",2026)),[active,setActive]=useState("Visão geral"),[notice,setNotice]=useState(""),[tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC),[match,setMatch]=useState<MatchResult|null>(null),[liveMatch,setLiveMatch]=useState<LiveMatchState|null>(null),[activeCupMatchId,setActiveCupMatchId]=useState<string|null>(null),[moreOpen,setMoreOpen]=useState(false);
+  const navigationReady=useRef(false),lastNavigationKey=useRef("");
   useEffect(()=>{migrateLegacySeason()},[]);
+  useEffect(()=>{
+    const key=`${screen}:${active}`;
+    if(!navigationReady.current){
+      navigationReady.current=true;lastNavigationKey.current=key;
+      window.history.replaceState({...window.history.state,v90:true,screen,active},"");
+      return;
+    }
+    if(lastNavigationKey.current===key)return;
+    lastNavigationKey.current=key;
+    window.history.pushState({v90:true,screen,active},"");
+  },[screen,active]);
+  useEffect(()=>{
+    const onPopState=(event:PopStateEvent)=>{
+      const state=event.state as {v90?:boolean;screen?:"menu"|"game";active?:string}|null;
+      if(!state?.v90||!state.screen)return;
+      const nextActive=state.active??"Visão geral";
+      lastNavigationKey.current=`${state.screen}:${nextActive}`;
+      setMoreOpen(false);setMatch(null);
+      if(!liveMatch)setActiveCupMatchId(null);
+      setScreen(state.screen);setActive(nextActive);
+    };
+    window.addEventListener("popstate",onPopState);
+    return()=>window.removeEventListener("popstate",onPopState);
+  },[liveMatch]);
   const league=season.league,competition=professionalCompetitionById(season.competitionId??league.competitionId??"BRA1"),totalRounds=league.totalRounds??Math.max(...league.fixtures.map(f=>f.round),38),todayFixture=getTodayUserFixture(season),todayCup=getTodayUserCupMatch(season),club=getSelectedClub(season),employed=season.career.status==="Empregado",standings=sortedStandings(league),standing=standings.find(s=>s.clubId===club.id)!,position=standings.findIndex(s=>s.clubId===club.id)+1,squadMorale=Math.round(club.players.reduce((sum,p)=>sum+p.morale,0)/club.players.length),squadCondition=Math.round(club.players.reduce((sum,p)=>sum+p.condition,0)/club.players.length),currentFixture=getCurrentUserFixture(season),cupContext=(todayCup?getCupMatchContext(season,todayCup.match.id):activeCupMatchId?getCupMatchContext(season,activeCupMatchId):undefined),opponent=cupContext?(cupContext.userSide==="home"?cupContext.away:cupContext.home):currentFixture?league.clubs.find(c=>c.id===(currentFixture.homeClubId===club.id?currentFixture.awayClubId:currentFixture.homeClubId)):undefined,unavailable=club.players.filter(p=>p.injuryDays>0||p.suspensionMatches>0).length,pendingEvents=pendingWorldEvents(season.livingWorld),unreadEvents=season.livingWorld.inbox.filter(event=>event.unread&&!event.resolved).length,pendingMedia=pendingMediaSessions(season.mediaWorld,season.competitionId),latestNews=season.livingWorld.news.slice(0,3);
   const preMatchMedia=pendingMedia.find(session=>session.format==="Coletiva pré-jogo"),postMatchMedia=pendingMedia.find(session=>session.format==="Coletiva pós-jogo"),todayMatch=Boolean(todayFixture||todayCup),selectionReady=matchdaySelectionReadyForMatch(season,todayCup?.match.id),attention=pendingEvents[0];
   const managerAction=preMatchMedia?{target:"Mídia & Redes",kicker:"COLETIVA PRÉ-JOGO",title:"Responder antes da partida",detail:preMatchMedia.context}:postMatchMedia?{target:"Mídia & Redes",kicker:"COLETIVA PÓS-JOGO",title:"Fechar a repercussão da partida",detail:postMatchMedia.context}:todayMatch&&!selectionReady?{target:"Táticas",kicker:"CONVOCAÇÃO",title:"Finalizar titulares e banco",detail:"A partida é hoje e a relação de jogo ainda precisa ser fechada."}:todayMatch?{target:"Táticas",kicker:"DIA DE JOGO",title:"Preparar e iniciar a partida",detail:opponent?`Próximo adversário: ${opponent.name}.`:"Partida disponível para preparação."}:attention?{target:attention.kind==="Diretoria"?"Clube":"Caixa de entrada",kicker:"PRECISA DA SUA ATENÇÃO",title:attention.title,detail:attention.body}:currentFixture?{target:"Calendário",kicker:"PRÓXIMO COMPROMISSO",title:opponent?`Preparar para ${opponent.name}`:"Revisar a agenda",detail:`Jogo marcado para ${formatDate(currentFixture.date??season.currentDate)}.`}:{target:"Calendário",kicker:"AGENDA",title:"Revisar próximos compromissos",detail:"Não há decisão obrigatória neste momento."};
