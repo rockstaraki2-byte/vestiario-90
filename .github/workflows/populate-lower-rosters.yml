@@ -1,0 +1,32 @@
+name: Populate real lower-league rosters
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/populate-lower-league-rosters.mjs"
+      - ".github/workflows/populate-lower-rosters.yml"
+permissions:
+  contents: write
+jobs:
+  populate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Import real squads
+        run: node scripts/populate-lower-league-rosters.mjs
+      - name: Validate generated data
+        run: npm ci && npm run test -- --run
+      - name: Commit roster snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/europe-2026/lower-leagues.ts src/data/brazil-2026/serie-d.ts
+          if git diff --cached --quiet; then
+            echo "No roster changes"
+          else
+            git commit -m "data: populate real lower-league rosters 2026"
+            git push
+          fi
