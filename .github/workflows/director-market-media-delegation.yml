@@ -1,16 +1,19 @@
 name: Director market media upgrade
-'on':
+on:
   push:
-    branches:
-      - main
+    branches: [main]
 permissions:
   contents: write
 jobs:
   upgrade:
-    if: ${{ github.event.head_commit.message == 'fix: run director market media upgrade' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
       - name: Apply delegation upgrade
         run: python .github/scripts/director-market-media-patch.py
       - name: Validate
