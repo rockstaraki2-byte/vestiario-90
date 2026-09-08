@@ -17,3 +17,5 @@ describe("2D scene engine",()=>{
  it("turns a defensive stat into visible possession recovery",()=>{const plan=buildMatchScene({minute:41,type:"interception",team:"away",text:"corte",playerId:"away-dm"},"int-1","home",side("home"),side("away",true));expect(plan.attackingSide).toBe("home");expect(plan.possessionSide).toBe("away");expect(plan.actions.some(a=>a.kind==="interception")).toBe(true);});
  it("keeps scene sequencing deterministic",()=>{const event={minute:50,type:"chance" as const,team:"home" as const,text:"chance",playerId:"home-st",zone:"center" as const,xg:.2};const a=buildMatchScene(event,"same-key","home",side("home"),side("away",true)),b=buildMatchScene(event,"same-key","home",side("home"),side("away",true));expect(a).toEqual(b);expect(sceneActionAt(a,.2).action).toBeDefined();});
 });
+
+// Phaser renderer contract: scene plans stay deterministic and renderer-agnostic.
