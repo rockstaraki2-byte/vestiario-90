@@ -1,0 +1,33 @@
+name: Sprint F 2D Offline
+on:
+  push:
+    branches: [main]
+jobs:
+  apply:
+    if: github.event.head_commit.message == 'ci: run sprint F 2D offline rollout'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: python scripts/apply-sprint-f-2d-offline.py
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Commit product change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src public
+          git commit -m "feat: sprint F long-term world 2D match and offline saves"
+          git push
+      - name: Remove rollout tooling
+        run: |
+          git rm scripts/apply-sprint-f-2d-offline.py .github/workflows/sprint-f-2d-offline.yml
+          git commit -m "chore: remove sprint F rollout tooling"
+          git push
