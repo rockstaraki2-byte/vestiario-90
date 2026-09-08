@@ -8,7 +8,7 @@ import { pressurePerformanceModifier } from "./personality";
 export type LiveMatchPhase="pre_match"|"first_half"|"halftime"|"second_half_window"|"fulltime";
 export type TeamTalk="Cobrar"|"Incentivar"|"Acalmar";
 export type MatchSide="home"|"away";
-export type MatchSpeed="normal"|"fast"|"very_fast";
+export type MatchSpeed="slow"|"normal"|"fast"|"very_fast";
 export type AttackZone="left"|"center"|"right";
 export type HeatCell="def-left"|"def-center"|"def-right"|"mid-left"|"mid-center"|"mid-right"|"att-left"|"att-center"|"att-right";
 export type LiveSubstitution={side:MatchSide;outPlayerId:string;inPlayerId:string;minute:number};

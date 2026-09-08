@@ -1,4 +1,4 @@
-export type MatchSpeedPreference="normal"|"fast"|"very_fast";
+export type MatchSpeedPreference="slow"|"normal"|"fast"|"very_fast";
 export type StaffOwner="Treinador"|"Adjunto";
 export type FootballOwner="Treinador"|"Diretor de futebol";
 export type YouthOwner="Treinador"|"Responsável pela base";

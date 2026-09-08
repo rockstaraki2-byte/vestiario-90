@@ -4,7 +4,7 @@ import type { GamePreferences, LandingScreen, MatchSpeedPreference } from "@/gam
 import styles from "./game-settings-view.module.css";
 
 type Props={preferences:GamePreferences;onChange:(next:GamePreferences)=>void;onSaveNow:()=>void};
-const speedLabels:Record<MatchSpeedPreference,string>={normal:"Normal",fast:"Rápido",very_fast:"Muito rápido"};
+const speedLabels:Record<MatchSpeedPreference,string>={slow:"Lento",normal:"Normal",fast:"Rápido",very_fast:"Muito rápido"};
 const staff=["Treinador","Adjunto"] as const;
 const football=["Treinador","Diretor de futebol"] as const;
 const youth=["Treinador","Responsável pela base"] as const;
@@ -32,7 +32,7 @@ export default function GameSettingsView({preferences,onChange,onSaveNow}:Props)
 
   <div className={styles.twoCols}>
    <section className={styles.panel}><header><Gauge/><div><b>PREFERÊNCIAS DE PARTIDA</b><small>Aplicadas automaticamente quando uma nova partida começa.</small></div></header>
-    <label className={styles.label}>VELOCIDADE PRÉ-SELECIONADA</label><div className={styles.choiceGrid}>{(["normal","fast","very_fast"] as MatchSpeedPreference[]).map(speed=><button key={speed} className={preferences.match.defaultSpeed===speed?styles.active:""} onClick={()=>setMatch("defaultSpeed",speed)}><b>{speedLabels[speed]}</b><small>{speed==="normal"?"Leitura detalhada":speed==="fast"?"Ritmo rápido":"Simulação acelerada"}</small></button>)}</div>
+    <label className={styles.label}>VELOCIDADE PRÉ-SELECIONADA</label><div className={styles.choiceGrid}>{(["slow","normal","fast","very_fast"] as MatchSpeedPreference[]).map(speed=><button key={speed} className={preferences.match.defaultSpeed===speed?styles.active:""} onClick={()=>setMatch("defaultSpeed",speed)}><b>{speedLabels[speed]}</b><small>{speed==="slow"?"Mais fluidez no campo 2D":speed==="normal"?"Leitura detalhada":speed==="fast"?"Ritmo rápido":"Simulação acelerada"}</small></button>)}</div>
     <Toggle title="Mostrar sugestões da comissão" detail="Exibe leitura tática e recomendações do staff antes e durante a partida." checked={preferences.match.showStaffAdvice} onChange={v=>setMatch("showStaffAdvice",v)}/>
    </section>
 

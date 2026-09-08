@@ -32,8 +32,8 @@ import liveStyles from "./live-match.module.css";
 import Match2DPitch from "./match-2d-pitch";
 import { positionAwareSubstitutionAdvice } from "@/game-engine/staff-analytics";
 
-const SPEED_MS:Record<MatchSpeed,number>={normal:900,fast:300,very_fast:90};
-const SPEED_LABEL:Record<MatchSpeed,string>={normal:"NORMAL",fast:"RÁPIDO",very_fast:"MUITO RÁPIDO"};
+const SPEED_MS:Record<MatchSpeed,number>={slow:1650,normal:1050,fast:420,very_fast:150};
+const SPEED_LABEL:Record<MatchSpeed,string>={slow:"LENTO",normal:"NORMAL",fast:"RÁPIDO",very_fast:"MUITO RÁPIDO"};
 const POSITIONS=["GOL","LD","ZAG","LE","VOL","MC","MEI","PD","PE","ATA"];
 const HEAT:HeatCell[]=["def-left","def-center","def-right","mid-left","mid-center","mid-right","att-left","att-center","att-right"];
 const emptyHeat=()=>Object.fromEntries(HEAT.map(key=>[key,0])) as Record<HeatCell,number>;
@@ -142,7 +142,7 @@ export default function LiveMatchView({session,home,away,defaultSpeed,assistantT
       <div style={{maxWidth:680,margin:"10px auto",display:"grid",gap:5}}><small>MOMENTUM • {momentum>25?`${userClub.shortName} domina`:momentum<-25?"adversário domina":"equilibrado"}</small><div style={{height:9,borderRadius:9,background:"rgba(255,255,255,.12)",position:"relative"}}><i style={{position:"absolute",left:"50%",height:"100%",width:2,background:"#fff"}}/><em style={{position:"absolute",height:"100%",left:momentum>=0?"50%":`${50+momentum/2}%`,width:`${Math.abs(momentum)/2}%`,background:"currentColor",borderRadius:9}}/></div></div>
       <div className={liveStyles.transport}>
         {session.phase==="pre_match"?<button className={liveStyles.primary} onClick={start}><Play size={15}/> COMEÇAR</button>:session.phase==="fulltime"?<button className={liveStyles.primary} disabled={finishing} onClick={finish}>{finishing?"PROCESSANDO...":"VER PÓS-JOGO"} <ChevronRight size={16}/></button>:session.phase!=="halftime"?<button className={liveStyles.playPause} disabled={required.length>0} onClick={()=>setRunning(value=>!value)}>{running?<><Pause size={15}/> PAUSAR</>:<><Play size={15}/> CONTINUAR</>}</button>:null}
-        {session.phase!=="pre_match"&&session.phase!=="fulltime"&&<div className={liveStyles.speed}><Gauge size={15}/>{(["normal","fast","very_fast"] as MatchSpeed[]).map(value=><button key={value} className={speed===value?liveStyles.speedActive:""} onClick={()=>setSpeed(value)}>{SPEED_LABEL[value]}</button>)}</div>}
+        {session.phase!=="pre_match"&&session.phase!=="fulltime"&&<div className={liveStyles.speed}><Gauge size={15}/>{(["slow","normal","fast","very_fast"] as MatchSpeed[]).map(value=><button key={value} className={speed===value?liveStyles.speedActive:""} onClick={()=>setSpeed(value)}>{SPEED_LABEL[value]}</button>)}</div>}
       </div>
     </section>
 
