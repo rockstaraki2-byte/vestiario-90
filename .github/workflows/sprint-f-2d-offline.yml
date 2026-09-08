@@ -3,8 +3,7 @@ on:
   push:
     branches: [main]
     paths:
-      - scripts/apply-sprint-f-2d-offline.py
-      - scripts/sprint-f-trigger.txt
+      - scripts/sprint-f-fix.py
 jobs:
   apply:
     runs-on: ubuntu-latest
@@ -16,7 +15,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: python scripts/apply-sprint-f-2d-offline.py
+      - run: python scripts/sprint-f-fix.py
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -30,6 +29,6 @@ jobs:
           git push
       - name: Remove rollout tooling
         run: |
-          git rm scripts/apply-sprint-f-2d-offline.py scripts/sprint-f-trigger.txt .github/workflows/sprint-f-2d-offline.yml
+          git rm scripts/apply-sprint-f-2d-offline.py scripts/sprint-f-trigger.txt scripts/sprint-f-fix.py .github/workflows/sprint-f-2d-offline.yml
           git commit -m "chore: remove sprint F rollout tooling"
           git push
