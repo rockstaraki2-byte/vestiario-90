@@ -1,0 +1,11 @@
+/* V90 5.0 — shell compatibility layer. Loaded after V4 overrides. */
+aside[class*="page-module"][class*="sidebar"] nav{padding-top:0;overflow:hidden;}
+aside[class*="page-module"][class*="sidebar"] nav>div{height:100%;min-height:0;}
+aside[class*="page-module"][class*="sidebar"] nav>div>div:first-child>button{min-height:52px;padding:4px 2px;flex-direction:column;justify-content:center;gap:4px;font-size:7px;text-align:center;}
+aside[class*="page-module"][class*="sidebar"] nav>div>div:nth-child(2)>button{min-height:34px;height:34px;padding:0 9px;gap:8px;font-size:10px;}
+aside[class*="page-module"][class*="sidebar"] nav>div>div:nth-child(2)>button i{margin-left:auto;}
+button[class*="page-module"][class*="clubCard"]{width:100%;color:inherit;text-align:left;cursor:pointer;}
+
+@media(max-width:900px){
+  aside[class*="page-module"][class*="sidebar"] nav{overflow:auto;}
+}
