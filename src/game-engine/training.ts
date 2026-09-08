@@ -1,30 +1,23 @@
-import type { LeagueClub } from "./league";
+import type { LeagueClub, LeaguePlayer } from "./league";
 
 export type TrainingPlan="Recuperação"|"Equilibrado"|"Intensidade física"|"Tático"|"Desenvolvimento de jovens";
+export type IndividualTrainingFocus="Equilibrado"|"Finalização"|"Passe"|"Defesa"|"Velocidade"|"Físico"|"Mental";
 export const DEFAULT_TRAINING_PLAN:TrainingPlan="Equilibrado";
+export const DEFAULT_INDIVIDUAL_FOCUS:IndividualTrainingFocus="Equilibrado";
 export const TRAINING_PLANS:TrainingPlan[]=["Recuperação","Equilibrado","Intensidade física","Tático","Desenvolvimento de jovens"];
+export const INDIVIDUAL_TRAINING_FOCUSES:IndividualTrainingFocus[]=["Equilibrado","Finalização","Passe","Defesa","Velocidade","Físico","Mental"];
 export const TRAINING_PLAN_DETAILS:Record<TrainingPlan,string>={
-  "Recuperação":"Reduz fadiga e acelera a recuperação física.",
-  "Equilibrado":"Mantém carga moderada entre físico, técnica e recuperação.",
-  "Intensidade física":"Aumenta a carga e o desenvolvimento, com maior desgaste.",
-  "Tático":"Prioriza entendimento coletivo, forma e preparação de jogo.",
-  "Desenvolvimento de jovens":"Direciona mais trabalho individual para atletas de até 23 anos.",
-};
+ "Recuperação":"Reduz fadiga e acelera a recuperação física.","Equilibrado":"Mantém carga moderada entre físico, técnica e recuperação.","Intensidade física":"Aumenta a carga e o desenvolvimento, com maior desgaste.","Tático":"Prioriza entendimento coletivo, forma e preparação de jogo.","Desenvolvimento de jovens":"Direciona mais trabalho individual para atletas de até 23 anos."};
+export const TRAINING_WEEK:Record<TrainingPlan,string[]>={
+ "Recuperação":["Recuperação","Mobilidade","Tático leve","Recuperação","Bolas paradas","Ativação","Descanso"],
+ "Equilibrado":["Técnico","Posse","Físico moderado","Tático","Finalização","Preparação de jogo","Recuperação"],
+ "Intensidade física":["Resistência","Força","Velocidade","Físico intenso","Tático","Ativação","Recuperação"],
+ "Tático":["Organização defensiva","Saída de bola","Pressão","Transições","Bolas paradas","Preparação de jogo","Recuperação"],
+ "Desenvolvimento de jovens":["Técnico","Individual","Físico","Individual","Tático","Jogo reduzido","Recuperação"]};
 const clamp=(value:number,min:number,max:number)=>Math.max(min,Math.min(max,value));
-export function suggestedTrainingPlan(club:LeagueClub):TrainingPlan{
-  const available=club.players.filter(p=>p.injuryDays===0),avg=available.length?available.reduce((sum,p)=>sum+p.condition,0)/available.length:100,highFatigue=available.filter(p=>p.fatigue>=55).length,young=available.filter(p=>p.age<=23&&p.potential>=p.overall+3).length;
-  if(avg<84||highFatigue>=5)return"Recuperação";
-  if(young>=6&&avg>=91)return"Desenvolvimento de jovens";
-  if(avg>=95&&highFatigue<=1)return"Intensidade física";
-  return"Equilibrado";
-}
-export function applyTrainingDay(club:LeagueClub,plan:TrainingPlan){
-  for(const player of club.players){
-    if(player.injuryDays>0){player.fatigue=clamp(player.fatigue-1,0,100);continue;}
-    if(plan==="Recuperação"){player.condition=clamp(player.condition+2,0,100);player.fatigue=clamp(player.fatigue-3,0,100);player.developmentProgress=Math.max(0,player.developmentProgress+.01);}
-    else if(plan==="Equilibrado"){player.developmentProgress=Math.max(0,player.developmentProgress+(player.age<=23?.06:.035));}
-    else if(plan==="Intensidade física"){player.condition=clamp(player.condition-1,0,100);player.fatigue=clamp(player.fatigue+2,0,100);player.developmentProgress=Math.max(0,player.developmentProgress+(player.age<=25?.14:.08));}
-    else if(plan==="Tático"){player.fatigue=clamp(player.fatigue+1,0,100);player.form=clamp(player.form+.08,0,10);player.developmentProgress=Math.max(0,player.developmentProgress+.045);}
-    else{player.fatigue=clamp(player.fatigue+1,0,100);player.developmentProgress=Math.max(0,player.developmentProgress+(player.age<=23?.18:.02));}
-  }
-}
+export function suggestedTrainingPlan(club:LeagueClub):TrainingPlan{const available=club.players.filter(p=>p.injuryDays===0),avg=available.length?available.reduce((sum,p)=>sum+p.condition,0)/available.length:100,highFatigue=available.filter(p=>p.fatigue>=55).length,young=available.filter(p=>p.age<=23&&p.potential>=p.overall+3).length;if(avg<84||highFatigue>=5)return"Recuperação";if(young>=6&&avg>=91)return"Desenvolvimento de jovens";if(avg>=95&&highFatigue<=1)return"Intensidade física";return"Equilibrado";}
+function focusKey(player:LeaguePlayer,focus:IndividualTrainingFocus){if(focus==="Finalização")return"finalizacao";if(focus==="Passe")return"passe";if(focus==="Defesa")return["ZAG","LD","LE","VOL"].includes(player.position)?"desarme":"antecipacao";if(focus==="Velocidade")return player.age<=29?"velocidade":"aceleracao";if(focus==="Físico")return player.position==="ZAG"?"forca":"resistencia";if(focus==="Mental")return player.position==="MEI"||player.position==="MC"?"visao":"decisoes";return player.position==="ATA"?"finalizacao":["ZAG","LD","LE","VOL"].includes(player.position)?"desarme":"tecnica";}
+function individualDevelopment(player:LeaguePlayer,club:LeagueClub,plan:TrainingPlan){const focus=player.individualTrainingFocus??DEFAULT_INDIVIDUAL_FOCUS,ageFactor=player.age<=20?1.25:player.age<=23?1.12:player.age<=28?1:player.age<=31?.82:.58,loadFactor=plan==="Recuperação"?.45:plan==="Intensidade física"?1.18:plan==="Desenvolvimento de jovens"&&player.age<=23?1.3:1;player.individualTrainingProgress=(player.individualTrainingProgress??0)+.075*ageFactor*loadFactor;if(player.individualTrainingProgress>=1){const key=focusKey(player,focus),boosts={...(player.trainingAttributeBoosts??{})};boosts[key]=Math.min(7,(boosts[key]??0)+1);player.trainingAttributeBoosts=boosts;player.individualTrainingProgress-=1;player.developmentProgress=Math.max(0,(player.developmentProgress??0)+.08);}
+ if(player.retrainingPosition&&player.retrainingPosition!==player.position){player.retrainingProgress=(player.retrainingProgress??0)+.035*ageFactor;if(player.retrainingProgress>=1){player.position=player.retrainingPosition;player.retrainingPosition=undefined;player.retrainingProgress=0;player.form=clamp(player.form-.3,1,10);}}
+ const mentor=player.mentorPlayerId?club.players.find(p=>p.id===player.mentorPlayerId):undefined;if(mentor&&mentor.id!==player.id&&mentor.age>=player.age+3){player.mentorProgress=(player.mentorProgress??0)+.026;if(player.mentorProgress>=1){player.mentorMentalBoost=Math.min(6,(player.mentorMentalBoost??0)+1);player.mentorProgress-=1;player.managerTrust=clamp(player.managerTrust+1,0,100);}player.developmentProgress=Math.max(0,(player.developmentProgress??0)+.006);}}
+export function applyTrainingDay(club:LeagueClub,plan:TrainingPlan){for(const player of club.players){if(player.injuryDays>0){player.fatigue=clamp(player.fatigue-1,0,100);continue;}if(plan==="Recuperação"){player.condition=clamp(player.condition+2,0,100);player.fatigue=clamp(player.fatigue-3,0,100);player.developmentProgress=Math.max(0,player.developmentProgress+.01);}else if(plan==="Equilibrado")player.developmentProgress=Math.max(0,player.developmentProgress+(player.age<=23?.06:.035));else if(plan==="Intensidade física"){player.condition=clamp(player.condition-1,0,100);player.fatigue=clamp(player.fatigue+2,0,100);player.developmentProgress=Math.max(0,player.developmentProgress+(player.age<=25?.14:.08));}else if(plan==="Tático"){player.fatigue=clamp(player.fatigue+1,0,100);player.form=clamp(player.form+.08,0,10);player.developmentProgress=Math.max(0,player.developmentProgress+.045);}else{player.fatigue=clamp(player.fatigue+1,0,100);player.developmentProgress=Math.max(0,player.developmentProgress+(player.age<=23?.18:.02));}individualDevelopment(player,club,plan);}}
