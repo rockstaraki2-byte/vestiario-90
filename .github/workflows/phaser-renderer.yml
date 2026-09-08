@@ -15,6 +15,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: python scripts/apply-phaser-renderer.py
+      - run: python scripts/apply-phaser-renderer-fix.py
       - run: npm install phaser@4.2.1 --save
       - run: npm ci
       - run: npm run lint
@@ -29,6 +30,6 @@ jobs:
           git push
       - name: Cleanup rollout tooling
         run: |
-          git rm scripts/apply-phaser-renderer.py .github/workflows/phaser-renderer.yml
+          git rm scripts/apply-phaser-renderer.py scripts/apply-phaser-renderer-fix.py .github/workflows/phaser-renderer.yml
           git commit -m "chore: remove Phaser rollout tooling"
           git push
