@@ -28,6 +28,10 @@ jobs:
           new='export type MatchTactic={formation:Formation;mentality:Mentality;pressing:number;tempo:number;positions?:Record<string,TacticalPoint>;attackFocus?:AttackFocus;defensiveLine?:DefensiveLine;width?:TeamWidth;buildUp?:BuildUp;marking?:Marking;setPieces?:SetPiecePlan;inPossessionShape?:InPossessionShape;outOfPossessionShape?:OutOfPossessionShape;playerInstructions?:Record<string,PlayerInstruction>};'
           if old not in s: raise SystemExit('MatchTactic marker missing')
           s=s.replace(old,new)
+          old_norm='export function normalizeTactic(tactic:MatchTactic):Required<Omit<MatchTactic,"positions"|"setPieces">>&{positions?:Record<string,TacticalPoint>;setPieces:SetPiecePlan}'
+          new_norm='export function normalizeTactic(tactic:MatchTactic):Required<Omit<MatchTactic,"positions"|"setPieces"|"inPossessionShape"|"outOfPossessionShape"|"playerInstructions">>&{positions?:Record<string,TacticalPoint>;setPieces:SetPiecePlan;inPossessionShape?:InPossessionShape;outOfPossessionShape?:OutOfPossessionShape;playerInstructions?:Record<string,PlayerInstruction>}'
+          if old_norm not in s: raise SystemExit('normalize marker missing')
+          s=s.replace(old_norm,new_norm)
           old2='return base+mentality+(t.pressing-50)*.025+(t.tempo-50)*.02+shape.press+focus+mark;}'
           new2='const phase=phaseShapeModifier(tactic),roles=playerInstructionModifier(tactic),familiarity=familiarityMatchModifier(tactic);return (base+mentality+(t.pressing-50)*.025+(t.tempo-50)*.02+shape.press+focus+mark)*familiarity*phase.attack*roles.attack;}'
           if old2 not in s: raise SystemExit('strength marker missing')
