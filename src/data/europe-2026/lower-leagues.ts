@@ -8,7 +8,18 @@ function slug(value:string){return value.normalize("NFD").replace(/[\u0300-\u036
 function club(name:string,index:number,country:string,baseValue:number):EuropeClubRoster{const key=slug(name),players=POSITIONS.map((position,pIndex)=>({transfermarktId:`lower-${key}-${pIndex+1}`,name:`${name.split(/\s+/)[0]} ${String(pIndex+1).padStart(2,"0")}`,position,age:18+((pIndex*3+index)%17),marketValueEur:Math.max(250_000,Math.round((baseValue/25)*(1+((pIndex%7)-3)*.08)/50_000)*50_000),marketValueUpdated:"2026-09-01"}));return{sourceId:-(index+1),transfermarktId:-(100000+index),name,shortName:name.replace(/\b(FC|CF|CD|UD|AS|RC|Real|City|United|Club)\b/gi,"").trim().split(/\s+/).slice(0,2).map(x=>x.slice(0,4).toUpperCase()).join(" ")||name.slice(0,8).toUpperCase(),imageUrl:"/generic-club.svg",marketValueEur:baseValue+index*1_100_000,players};}
 const realByCompetition=new Map(REAL_LOWER_ROSTERS.map(item=>[item.competitionId,item.clubs]));
 function rosterKey(value:string){return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\b(fc|cf|ec|sc|afc|club|clube|real|city|united)\b/g," ").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();}
-const make=(competitionId:EuropeLowerCompetitionId,names:string[],country:string,base:number)=>{const real=realByCompetition.get(competitionId)??[],byName=new Map(real.map(c=>[rosterKey(c.name),c]));return names.map((name,index)=>byName.get(rosterKey(name))??club(name,index,country,base));};
+const make=(competitionId:EuropeLowerCompetitionId,names:string[],country:string,base:number)=>{const real=realByCompetition.get(competitionId)??[],byName=new Map(real.map(c=>[rosterKey(c.name),c]));return applyVerifiedUpdates(names.map((name,index)=>byName.get(rosterKey(name))??club(name,index,country,base)));};
+type VerifiedLowerRosterUpdate={club:string;add?:EuropeClubRoster["players"];remove?:string[]};
+export const VERIFIED_LOWER_ROSTER_UPDATES:VerifiedLowerRosterUpdate[]=[
+  {club:"Wolverhampton Wanderers",add:[{transfermarktId:"bertrand-traore-2026",name:"Bertrand Traoré",position:"PD",age:31,marketValueEur:null}]},
+  {club:"Sochaux",add:[{transfermarktId:"yohan-demoncy-2026",name:"Yohan Demoncy",position:"MC",age:30,marketValueEur:null}],remove:[]},
+  {club:"Reims",remove:["Yohan Demoncy"]},
+  {club:"MK Dons",remove:["Charlie Waller"]},
+  {club:"Stevenage",remove:["Joe Knight"]},
+  {club:"Grimsby Town",remove:["Charlie Elliott"]}
+];
+function applyVerifiedUpdates(clubs:EuropeClubRoster[]){const updates=new Map(VERIFIED_LOWER_ROSTER_UPDATES.map(u=>[rosterKey(u.club),u]));return clubs.map(club=>{const u=updates.get(rosterKey(club.name));if(!u)return club;const remove=new Set((u.remove??[]).map(rosterKey));const existing=club.players.filter(p=>!remove.has(rosterKey(p.name)));const names=new Set(existing.map(p=>rosterKey(p.name)));const additions=(u.add??[]).filter(p=>!names.has(rosterKey(p.name)));return{...club,players:[...existing,...additions]};});}
+
 const ENG=["Birmingham City","Blackburn Rovers","Bolton Wanderers","Bristol City","Burnley","Cardiff City","Charlton Athletic","Derby County","Lincoln City","Middlesbrough","Millwall","Norwich City","Portsmouth","Preston North End","Queens Park Rangers","Sheffield United","Southampton","Stoke City","Swansea City","Watford","West Bromwich Albion","West Ham United","Wolverhampton Wanderers","Wrexham"];
 const ESP=["AD Ceuta","Albacete","Almería","Burgos","Cádiz","Castellón","Sabadell","Celta Fortuna","Córdoba","Eibar","Eldense","FC Andorra","Girona","Granada","Leganés","Mallorca","Real Oviedo","Real Sociedad B","Sporting Gijón","Real Valladolid","Tenerife","Las Palmas"];
 
