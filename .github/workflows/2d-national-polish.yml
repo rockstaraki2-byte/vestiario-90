@@ -15,6 +15,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: python scripts/apply-2d-national-polish.py
+      - run: python scripts/apply-2d-national-polish-fix.py
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -28,6 +29,6 @@ jobs:
           git push
       - name: Cleanup rollout tooling
         run: |
-          git rm scripts/apply-2d-national-polish.py .github/workflows/2d-national-polish.yml
+          git rm scripts/apply-2d-national-polish.py scripts/apply-2d-national-polish-fix.py .github/workflows/2d-national-polish.yml
           git commit -m "chore: remove 2D national polish tooling"
           git push
