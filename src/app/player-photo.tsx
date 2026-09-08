@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 
 export type PlayerPhotoIdentity = {
   name: string;
@@ -22,8 +22,8 @@ export function playerPhotoUrl(player: PlayerPhotoIdentity) {
 
 export default function PlayerPhoto({ player, size = 38, className, eager = false }: Props) {
   const src = playerPhotoUrl(player);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [src]);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = Boolean(src && failedSrc === src);
 
   const style: CSSProperties = {
     width: size,
@@ -37,7 +37,20 @@ export default function PlayerPhoto({ player, size = 38, className, eager = fals
 
   if (!src || failed) {
     return (
-      <span className={className} style={style} role="img" aria-label={`Avatar de ${player.name}`}>
+      <span
+        className={className}
+        style={{
+          ...style,
+          display: "grid",
+          placeItems: "center",
+          background: "linear-gradient(145deg,var(--accent-strong),#0c5130)",
+          color: "#fff",
+          fontWeight: 900,
+          fontSize: Math.max(11, Math.round(size * 0.31)),
+        }}
+        role="img"
+        aria-label={`Avatar de ${player.name}`}
+      >
         {initials(player.name)}
       </span>
     );
@@ -46,7 +59,7 @@ export default function PlayerPhoto({ player, size = 38, className, eager = fals
   return (
     <Image
       className={className}
-      style={style}
+      style={{ ...style, display: "block" }}
       src={src}
       width={size}
       height={size}
@@ -56,7 +69,7 @@ export default function PlayerPhoto({ player, size = 38, className, eager = fals
       loading={eager ? "eager" : "lazy"}
       decoding="async"
       referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
     />
   );
 }
