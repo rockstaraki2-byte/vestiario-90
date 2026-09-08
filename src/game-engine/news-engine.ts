@@ -52,7 +52,7 @@ export function buildNewsEngineV2(season:SeasonState):GeneratedSportsNews[]{
    const {winner,loser}=winnerLoser(fixture,clubs),m=margin(fixture),goalsInMatch=totalGoals(fixture),isHeadline=headlineClubs.has(home.id)||headlineClubs.has(away.id),isSelected=home.id===selectedClubId||away.id===selectedClubId,upsetGap=winner&&loser?loser.reputation-winner.reputation:0,leaderLost=Boolean(leaderClub&&loser?.id===leaderClub.id),classic=home.reputation>=78&&away.reputation>=78;
    const relevance=28+(isHeadline?22:0)+(isSelected?16:0)+(m>=3?20:0)+(m>=5?10:0)+(upsetGap>=8?24:0)+(leaderLost?18:0)+(classic?12:0)+(goalsInMatch>=6?8:0)+latestBoost;
    if(relevance<58)continue;
-   let title:string,tone:NewsEngineTone="neutral";const tags=[competition.id];
+   let title:string,tone:NewsEngineTone="neutral";const tags:string[]=[competition.id];
    if(m>=4&&winner&&loser){title=`${winner.name} atropela ${loser.name} em goleada`;tone="positive";tags.push("goleada");}
    else if(upsetGap>=8&&winner&&loser){title=`Zebra: ${winner.name} derruba ${loser.name}`;tone="positive";tags.push("zebra");}
    else if(leaderLost&&winner&&loser){title=`Líder tropeça: ${winner.name} vence ${loser.name}`;tone="negative";tags.push("liderança");}
