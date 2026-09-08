@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BriefcaseBusiness, Crown, HeartHandshake, History, MessageCircle, Network, ShieldCheck, Sparkles, Swords, Users } from "lucide-react";
+import { BriefcaseBusiness, Crown, HeartHandshake, History, MessageCircle, Network, ShieldCheck, Sparkles, Swords } from "lucide-react";
 import { dressingRoomSummary, playerConcern, socialDetailsForPlayer, type ConversationAction } from "@/game-engine/people";
 import { playerInfluence, type SocialRelation } from "@/game-engine/social";
 import { agentProfile, playerMemoryBalance } from "@/game-engine/immersion";
