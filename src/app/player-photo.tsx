@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, type CSSProperties } from "react";
 
 export type PlayerPhotoIdentity = {
@@ -43,11 +44,15 @@ export default function PlayerPhoto({ player, size = 38, className, eager = fals
   }
 
   return (
-    <img
+    <Image
       className={className}
       style={style}
       src={src}
+      width={size}
+      height={size}
+      unoptimized
       alt={`Foto de ${player.name}`}
+      priority={eager}
       loading={eager ? "eager" : "lazy"}
       decoding="async"
       referrerPolicy="no-referrer"
