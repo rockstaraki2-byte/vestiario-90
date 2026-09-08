@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Gauge, Lightbulb, Pause, Play, Repeat2, ShieldAlert, Users } from "lucide-react";
+import { ChevronRight, Gauge, Lightbulb, Pause, Play, Radio, Repeat2, ShieldAlert, Users } from "lucide-react";
 import type { LeagueClub, LeaguePlayer } from "@/game-engine/league";
 import {
   advanceLiveMatchMinute,
@@ -22,18 +22,22 @@ import {
   type BuildUp,
   type DefensiveLine,
   type Marking,
+  type MatchEvent,
   type Mentality,
   type SetPiecePost,
   type TeamWidth,
 } from "@/game-engine/match";
 import liveStyles from "./live-match.module.css";
 import { positionAwareSubstitutionAdvice } from "@/game-engine/staff-analytics";
+import { scoreAtMinute, type MatchdayParallelMatch } from "./matchday-context";
 
 const SPEED_MS:Record<MatchSpeed,number>={slow:1650,normal:1050,fast:420,very_fast:150};
 const SPEED_LABEL:Record<MatchSpeed,string>={slow:"LENTO",normal:"NORMAL",fast:"RÁPIDO",very_fast:"MUITO RÁPIDO"};
 const POSITIONS=["GOL","LD","ZAG","LE","VOL","MC","MEI","PD","PE","ATA"];
+type MatchdayNews={id:string;source:string;headline:string;summary?:string};
+type MatchdaySocial={id:string;platform:string;tag:string;headline:string};
 
-export default function LiveMatchView({session,home,away,defaultSpeed,assistantTeamTalks,showStaffAdvice,onChange,onFinish}:{session:LiveMatchState;home:LeagueClub;away:LeagueClub;defaultSpeed:MatchSpeed;assistantTeamTalks:boolean;showStaffAdvice:boolean;onChange:(next:LiveMatchState)=>void;onFinish:(session:LiveMatchState)=>void}){
+export default function LiveMatchView({session,home,away,defaultSpeed,assistantTeamTalks,showStaffAdvice,parallelMatches=[],news=[],social=[],onChange,onFinish}:{session:LiveMatchState;home:LeagueClub;away:LeagueClub;defaultSpeed:MatchSpeed;assistantTeamTalks:boolean;showStaffAdvice:boolean;parallelMatches?:MatchdayParallelMatch[];news?:MatchdayNews[];social?:MatchdaySocial[];onChange:(next:LiveMatchState)=>void;onFinish:(session:LiveMatchState)=>void}){
   const [running,setRunning]=useState(false);
   const [speed,setSpeed]=useState<MatchSpeed>(defaultSpeed);
   const [outId,setOutId]=useState("");
@@ -58,9 +62,12 @@ export default function LiveMatchView({session,home,away,defaultSpeed,assistantT
 
   const momentum=(userSide==="home"?1:-1)*(session.momentumHome??0);
   const latestEvent=session.events[session.events.length-1];
-  const importantEvents=session.events.filter(event=>["goal","card","red_card","injury"].includes(event.type)).slice(-8).reverse();
+  const eventKinds=["goal","card","red_card","injury"];
+  const homeEvents=session.events.filter(event=>event.team==="home"&&eventKinds.includes(event.type)).slice(-6).reverse();
+  const awayEvents=session.events.filter(event=>event.team==="away"&&eventKinds.includes(event.type)).slice(-6).reverse();
   const latestGoal=[...session.events].reverse().find(event=>event.type==="goal");
   const goalKey=latestGoal?`${latestGoal.minute}:${latestGoal.team}:${latestGoal.playerId??""}:${session.homeGoals}-${session.awayGoals}`:"";
+  const otherGoal=parallelMatches.flatMap(match=>match.result.events.filter(event=>event.type==="goal"&&event.minute===session.currentMinute).map(event=>({match,event}))).at(0);
   useEffect(()=>{if(!goalKey||goalKey===seenGoal.current)return;seenGoal.current=goalKey;setGoalFlash(true);const timer=window.setTimeout(()=>setGoalFlash(false),2600);return()=>window.clearTimeout(timer)},[goalKey]);
 
   useEffect(()=>{
@@ -117,22 +124,29 @@ export default function LiveMatchView({session,home,away,defaultSpeed,assistantT
   const finish=()=>{if(finishing)return;setFinishing(true);onFinish(session)};
 
   return <div className={liveStyles.layout}>
+    {session.phase==="pre_match"&&<MatchdayBrief home={home} away={away} parallelMatches={parallelMatches} news={news} social={social}/>}
+    {otherGoal&&session.phase!=="pre_match"&&session.phase!=="fulltime"&&<div className={liveStyles.otherGoalToast}><Radio/><div><b>GOL EM OUTRO JOGO</b><span>{otherGoal.match.homeShort} {scoreAtMinute(otherGoal.match.result,session.currentMinute).home} × {scoreAtMinute(otherGoal.match.result,session.currentMinute).away} {otherGoal.match.awayShort}</span></div></div>}
+
     <section className={liveStyles.scoreboard}>
       <div className={liveStyles.clock}><span>{phase}</span><strong>{session.phase==="halftime"?"INT":session.phase==="fulltime"?"90′":`${session.currentMinute}′`}</strong></div>
       <div className={liveStyles.scoreLine}><b>{home.shortName}</b><strong>{session.homeGoals}<i>×</i>{session.awayGoals}</strong><b>{away.shortName}</b></div>
       <div className={liveStyles.matchStats}><span>POSSE <b>{session.possessionHome}%</b>–<b>{100-session.possessionHome}%</b></span><span>CHUTES <b>{session.shotsHome}</b>–<b>{session.shotsAway}</b></span><span>xG <b>{session.xgHome.toFixed(2)}</b>–<b>{session.xgAway.toFixed(2)}</b></span><span>ESCANTEIOS <b>{session.cornersHome??0}</b>–<b>{session.cornersAway??0}</b></span></div>
-      <div className={`${liveStyles.liveCommentary} ${goalFlash?liveStyles.goalFlash:""}`}><b>{latestEvent?.minute??0}′</b><span>{latestEvent?.type==="goal"?"⚽ ":latestEvent?.type==="card"?"🟨 ":latestEvent?.type==="red_card"?"🟥 ":latestEvent?.type==="injury"?"🩺 ":""}{latestEvent?.text??"Aguardando o início da partida."}{latestEvent?.type==="goal"&&latestEvent.assistPlayerId?<small> Assistência: {byId.get(latestEvent.assistPlayerId)?.name}</small>:null}</span></div>
-      <div className={liveStyles.eventBoard}>{importantEvents.map((event,index)=><div key={`${event.minute}-${event.type}-${index}`}><b>{event.minute}′</b><i>{event.type==="goal"?"⚽":event.type==="card"?"🟨":event.type==="red_card"?"🟥":"🩺"}</i><span>{event.playerId?byId.get(event.playerId)?.name:event.text}{event.type==="goal"&&event.assistPlayerId?<small> • assistência {byId.get(event.assistPlayerId)?.name}</small>:null}</span></div>)}</div>
-      <div style={{maxWidth:680,margin:"10px auto",display:"grid",gap:5}}><small>MOMENTUM • {momentum>25?`${userClub.shortName} domina`:momentum<-25?"adversário domina":"equilibrado"}</small><div style={{height:9,borderRadius:9,background:"rgba(255,255,255,.12)",position:"relative"}}><i style={{position:"absolute",left:"50%",height:"100%",width:2,background:"#fff"}}/><em style={{position:"absolute",height:"100%",left:momentum>=0?"50%":`${50+momentum/2}%`,width:`${Math.abs(momentum)/2}%`,background:"currentColor",borderRadius:9}}/></div></div>
+      <div className={`${liveStyles.liveCommentary} ${goalFlash?liveStyles.goalFlash:""}`}><b>{latestEvent?.minute??0}′</b><span>{latestEvent?.type==="goal"?"⚽ ":latestEvent?.type==="card"?"🟨 ":latestEvent?.type==="red_card"?"🟥 ":latestEvent?.type==="injury"?"🩺 ":""}{latestEvent?.text??"Aguardando o início da partida."}{latestEvent?.type==="goal"&&latestEvent.assistPlayerId?<small>👟 {byId.get(latestEvent.assistPlayerId)?.name}</small>:null}</span></div>
+      <div className={liveStyles.teamEventColumns}>
+        <TeamEvents club={home} score={session.homeGoals} events={homeEvents} byId={byId}/>
+        <TeamEvents club={away} score={session.awayGoals} events={awayEvents} byId={byId}/>
+      </div>
+      <div className={liveStyles.momentum}><small>MOMENTUM • {momentum>25?`${userClub.shortName} domina`:momentum<-25?"adversário domina":"equilibrado"}</small><div><i/><em style={{left:momentum>=0?"50%":`${50+momentum/2}%`,width:`${Math.abs(momentum)/2}%`}}/></div></div>
       <div className={liveStyles.transport}>
         {session.phase==="pre_match"?<button className={liveStyles.primary} onClick={start}><Play size={15}/> COMEÇAR</button>:session.phase==="fulltime"?<button className={liveStyles.primary} disabled={finishing} onClick={finish}>{finishing?"PROCESSANDO...":"VER PÓS-JOGO"} <ChevronRight size={16}/></button>:session.phase!=="halftime"?<button className={liveStyles.playPause} disabled={required.length>0} onClick={()=>setRunning(value=>!value)}>{running?<><Pause size={15}/> PAUSAR</>:<><Play size={15}/> CONTINUAR</>}</button>:null}
         {session.phase!=="pre_match"&&session.phase!=="fulltime"&&<div className={liveStyles.speed}><Gauge size={15}/>{(["slow","normal","fast","very_fast"] as MatchSpeed[]).map(value=><button key={value} className={speed===value?liveStyles.speedActive:""} onClick={()=>setSpeed(value)}>{SPEED_LABEL[value]}</button>)}</div>}
       </div>
     </section>
 
+    {session.phase!=="pre_match"&&parallelMatches.length>0&&<OtherScores matches={parallelMatches} minute={session.phase==="fulltime"?90:session.currentMinute}/>}    
     {required.length>0&&<div className={liveStyles.injuryStop}><ShieldAlert/><div><b>TROCA OBRIGATÓRIA</b><span>{required.map(id=>byId.get(id)?.name).filter(Boolean).join(", ")}</span></div></div>}
 
-    {session.phase==="halftime"&&<section className={liveStyles.halftime}><div><Users/><h3>Conversa de intervalo</h3><p>A mensagem altera o momentum no começo do segundo tempo.</p></div><div className={liveStyles.talks}>{(["Cobrar","Incentivar","Acalmar"] as TeamTalk[]).map(value=><button key={value} disabled={assistantTeamTalks} className={session.teamTalk===value?liveStyles.active:""} onClick={()=>onChange(setTeamTalk(session,value))}>{value}</button>)}</div><button className={liveStyles.primary} onClick={resume}>INICIAR 2º TEMPO</button></section>}
+    {session.phase==="halftime"&&<section className={liveStyles.halftime}><div><Users/><h3>Conversa de intervalo</h3><p>A mensagem altera o momentum no começo do segundo tempo. Os demais jogos seguem atualizados abaixo.</p></div><div className={liveStyles.talks}>{(["Cobrar","Incentivar","Acalmar"] as TeamTalk[]).map(value=><button key={value} disabled={assistantTeamTalks} className={session.teamTalk===value?liveStyles.active:""} onClick={()=>onChange(setTeamTalk(session,value))}>{value}</button>)}</div><button className={liveStyles.primary} onClick={resume}>INICIAR 2º TEMPO</button></section>}
 
     <section className={liveStyles.matchGrid} style={{gridTemplateColumns:"1fr"}}>
       <div className={liveStyles.controlColumn}>
@@ -151,8 +165,20 @@ export default function LiveMatchView({session,home,away,defaultSpeed,assistantT
       </div>
     </section>
 
-    <section className={liveStyles.panel}><header><b>NARRAÇÃO & ALTERAÇÕES TÁTICAS</b></header><div style={{display:"grid",gap:6,maxHeight:300,overflow:"auto"}}>{session.events.slice().reverse().slice(0,30).map((event,index)=><div key={`${event.minute}-${index}`} style={{display:"grid",gridTemplateColumns:"42px 1fr",gap:8,borderBottom:"1px solid rgba(255,255,255,.08)",padding:6}}><b>{event.minute}′</b><span>{event.text}</span></div>)}</div></section>
+    <section className={liveStyles.panel}><header><b>NARRAÇÃO & ALTERAÇÕES TÁTICAS</b></header><div className={liveStyles.narrationList}>{session.events.slice().reverse().slice(0,30).map((event,index)=><div key={`${event.minute}-${index}`}><b>{event.minute}′</b><span>{event.text}</span></div>)}</div></section>
   </div>;
+}
+
+function TeamEvents({club,score,events,byId}:{club:LeagueClub;score:number;events:MatchEvent[];byId:Map<string,LeaguePlayer>}){
+ return <section className={liveStyles.teamEventBlock}><header><b>{club.shortName}</b><strong>{score}</strong></header><div>{events.length?events.map((event,index)=><article key={`${event.minute}-${event.type}-${index}`}><time>{event.minute}′</time><span className={liveStyles.eventIcon}>{event.type==="goal"?"⚽":event.type==="card"?"🟨":event.type==="red_card"?"🟥":"🩺"}</span><p><b>{event.playerId?byId.get(event.playerId)?.name:event.text}</b>{event.type==="goal"&&event.assistPlayerId?<small>👟 {byId.get(event.assistPlayerId)?.name}</small>:null}</p></article>):<small className={liveStyles.noEvents}>Sem eventos relevantes</small>}</div></section>
+}
+
+function OtherScores({matches,minute}:{matches:MatchdayParallelMatch[];minute:number}){
+ return <section className={liveStyles.otherScores}><header><div><Radio/><span>OUTROS JOGOS DA RODADA</span></div><b>{minute>=90?"FINAIS":`${minute}′`}</b></header><div>{matches.map(match=>{const score=scoreAtMinute(match.result,minute);return <article key={match.id}><span>{match.homeShort}</span><strong>{score.home}–{score.away}</strong><span>{match.awayShort}</span></article>})}</div></section>
+}
+
+function MatchdayBrief({home,away,parallelMatches,news,social}:{home:LeagueClub;away:LeagueClub;parallelMatches:MatchdayParallelMatch[];news:MatchdayNews[];social:MatchdaySocial[]}){
+ return <section className={liveStyles.matchdayBrief}><header><div><span>DIA DE JOGO</span><h2>{home.shortName} × {away.shortName}</h2></div><small>Contexto da rodada antes da bola rolar</small></header><div className={liveStyles.briefGrid}><div className={liveStyles.roundBoard}><b>JOGOS DA RODADA</b><article className={liveStyles.ourFixture}><span>{home.shortName}</span><strong>VS</strong><span>{away.shortName}</span></article>{parallelMatches.map(match=><article key={match.id}><span>{match.homeShort}</span><strong>×</strong><span>{match.awayShort}</span></article>)}</div><div className={liveStyles.preNews}><b>PRÉ-JOGO & NOTÍCIAS</b>{news.slice(0,4).map(item=><article key={item.id}><span>{item.source}</span><strong>{item.headline}</strong></article>)}{!news.length&&<small>Nenhuma manchete relevante antes desta partida.</small>}</div><div className={liveStyles.preSocial}><b>REDES SOCIAIS</b>{social.slice(0,4).map(item=><article key={item.id}><span>{item.platform} • {item.tag}</span><strong>{item.headline}</strong></article>)}{!social.length&&<small>A conversa nas redes ainda está tranquila.</small>}</div></div></section>
 }
 
 function Select({label,value,options,onChange}:{label:string;value:string;options:readonly string[];onChange:(value:string)=>void}){
