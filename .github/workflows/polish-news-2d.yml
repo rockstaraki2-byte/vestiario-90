@@ -12,7 +12,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: python scripts/polish-news-2d.py
+      - run: python scripts/polish-news-2d-fix.py
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -26,6 +26,6 @@ jobs:
           git push
       - name: Cleanup tooling
         run: |
-          git rm scripts/polish-news-2d.py .github/workflows/polish-news-2d.yml
+          git rm scripts/polish-news-2d.py scripts/polish-news-2d-fix.py .github/workflows/polish-news-2d.yml
           git commit -m "chore: remove news and 2D polish tooling"
           git push
