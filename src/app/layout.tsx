@@ -3,6 +3,7 @@ import { Barlow_Condensed, Geist_Mono, Inter } from "next/font/google";
 import PwaClient from "./pwa-client";
 import "./globals.css";
 import "./v90-v4.css";
+import "./v90-v5.css";
 
 const inter=Inter({variable:"--font-sans",subsets:["latin"],display:"swap"});
 const display=Barlow_Condensed({variable:"--font-display",subsets:["latin"],weight:["600","700","800","900"],display:"swap"});
