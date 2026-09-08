@@ -15,6 +15,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: python scripts/apply-2d-scene-engine.py
+      - run: python scripts/apply-2d-scene-engine-fix.py
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -28,6 +29,6 @@ jobs:
           git push
       - name: Cleanup rollout tooling
         run: |
-          git rm scripts/apply-2d-scene-engine.py .github/workflows/2d-scene-engine.yml
+          git rm scripts/apply-2d-scene-engine.py scripts/apply-2d-scene-engine-fix.py .github/workflows/2d-scene-engine.yml
           git commit -m "chore: remove 2D scene rollout tooling"
           git push
