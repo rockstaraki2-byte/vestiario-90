@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Crown, HeartHandshake, MessageCircle, Network, ShieldCheck, Sparkles, Swords, Users } from "lucide-react";
+import { BriefcaseBusiness, Crown, HeartHandshake, History, MessageCircle, Network, ShieldCheck, Sparkles, Swords, Users } from "lucide-react";
 import { dressingRoomSummary, playerConcern, socialDetailsForPlayer, type ConversationAction } from "@/game-engine/people";
 import { playerInfluence, type SocialRelation } from "@/game-engine/social";
+import { agentProfile, playerMemoryBalance } from "@/game-engine/immersion";
 import { getSelectedClub, type SeasonState } from "@/game-engine/season";
 import room from "./dressing-room.module.css";
 
@@ -16,6 +17,8 @@ export default function DressingRoomView({season,onConversation}:{season:SeasonS
   const activePromise=selected?.promises?.find(p=>p.status==="Ativa");
   const social=selected?socialDetailsForPlayer(club,selected.id):null;
   const socialLeader=social?.group?club.players.find(p=>p.id===social.group!.leaderId):undefined;
+  const memory=selected?playerMemoryBalance(selected,season.livingWorld):null;
+  const agent=selected?agentProfile(selected):null;
   const actions:ConversationAction[]=["Ouvir","Elogiar","Cobrar","Prometer minutos"];
   const playerName=(id:string)=>club.players.find(p=>p.id===id)?.name??"Jogador";
   const relationOther=(relation:SocialRelation,id:string)=>playerName(relation.playerAId===id?relation.playerBId:relation.playerAId);
@@ -46,6 +49,8 @@ export default function DressingRoomView({season,onConversation}:{season:SeasonS
           <div><HeartHandshake size={16}/><span>Mais próximos</span><b>{social?.friends.length?social.friends.slice(0,2).map(r=>relationOther(r,selected.id)).join(", "):"Sem vínculo forte"}</b></div>
           <div><Swords size={16}/><span>Rivalidades</span><b>{social?.rivals.length?social.rivals.slice(0,2).map(r=>relationOther(r,selected.id)).join(", "):"Nenhuma forte"}</b></div>
         </div>
+        {memory&&<div className={room.promise} style={{display:"grid",gap:8}}><div style={{display:"flex",alignItems:"center",gap:8}}><History size={16}/><b>Memória com o treinador • {memory.label}</b><span style={{marginLeft:"auto"}}>{memory.score}/100</span></div>{memory.memories.length?<div style={{display:"grid",gap:5}}>{memory.memories.slice(0,4).map(item=><small key={item.id}><b>R{item.round}</b> • {item.title} — {item.detail}</small>)}</div>:<small>A relação ainda não acumulou episódios marcantes. Conversas, promessas, conflitos e decisões futuras aparecerão aqui.</small>}</div>}
+        {agent&&<div className={room.promise} style={{display:"grid",gap:5}}><div style={{display:"flex",alignItems:"center",gap:8}}><BriefcaseBusiness size={16}/><b>Empresário • {agent.name}</b></div><span>{agent.style} • influência {agent.influence}/100 • relação {agent.relationship}/100</span><small>{agent.headline} Prioridade atual: {agent.priority}.</small></div>}
         {activePromise&&<div className={room.promise}><b>Promessa ativa • Mais minutos</b><span>{activePromise.progressAppearances}/{activePromise.targetAppearances} participações • prazo rodada {activePromise.deadlineRound}</span></div>}
         <div className={room.actions}>{actions.map(action=><button key={action} disabled={selected.lastConversationRound===season.currentRound||(action==="Prometer minutos"&&Boolean(activePromise))} onClick={()=>onConversation(selected.id,action)}>{action}</button>)}</div>
         {selected.lastConversationRound===season.currentRound&&<small className={room.locked}>Você já conversou com este jogador nesta rodada.</small>}
@@ -54,35 +59,17 @@ export default function DressingRoomView({season,onConversation}:{season:SeasonS
 
     <section className={room.card}>
       <header><div><b>NÚCLEOS SOCIAIS E PANELINHAS</b><small>Os atletas se organizam ao redor dos jogadores mais influentes. Uma liderança pode carregar o grupo a favor ou contra você.</small></div><span>{summary.groups.length} núcleos</span></header>
-      <div className={room.groupGrid}>{summary.groups.map(group=>{
-        const leader=club.players.find(p=>p.id===group.leaderId)!;
-        const members=group.memberIds.map(id=>club.players.find(p=>p.id===id)).filter(Boolean);
-        const dominant=group.id===summary.dominantGroupId;
-        return <article key={group.id} className={dominant?room.dominantGroup:""}>
-          <div className={room.groupHead}><div className={room.groupAvatar}>{leader.name.split(" ").slice(0,2).map(x=>x[0]).join("")}</div><div><span>{dominant?"NÚCLEO DOMINANTE":group.archetype.toUpperCase()}</span><h3>Núcleo de {leader.name.split(" ")[0]}</h3><small>{group.archetype} • {members.length} atletas</small></div></div>
-          <div className={room.groupStats}><span><b>{group.cohesion}%</b> coesão</span><span><b>{group.influence}%</b> influência</span></div>
-          <div className={room.memberChips}>{members.slice(0,8).map(member=><button key={member!.id} onClick={()=>setSelectedId(member!.id)} className={member!.id===leader.id?room.leaderChip:""}>{member!.name.split(" ").slice(0,2).join(" ")}</button>)}</div>
-        </article>;
-      })}</div>
+      <div className={room.groupGrid}>{summary.groups.map(group=>{const leader=club.players.find(p=>p.id===group.leaderId)!;const members=group.memberIds.map(id=>club.players.find(p=>p.id===id)).filter(Boolean);const dominant=group.id===summary.dominantGroupId;return <article key={group.id} className={dominant?room.dominantGroup:""}><div className={room.groupHead}><div className={room.groupAvatar}>{leader.name.split(" ").slice(0,2).map(x=>x[0]).join("")}</div><div><span>{dominant?"NÚCLEO DOMINANTE":group.archetype.toUpperCase()}</span><h3>Núcleo de {leader.name.split(" ")[0]}</h3><small>{group.archetype} • {members.length} atletas</small></div></div><div className={room.groupStats}><span><b>{group.cohesion}%</b> coesão</span><span><b>{group.influence}%</b> influência</span></div><div className={room.memberChips}>{members.slice(0,8).map(member=><button key={member!.id} onClick={()=>setSelectedId(member!.id)} className={member!.id===leader.id?room.leaderChip:""}>{member!.name.split(" ").slice(0,2).join(" ")}</button>)}</div></article>})}</div>
     </section>
 
     <div className={room.socialColumns}>
-      <section className={room.card}>
-        <header><div><b>AMIZADES MAIS FORTES</b><small>Decisões sobre um atleta podem afetar quem é próximo dele.</small></div><HeartHandshake size={18}/></header>
-        <div className={room.relationList}>{summary.relationships.filter(r=>r.kind==="Amizade").slice(0,7).map(relation=><Relation key={`${relation.playerAId}-${relation.playerBId}`} relation={relation} playerName={playerName} onSelect={setSelectedId}/>)}</div>
-      </section>
-      <section className={room.card}>
-        <header><div><b>RIVALIDADES INTERNAS</b><small>Competição por posição e personalidade podem gerar tensão.</small></div><Swords size={18}/></header>
-        <div className={room.relationList}>{summary.relationships.filter(r=>r.kind==="Rivalidade").slice(0,7).map(relation=><Relation key={`${relation.playerAId}-${relation.playerBId}`} relation={relation} playerName={playerName} onSelect={setSelectedId}/>)}</div>
-      </section>
+      <section className={room.card}><header><div><b>AMIZADES MAIS FORTES</b><small>Decisões sobre um atleta podem afetar quem é próximo dele.</small></div><HeartHandshake size={18}/></header><div className={room.relationList}>{summary.relationships.filter(r=>r.kind==="Amizade").slice(0,7).map(relation=><Relation key={`${relation.playerAId}-${relation.playerBId}`} relation={relation} playerName={playerName} onSelect={setSelectedId}/>)}</div></section>
+      <section className={room.card}><header><div><b>RIVALIDADES INTERNAS</b><small>Competição por posição e personalidade podem gerar tensão.</small></div><Swords size={18}/></header><div className={room.relationList}>{summary.relationships.filter(r=>r.kind==="Rivalidade").slice(0,7).map(relation=><Relation key={`${relation.playerAId}-${relation.playerBId}`} relation={relation} playerName={playerName} onSelect={setSelectedId}/>)}</div></section>
     </div>
 
     <section className={room.card}>
       <header><div><b>HIERARQUIA E PAPÉIS</b><small>Influência social é diferente de qualidade: reservas experientes e líderes podem mover o vestiário.</small></div><span>{club.players.length} atletas</span></header>
-      <div className={room.tableWrap}><table><thead><tr><th>Jogador</th><th>Pos.</th><th>Papel</th><th>Personalidade</th><th>Influência</th><th>Núcleo</th><th>Satisfação</th><th>Confiança</th><th>Jogos</th><th>Promessas</th></tr></thead><tbody>{[...club.players].sort((a,b)=>playerInfluence(b)-playerInfluence(a)||roleWeight(a.squadRole)-roleWeight(b.squadRole)).map(player=>{
-        const group=summary.groups.find(g=>g.memberIds.includes(player.id)),leader=group?club.players.find(p=>p.id===group.leaderId):undefined;
-        return <tr key={player.id} onClick={()=>setSelectedId(player.id)}><td><b>{player.name}</b></td><td>{player.position}</td><td><span className={room.role}>{player.squadRole}</span></td><td>{player.personality}</td><td><b>{playerInfluence(player)}%</b></td><td>{leader?`Núcleo de ${leader.name.split(" ")[0]}`:"—"}</td><td>{player.happiness}%</td><td>{player.managerTrust}%</td><td>{player.appearances}</td><td>{player.promises?.filter(p=>p.status==="Ativa").length?"Ativa":player.promises?.at(-1)?.status??"—"}</td></tr>;
-      })}</tbody></table></div>
+      <div className={room.tableWrap}><table><thead><tr><th>Jogador</th><th>Pos.</th><th>Papel</th><th>Personalidade</th><th>Influência</th><th>Núcleo</th><th>Satisfação</th><th>Confiança</th><th>Jogos</th><th>Promessas</th></tr></thead><tbody>{[...club.players].sort((a,b)=>playerInfluence(b)-playerInfluence(a)||roleWeight(a.squadRole)-roleWeight(b.squadRole)).map(player=>{const group=summary.groups.find(g=>g.memberIds.includes(player.id)),leader=group?club.players.find(p=>p.id===group.leaderId):undefined;return <tr key={player.id} onClick={()=>setSelectedId(player.id)}><td><b>{player.name}</b></td><td>{player.position}</td><td><span className={room.role}>{player.squadRole}</span></td><td>{player.personality}</td><td><b>{playerInfluence(player)}%</b></td><td>{leader?`Núcleo de ${leader.name.split(" ")[0]}`:"—"}</td><td>{player.happiness}%</td><td>{player.managerTrust}%</td><td>{player.appearances}</td><td>{player.promises?.filter(p=>p.status==="Ativa").length?"Ativa":player.promises?.at(-1)?.status??"—"}</td></tr>})}</tbody></table></div>
     </section>
   </div>;
 }
