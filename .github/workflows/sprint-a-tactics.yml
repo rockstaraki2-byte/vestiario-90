@@ -1,0 +1,85 @@
+name: Sprint A Tactics
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/sprint-a-tactics.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply Sprint A
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/game-engine/match.ts')
+          s=p.read_text()
+          s=s.replace('import { pressurePerformanceModifier } from "./personality";','import { pressurePerformanceModifier } from "./personality";\nimport { familiarityMatchModifier, phaseShapeModifier, playerInstructionModifier, type InPossessionShape, type OutOfPossessionShape, type PlayerInstruction } from "./tactical-phases";')
+          old='export type MatchTactic={formation:Formation;mentality:Mentality;pressing:number;tempo:number;positions?:Record<string,TacticalPoint>;attackFocus?:AttackFocus;defensiveLine?:DefensiveLine;width?:TeamWidth;buildUp?:BuildUp;marking?:Marking;setPieces?:SetPiecePlan};'
+          new='export type MatchTactic={formation:Formation;mentality:Mentality;pressing:number;tempo:number;positions?:Record<string,TacticalPoint>;attackFocus?:AttackFocus;defensiveLine?:DefensiveLine;width?:TeamWidth;buildUp?:BuildUp;marking?:Marking;setPieces?:SetPiecePlan;inPossessionShape?:InPossessionShape;outOfPossessionShape?:OutOfPossessionShape;playerInstructions?:Record<string,PlayerInstruction>};'
+          if old not in s: raise SystemExit('MatchTactic marker missing')
+          s=s.replace(old,new)
+          old2='return base+mentality+(t.pressing-50)*.025+(t.tempo-50)*.02+shape.press+focus+mark;}'
+          new2='const phase=phaseShapeModifier(tactic),roles=playerInstructionModifier(tactic),familiarity=familiarityMatchModifier(tactic);return (base+mentality+(t.pressing-50)*.025+(t.tempo-50)*.02+shape.press+focus+mark)*familiarity*phase.attack*roles.attack;}'
+          if old2 not in s: raise SystemExit('strength marker missing')
+          s=s.replace(old2,new2)
+          old3='share=clamp(Math.round(50+(homeStrength-awayStrength)*.8+(ht.buildUp==="Curta"?3:ht.buildUp==="Direta"?-2:0)-(at.buildUp==="Curta"?3:at.buildUp==="Direta"?-2:0)+rng.integer(-4,4)),35,65)'
+          new3='homePhase=phaseShapeModifier(homeTactic),awayPhase=phaseShapeModifier(awayTactic),homeRoles=playerInstructionModifier(homeTactic),awayRoles=playerInstructionModifier(awayTactic),share=clamp(Math.round(50+(homeStrength-awayStrength)*.8+(ht.buildUp==="Curta"?3:ht.buildUp==="Direta"?-2:0)-(at.buildUp==="Curta"?3:at.buildUp==="Direta"?-2:0)+(homePhase.possession*homeRoles.possession-awayPhase.possession*awayRoles.possession)*16+rng.integer(-4,4)),35,65)'
+          if old3 not in s: raise SystemExit('share marker missing')
+          s=s.replace(old3,new3)
+          s=s.replace("*hb.chance*widthModifier(ht)))","*hb.chance*widthModifier(ht)*homePhase.attack*homeRoles.attack/Math.max(.94,awayPhase.defense*awayRoles.defense)))",1)
+          s=s.replace("*ab.chance*widthModifier(at)))","*ab.chance*widthModifier(at)*awayPhase.attack*awayRoles.attack/Math.max(.94,homePhase.defense*homeRoles.defense)))",1)
+          p.write_text(s)
+
+          p=Path('src/game-engine/tactical-presets.ts')
+          s=p.read_text()
+          s=s.replace('tactic:{formation:"4-3-3",mentality:"Equilibrada",pressing:68,tempo:54','tactic:{formation:"4-3-3",inPossessionShape:"3-2-5",outOfPossessionShape:"4-1-4-1",mentality:"Equilibrada",pressing:68,tempo:54')
+          s=s.replace('tactic:{formation:"4-2-3-1",mentality:"Ofensiva",pressing:88,tempo:78','tactic:{formation:"4-2-3-1",inPossessionShape:"3-2-5",outOfPossessionShape:"4-4-2",mentality:"Ofensiva",pressing:88,tempo:78')
+          s=s.replace('tactic:{formation:"4-2-3-1",mentality:"Ofensiva",pressing:64,tempo:84','tactic:{formation:"4-2-3-1",inPossessionShape:"2-3-5",outOfPossessionShape:"4-4-2",mentality:"Ofensiva",pressing:64,tempo:84')
+          s=s.replace('tactic:{formation:"4-4-2",mentality:"Defensiva",pressing:42,tempo:48','tactic:{formation:"4-4-2",inPossessionShape:"4-2-4",outOfPossessionShape:"5-4-1",mentality:"Defensiva",pressing:42,tempo:48')
+          s=s.replace('tactic:{formation:"4-3-3",mentality:"Equilibrada",pressing:62,tempo:70','tactic:{formation:"4-3-3",inPossessionShape:"3-3-4",outOfPossessionShape:"4-1-4-1",mentality:"Equilibrada",pressing:62,tempo:70')
+          p.write_text(s)
+
+          p=Path('src/app/tactics-setup-view.tsx')
+          s=p.read_text()
+          s=s.replace('import { applyTacticalStyle, TACTICAL_STYLE_PRESETS } from "@/game-engine/tactical-presets";','import { applyTacticalStyle, TACTICAL_STYLE_PRESETS } from "@/game-engine/tactical-presets";\nimport { defaultInPossessionShape, defaultOutOfPossessionShape, defaultPlayerInstruction, IN_POSSESSION_SHAPES, OUT_OF_POSSESSION_SHAPES, PLAYER_DUTIES, PLAYER_PHASE_ROLES, tacticalFamiliarity, type PlayerDuty, type PlayerPhaseRole } from "@/game-engine/tactical-phases";')
+          marker=' const avgCondition=starters.length?Math.round(starters.reduce((s,p)=>s+p.condition,0)/starters.length):0,avgOverall=starters.length?Math.round(starters.reduce((s,p)=>s+p.overall*tacticalFitMultiplier(p,tactic.positions?.[p.id]),0)/starters.length):0;'
+          repl=marker+'\n const familiarity=tacticalFamiliarity(tactic),inShape=tactic.inPossessionShape??defaultInPossessionShape(tactic.formation),outShape=tactic.outOfPossessionShape??defaultOutOfPossessionShape(tactic.formation);\n function updatePlayerInstruction(id:string,key:"duty"|"inPossession"|"outOfPossession",value:PlayerDuty|PlayerPhaseRole){const current=tactic.playerInstructions?.[id]??defaultPlayerInstruction();onChange({...tactic,playerInstructions:{...(tactic.playerInstructions??{}),[id]:{...current,[key]:value}}});}'
+          if marker not in s: raise SystemExit('ui marker 1 missing')
+          s=s.replace(marker,repl)
+          marker2='<label>FORMAÇÃO BASE</label><div className={styles.options}>{(["4-2-3-1","4-3-3","4-4-2"] as Formation[]).map(value=><button key={value} className={tactic.formation===value?styles.active:""} onClick={()=>formation(value)}>{value}</button>)}</div>'
+          repl2=marker2+'<label>ESTRUTURA COM BOLA</label><div className={styles.options}>{IN_POSSESSION_SHAPES.map(value=><button key={value} className={inShape===value?styles.active:""} onClick={()=>onChange({...tactic,inPossessionShape:value})}>{value}</button>)}</div><label>ESTRUTURA SEM BOLA</label><div className={styles.options}>{OUT_OF_POSSESSION_SHAPES.map(value=><button key={value} className={outShape===value?styles.active:""} onClick={()=>onChange({...tactic,outOfPossessionShape:value})}>{value}</button>)}</div><div className={styles.phaseFamiliarity}><b>FAMILIARIDADE {familiarity.overall}% • {familiarity.label.toUpperCase()}</b><span>Forma {familiarity.shape}% • Funções {familiarity.roles}% • Intensidade {familiarity.intensity}%</span></div>'
+          if marker2 not in s: raise SystemExit('ui marker 2 missing')
+          s=s.replace(marker2,repl2)
+          marker3='<div className={styles.pitchFooter}><span><Users/> OVR efetivo <b>{avgOverall||"—"}</b></span><span><Shield/> Condição <b>{avgCondition||"—"}%</b></span><small><Move/> Arraste os jogadores ou atribua uma função tática.</small></div>'
+          repl3=marker3+'<div className={styles.phaseRoles}><header><b>FUNÇÕES POR FASE</b><small>Defina comportamento individual com e sem a bola.</small></header>{starters.map(player=>{const instruction=tactic.playerInstructions?.[player.id]??defaultPlayerInstruction();return <div key={player.id} className={styles.phaseRoleRow}><strong>{player.name}</strong><select value={instruction.duty} onChange={e=>updatePlayerInstruction(player.id,"duty",e.target.value as PlayerDuty)}>{PLAYER_DUTIES.map(v=><option key={v}>{v}</option>)}</select><select value={instruction.inPossession} onChange={e=>updatePlayerInstruction(player.id,"inPossession",e.target.value as PlayerPhaseRole)}>{PLAYER_PHASE_ROLES.map(v=><option key={v}>{v}</option>)}</select><select value={instruction.outOfPossession} onChange={e=>updatePlayerInstruction(player.id,"outOfPossession",e.target.value as PlayerPhaseRole)}>{PLAYER_PHASE_ROLES.map(v=><option key={v}>{v}</option>)}</select></div>})}</div>'
+          if marker3 not in s: raise SystemExit('ui marker 3 missing')
+          s=s.replace(marker3,repl3)
+          p.write_text(s)
+
+          p=Path('src/app/tactics-setup.module.css')
+          s=p.read_text()+'''\n.phaseFamiliarity{margin:10px 0;padding:10px;border:1px solid #294238;border-radius:8px;background:#101a16;display:grid;gap:3px}.phaseFamiliarity b{font-size:10px;color:#d9ff43}.phaseFamiliarity span{font-size:9px;color:#8ba59e}.phaseRoles{margin-top:10px;padding:10px;background:#0d1512;border:1px solid #24382f;border-radius:8px}.phaseRoles header{display:flex;justify-content:space-between;gap:8px;margin-bottom:8px}.phaseRoles header b{font-size:10px;color:#d9ff43}.phaseRoles header small{font-size:8px;color:#718b83}.phaseRoleRow{display:grid;grid-template-columns:minmax(100px,1.15fr) .65fr 1fr 1fr;gap:6px;align-items:center;padding:5px 0;border-top:1px solid #1b2c25}.phaseRoleRow strong{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.phaseRoleRow select{min-width:0;background:#121f1a;color:#d7e4df;border:1px solid #2c463b;border-radius:6px;padding:5px;font-size:8px}@media(max-width:720px){.phaseRoleRow{grid-template-columns:1fr 1fr}.phaseRoleRow strong{grid-column:1/-1}.phaseRoleRow select:last-child{grid-column:1/-1}}\n'''
+          p.write_text(s)
+          PY
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Commit product change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/game-engine/match.ts src/game-engine/tactical-presets.ts src/app/tactics-setup-view.tsx src/app/tactics-setup.module.css
+          git commit -m "feat(tactics): add in-possession and out-of-possession system"
+          git rm .github/workflows/sprint-a-tactics.yml
+          git commit -m "chore: remove sprint A workflow"
+          git push origin main
