@@ -24,7 +24,8 @@ import NewsCenterView from "./news-center-view";
 import GameSettingsView from "./game-settings-view";
 import { professionalCompetitionById, type ProfessionalCompetitionId } from "@/data/brazil-2026/competitions";
 import { leagueClubIdForTransfermarkt } from "@/game-engine/new-game";
-import { createSaveSlot, migrateLegacySeason, saveToSlot, type SaveSlot } from "@/game-engine/save-slots";
+import { activeSaveId, createSaveSlot, migrateLegacySeason, saveToSlot, type SaveSlot } from "@/game-engine/save-slots";
+import { useCareerAutosave } from "./use-career-autosave";
 import { sortedStandings, type LeagueClub, type LeagueFixture, type LeagueStanding } from "@/game-engine/league";
 import { DEFAULT_TACTIC, type MatchResult, type MatchTactic } from "@/game-engine/match";
 import { createLiveMatch, liveMatchResult, type LiveMatchState } from "@/game-engine/live-match";
@@ -46,6 +47,7 @@ export default function Dashboard(){
   const [screen,setScreen]=useState<"menu"|"game">("menu"),[saveId,setSaveId]=useState<string|null>(null),[season,setSeason]=useState<SeasonState>(()=>createSeason("vestiario-90",2026)),[active,setActive]=useState("Visão geral"),[notice,setNotice]=useState(""),[tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC),[match,setMatch]=useState<MatchResult|null>(null),[liveMatch,setLiveMatch]=useState<LiveMatchState|null>(null),[activeCupMatchId,setActiveCupMatchId]=useState<string|null>(null),[moreOpen,setMoreOpen]=useState(false);
   const navigationReady=useRef(false),lastNavigationKey=useRef("");
   useEffect(()=>{migrateLegacySeason()},[]);
+  useCareerAutosave(saveId,season);
   useEffect(()=>{
     const key=`${screen}:${active}`;
     if(!navigationReady.current){
@@ -77,7 +79,7 @@ export default function Dashboard(){
   const managerAction=preMatchMedia?{target:"Mídia & Redes",kicker:"COLETIVA PRÉ-JOGO",title:"Responder antes da partida",detail:preMatchMedia.context}:postMatchMedia?{target:"Mídia & Redes",kicker:"COLETIVA PÓS-JOGO",title:"Fechar a repercussão da partida",detail:postMatchMedia.context}:todayMatch&&!selectionReady?{target:"Táticas",kicker:"CONVOCAÇÃO",title:"Finalizar titulares e banco",detail:"A partida é hoje e a relação de jogo ainda precisa ser fechada."}:todayMatch?{target:"Táticas",kicker:"DIA DE JOGO",title:"Preparar e iniciar a partida",detail:opponent?`Próximo adversário: ${opponent.name}.`:"Partida disponível para preparação."}:attention?{target:attention.kind==="Diretoria"?"Clube":"Caixa de entrada",kicker:"PRECISA DA SUA ATENÇÃO",title:attention.title,detail:attention.body}:currentFixture?{target:"Calendário",kicker:"PRÓXIMO COMPROMISSO",title:opponent?`Preparar para ${opponent.name}`:"Revisar a agenda",detail:`Jogo marcado para ${formatDate(currentFixture.date??season.currentDate)}.`}:{target:"Calendário",kicker:"AGENDA",title:"Revisar próximos compromissos",detail:"Não há decisão obrigatória neste momento."};
 
   function flash(message:string){setNotice(message);window.setTimeout(()=>setNotice(""),3600)}
-  function persist(next:SeasonState){setSeason(next);if(saveId&&next.preferences.general.autoSave)saveToSlot(saveId,next)}
+  function persist(next:SeasonState){setSeason(next);const id=saveId??activeSaveId();if(id&&next.preferences.general.autoSave){const saved=saveToSlot(id,next);if(saved&&!saveId)setSaveId(id);if(!saved)flash("Falha no autosave. A carreira continua aberta, mas use Salvar agora antes de fechar o app.")}}
   function handleLoad(slot:SaveSlot){const next=hydrateSeasonState(slot.state);setSaveId(slot.meta.id);setSeason(next);setScreen("game");setActive(next.preferences.general.landingScreen);setMatch(null);setLiveMatch(null);setTactic(DEFAULT_TACTIC)}
   function handleStart(competitionId:ProfessionalCompetitionId,clubTransfermarktId:number,saveName?:string){const clubId=leagueClubIdForTransfermarkt(competitionId,clubTransfermarktId),next=createSeason(`career-${Date.now()}-${clubTransfermarktId}`,2026,clubId,competitionId),meta=createSaveSlot(next,saveName);setSaveId(meta?.id??null);setSeason(next);setScreen("game");setActive("Visão geral");setMatch(null);setLiveMatch(null);setTactic(DEFAULT_TACTIC)}
   function handleAdvance(){if(!employed){handleCareerAdvanceRound();return}const result=advanceCalendarDay(season),prefs=result.state.preferences;persist(result.state);if(result.route==="matchday")setActive("Táticas");else if(result.route==="club"&&prefs.general.autoOpenDecisions)setActive("Clube");else if(result.route==="media"&&prefs.general.autoOpenPressConferences)setActive("Mídia & Redes");else if(result.route==="media"&&(getTodayUserFixture(result.state)||getTodayUserCupMatch(result.state)))setActive("Táticas");else if(result.route==="national")setActive("Seleção");else if(result.route==="inbox"&&prefs.general.autoOpenDecisions)setActive("Caixa de entrada");flash(`${formatDate(result.state.currentDate)} • ${result.reason}`)}
