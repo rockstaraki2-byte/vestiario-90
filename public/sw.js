@@ -1,4 +1,4 @@
-const CACHE="v90-offline-shell-v2";
+const CACHE="v90-offline-shell-v3";
 const CORE=["/","/manifest.webmanifest","/icon-192.png","/icon-512.png","/icon-maskable-512.png"];
 const sameOrigin=url=>new URL(url,self.location.origin).origin===self.location.origin;
 async function store(cache,request,response){if(response&&(response.ok||response.type==="opaque"))await cache.put(request,response.clone());return response;}

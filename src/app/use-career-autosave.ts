@@ -1,17 +1,4 @@
 "use client";
-
-import { useEffect, useRef } from "react";
-import type { SeasonState } from "@/game-engine/season";
-import { activeSaveId, saveToSlot } from "@/game-engine/save-slots";
-
-export function useCareerAutosave(saveId:string|null,season:SeasonState){
-  const lastSignature=useRef("");
-  useEffect(()=>{
-    if(!season.preferences?.general?.autoSave)return;
-    const id=saveId??activeSaveId();if(!id)return;
-    const signature=`${season.year}:${season.currentDate}:${season.currentRound}:${season.market?.sequence??0}:${season.lastUserMatch?.fixtureId??""}`;
-    if(signature===lastSignature.current)return;
-    const timer=window.setTimeout(()=>{const saved=saveToSlot(id,season);if(saved)lastSignature.current=signature;},350);
-    return()=>window.clearTimeout(timer);
-  },[saveId,season]);
-}
+import{useEffect,useRef}from"react";import type{SeasonState}from"@/game-engine/season";import{activeSaveId,saveToSlot}from"@/game-engine/save-slots";
+function fingerprint(season:SeasonState){const raw=JSON.stringify(season);let h=2166136261;for(let i=0;i<raw.length;i+=Math.max(1,Math.floor(raw.length/2500))){h^=raw.charCodeAt(i);h=Math.imul(h,16777619)}return`${raw.length}:${h>>>0}:${season.currentDate}:${season.currentRound}`}
+export function useCareerAutosave(saveId:string|null,season:SeasonState){const latest=useRef(season),latestId=useRef(saveId),last=useRef("");useEffect(()=>{latest.current=season;latestId.current=saveId},[season,saveId]);useEffect(()=>{if(!season.preferences?.general?.autoSave)return;const id=saveId??activeSaveId();if(!id)return;const signature=fingerprint(season);if(signature===last.current)return;const timer=window.setTimeout(()=>{const saved=saveToSlot(id,season);if(saved)last.current=signature},450);return()=>window.clearTimeout(timer)},[saveId,season]);useEffect(()=>{const flush=()=>{const current=latest.current;if(!current.preferences?.general?.autoSave)return;const id=latestId.current??activeSaveId();if(id)saveToSlot(id,current)};const visibility=()=>{if(document.visibilityState==="hidden")flush()};window.addEventListener("pagehide",flush);window.addEventListener("beforeunload",flush);document.addEventListener("visibilitychange",visibility);return()=>{window.removeEventListener("pagehide",flush);window.removeEventListener("beforeunload",flush);document.removeEventListener("visibilitychange",visibility)}},[])}

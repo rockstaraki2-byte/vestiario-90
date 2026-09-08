@@ -26,6 +26,7 @@ import { professionalCompetitionById, type ProfessionalCompetitionId } from "@/d
 import { leagueClubIdForTransfermarkt } from "@/game-engine/new-game";
 import { activeSaveId, createSaveSlot, migrateLegacySeason, saveToSlot, type SaveSlot } from "@/game-engine/save-slots";
 import { useCareerAutosave } from "./use-career-autosave";
+import { recoverOfflineSaves, requestPersistentStorage } from "@/game-engine/offline-save";
 import { sortedStandings, type LeagueClub, type LeagueFixture, type LeagueStanding } from "@/game-engine/league";
 import { DEFAULT_TACTIC, type MatchResult, type MatchTactic } from "@/game-engine/match";
 import { createLiveMatch, liveMatchResult, type LiveMatchState } from "@/game-engine/live-match";
@@ -44,9 +45,9 @@ const NAV=[["Visão geral",Home],["Caixa de entrada",Inbox],["Elenco",Users],["V
 function daysBetweenIso(from:string,to:string){const a=new Date(`${from}T12:00:00Z`).getTime(),b=new Date(`${to}T12:00:00Z`).getTime();return Math.max(0,Math.round((b-a)/86400000))}
 
 export default function Dashboard(){
-  const [screen,setScreen]=useState<"menu"|"game">("menu"),[saveId,setSaveId]=useState<string|null>(null),[season,setSeason]=useState<SeasonState>(()=>createSeason("vestiario-90",2026)),[active,setActive]=useState("Visão geral"),[notice,setNotice]=useState(""),[tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC),[match,setMatch]=useState<MatchResult|null>(null),[liveMatch,setLiveMatch]=useState<LiveMatchState|null>(null),[activeCupMatchId,setActiveCupMatchId]=useState<string|null>(null),[moreOpen,setMoreOpen]=useState(false);
+  const [screen,setScreen]=useState<"menu"|"game">("menu"),[saveId,setSaveId]=useState<string|null>(null),[saveRecovery,setSaveRecovery]=useState(0),[season,setSeason]=useState<SeasonState>(()=>createSeason("vestiario-90",2026)),[active,setActive]=useState("Visão geral"),[notice,setNotice]=useState(""),[tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC),[match,setMatch]=useState<MatchResult|null>(null),[liveMatch,setLiveMatch]=useState<LiveMatchState|null>(null),[activeCupMatchId,setActiveCupMatchId]=useState<string|null>(null),[moreOpen,setMoreOpen]=useState(false);
   const navigationReady=useRef(false),lastNavigationKey=useRef("");
-  useEffect(()=>{migrateLegacySeason()},[]);
+  useEffect(()=>{void (async()=>{await requestPersistentStorage();await recoverOfflineSaves();migrateLegacySeason();setSaveRecovery(v=>v+1)})()},[]);
   useCareerAutosave(saveId,season);
   useEffect(()=>{
     const key=`${screen}:${active}`;
@@ -111,7 +112,7 @@ export default function Dashboard(){
   function handleNextSeason(){const next=startNextSeason(season);persist(next);setMatch(null);setLiveMatch(null);setTactic(DEFAULT_TACTIC);flash(`Temporada ${next.year} iniciada. Idade, potencial e overalls foram recalibrados.`)}
 
   const persistedCupContext=activeCupMatchId?getCupMatchContext(season,activeCupMatchId):undefined,matchHome=persistedCupContext?.home??(season.lastUserMatch?league.clubs.find(c=>c.id===season.lastUserMatch?.homeClubId):undefined),matchAway=persistedCupContext?.away??(season.lastUserMatch?league.clubs.find(c=>c.id===season.lastUserMatch?.awayClubId):undefined),liveHome=persistedCupContext?.home??(currentFixture?league.clubs.find(c=>c.id===currentFixture.homeClubId):undefined),liveAway=persistedCupContext?.away??(currentFixture?league.clubs.find(c=>c.id===currentFixture.awayClubId):undefined);
-  if(screen==="menu")return <MainMenu onLoad={handleLoad} onStart={handleStart}/>;
+  if(screen==="menu")return <MainMenu key={saveRecovery} onLoad={handleLoad} onStart={handleStart}/>;
 
   return <div className={styles.shell}>
     <aside className={styles.sidebar}><div className={styles.brand}><span>V90</span><div><b>VESTIÁRIO</b><small>90</small></div></div><nav>{NAV.map(([label,Icon])=><button key={label} onClick={()=>{setActive(label);setMatch(null)}} className={active===label?styles.activeNav:""}><Icon size={18}/><span>{label}</span>{label==="Caixa de entrada"&&pendingEvents.length>0&&<i>{Math.min(99,pendingEvents.length)}</i>}{label==="Mídia & Redes"&&pendingMedia.length>0&&<i>{Math.min(9,pendingMedia.length)}</i>}</button>)}</nav><div className={styles.clubCard}>{employed?<ClubLogo club={club} size={38}/>:<BriefcaseBusiness size={28}/>}<div><b>{employed?club.name:"Sem clube"}</b><small>{employed?`${competition.name} • ${season.year}`:"Disponível no mercado"}</small></div><ChevronRight size={17}/></div><button className={styles.settings} onClick={()=>setScreen("menu")}><Settings size={18}/> Menu principal</button><div className={styles.manager}><CircleUserRound/><div><b>Raul Soares</b><small>{employed?"Treinador principal":"Sem clube • mercado aberto"}</small></div></div></aside>

@@ -29,6 +29,7 @@ import {
 } from "@/game-engine/match";
 import { layoutLineup } from "@/game-engine/tactics-layout";
 import liveStyles from "./live-match.module.css";
+import Match2DPitch from "./match-2d-pitch";
 import { positionAwareSubstitutionAdvice } from "@/game-engine/staff-analytics";
 
 const SPEED_MS:Record<MatchSpeed,number>={normal:900,fast:300,very_fast:90};
@@ -144,6 +145,8 @@ export default function LiveMatchView({session,home,away,defaultSpeed,assistantT
         {session.phase!=="pre_match"&&session.phase!=="fulltime"&&<div className={liveStyles.speed}><Gauge size={15}/>{(["normal","fast","very_fast"] as MatchSpeed[]).map(value=><button key={value} className={speed===value?liveStyles.speedActive:""} onClick={()=>setSpeed(value)}>{SPEED_LABEL[value]}</button>)}</div>}
       </div>
     </section>
+
+    <Match2DPitch session={session} home={home} away={away}/>
 
     {required.length>0&&<div className={liveStyles.injuryStop}><ShieldAlert/><div><b>TROCA OBRIGATÓRIA</b><span>{required.map(id=>byId.get(id)?.name).filter(Boolean).join(", ")}</span></div></div>}
 
