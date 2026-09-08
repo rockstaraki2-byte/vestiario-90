@@ -45,6 +45,7 @@ import { advanceCalendarDay, applyForNationalTeam, createSeason, getCupMatchCont
 
 const sleep=(ms:number)=>new Promise<void>(resolve=>window.setTimeout(resolve,ms));
 const MOBILE_ICONS:Record<(typeof FM_MOBILE_PRIMARY)[number],typeof Home>={"Visão geral":Home,"Elenco":Users,"Táticas":LayoutGrid,"Calendário":CalendarDays};
+const SPECIAL_SCREENS=new Set(["Planejamento","Diretoria","Responsabilidades","Treino","Centro Médico","Dinâmica social","Scouting","Base","Staff","Reunião de staff","Análise de jogo","Adversário","Perfil do treinador","Histórico","Rivalidades"]);
 
 export default function Dashboard(){
   const [screen,setScreen]=useState<"menu"|"game">("menu"),[saveId,setSaveId]=useState<string|null>(null),[saveRecovery,setSaveRecovery]=useState(0),[season,setSeason]=useState<SeasonState>(()=>createSeason("vestiario-90",2026)),[active,setActive]=useState("Visão geral"),[notice,setNotice]=useState(""),[tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC),[match,setMatch]=useState<MatchResult|null>(null),[liveMatch,setLiveMatch]=useState<LiveMatchState|null>(null),[activeCupMatchId,setActiveCupMatchId]=useState<string|null>(null),[moreOpen,setMoreOpen]=useState(false),[advancing,setAdvancing]=useState(false),[advanceStatus,setAdvanceStatus]=useState({date:"",reason:"",news:[] as SeasonState["livingWorld"]["news"]});
@@ -89,7 +90,7 @@ export default function Dashboard(){
   const persistedCupContext=activeCupMatchId?getCupMatchContext(season,activeCupMatchId):undefined,matchHome=persistedCupContext?.home??(season.lastUserMatch?league.clubs.find(c=>c.id===season.lastUserMatch?.homeClubId):undefined),matchAway=persistedCupContext?.away??(season.lastUserMatch?league.clubs.find(c=>c.id===season.lastUserMatch?.awayClubId):undefined),liveHome=persistedCupContext?.home??(currentFixture?league.clubs.find(c=>c.id===currentFixture.homeClubId):undefined),liveAway=persistedCupContext?.away??(currentFixture?league.clubs.find(c=>c.id===currentFixture.awayClubId):undefined);
   if(screen==="menu")return <MainMenu key={saveRecovery} onLoad={handleLoad} onStart={handleStart}/>;
 
-  const special=<FmSpecialView active={active} season={season} onNavigate={navigate} onPreferencesChange={handlePreferencesChange}/>;
+  const special=SPECIAL_SCREENS.has(active)?<FmSpecialView active={active} season={season} onNavigate={navigate} onPreferencesChange={handlePreferencesChange}/>:null;
   return <div className={styles.shell}>
     <aside className={styles.sidebar}><div className={styles.brand}><span>V90</span><div><b>VESTIÁRIO</b><small>90</small></div></div><nav><FmSidebarNav active={active} onNavigate={navigate} pendingEvents={pendingEvents.length} pendingMedia={pendingMedia.length}/></nav><button className={styles.clubCard} onClick={()=>navigate("Clube")}>{employed?<ClubLogo club={club} size={38}/>:<BriefcaseBusiness size={28}/>}<div><b>{employed?club.name:"Sem clube"}</b><small>{employed?`${competition.name} • ${season.year}`:"Disponível no mercado"}</small></div><ChevronRight size={17}/></button><button className={styles.settings} onClick={()=>setScreen("menu")}><Settings size={18}/> Menu principal</button><div className={styles.manager}><CircleUserRound/><div><b>Raul Soares</b><small>{employed?"Treinador principal":"Sem clube • mercado aberto"}</small></div></div></aside>
     <main className={styles.main}>
