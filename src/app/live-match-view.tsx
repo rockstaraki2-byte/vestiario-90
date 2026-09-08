@@ -29,6 +29,7 @@ import {
 } from "@/game-engine/match";
 import { layoutLineup } from "@/game-engine/tactics-layout";
 import liveStyles from "./live-match.module.css";
+import { positionAwareSubstitutionAdvice } from "@/game-engine/staff-analytics";
 
 const SPEED_MS:Record<MatchSpeed,number>={normal:900,fast:300,very_fast:90};
 const SPEED_LABEL:Record<MatchSpeed,string>={normal:"NORMAL",fast:"RÁPIDO",very_fast:"MUITO RÁPIDO"};
@@ -125,9 +126,11 @@ export default function LiveMatchView({session,home,away,defaultSpeed,assistantT
   const substitute=()=>{if(!outId||!inId)return;onChange(makeSubstitution(session,userSide,outId,inId));setOutId("");setInId("")};
   const cardedIds=new Set(session.events.filter(event=>event.team===userSide&&(event.type==="card"||event.type==="red_card")&&event.playerId).map(event=>event.playerId!));
   const subCandidates=lineup.map(id=>({id,player:byId.get(id),state:session.playerStates[id],score:(100-(session.playerStates[id]?.condition??100))*1.4+Math.max(0,6.2-(session.playerStates[id]?.rating??6))*18+(cardedIds.has(id)?18:0)})).filter(item=>item.player).sort((a,b)=>b.score-a.score);
-  const suggestedOut=subCandidates[0],suggestedIn=bench.map(id=>byId.get(id)).filter((player):player is NonNullable<typeof player>=>Boolean(player)).sort((a,b)=>b.overall-a.overall)[0];
-  const canSuggestSub=subs.length<session.maxSubstitutions&&session.currentMinute>=50&&suggestedOut&&suggestedIn&&(suggestedOut.score>=16||momentum<-25||gf<ga);
-  const subReason=suggestedOut?(cardedIds.has(suggestedOut.id)?"está pendurado e corre risco":(suggestedOut.state?.condition??100)<68?`caiu para ${Math.round(suggestedOut.state?.condition??100)}% de condição`:(suggestedOut.state?.rating??6)<5.9?`está com nota ${(suggestedOut.state?.rating??6).toFixed(1)}`:gf<ga?"pode dar mais energia enquanto buscamos o resultado":momentum<-25?"pode ajudar a recuperar o controle":"é a troca de maior impacto agora"):"";
+  const positionalAdvice=positionAwareSubstitutionAdvice(userClub,lineupIds,benchIds,session.playerStates,cardedIds,session.currentMinute,gf<ga,momentum);
+  const suggestedOut=positionalAdvice?{id:positionalAdvice.outPlayerId,player:byId.get(positionalAdvice.outPlayerId),state:session.playerStates[positionalAdvice.outPlayerId],score:positionalAdvice.score}:subCandidates[0];
+  const suggestedIn=positionalAdvice?byId.get(positionalAdvice.inPlayerId):bench.map(id=>byId.get(id)).filter((player):player is NonNullable<typeof player>=>Boolean(player)).sort((a,b)=>b.overall-a.overall)[0];
+  const canSuggestSub=subs.length<session.maxSubstitutions&&session.currentMinute>=50&&suggestedOut&&suggestedIn&&(suggestedOut.score>=12||momentum<-25||gf<ga);
+  const subReason=positionalAdvice?`${positionalAdvice.reason} • ${positionalAdvice.fitLabel}`:suggestedOut?(cardedIds.has(suggestedOut.id)?"está pendurado e corre risco":(suggestedOut.state?.condition??100)<68?`caiu para ${Math.round(suggestedOut.state?.condition??100)}% de condição`:(suggestedOut.state?.rating??6)<5.9?`está com nota ${(suggestedOut.state?.rating??6).toFixed(1)}`:gf<ga?"pode dar mais energia enquanto buscamos o resultado":momentum<-25?"pode ajudar a recuperar o controle":"é a troca de maior impacto agora"):"";
   const finish=()=>{if(finishing)return;setFinishing(true);onFinish(session)};
 
   return <div className={liveStyles.layout}>
