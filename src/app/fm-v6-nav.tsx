@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, BarChart3, Bell, BriefcaseBusiness, Building2, CalendarDays, ClipboardCheck, ClipboardList, Crown, Dumbbell, Flag, Globe2, HeartHandshake, History, Home, Inbox, Landmark, LayoutGrid, MessageSquareText, Microscope, Newspaper, Search, Settings, Shield, ShieldAlert, Stethoscope, Target, Trophy, UserRoundSearch, Users, type LucideIcon } from "lucide-react";
+import { Activity, BarChart3, Bell, BriefcaseBusiness, Building2, CalendarDays, ClipboardCheck, ClipboardList, Crown, Dumbbell, Flag, Globe2, HeartHandshake, History, Home, Inbox, Landmark, LayoutGrid, MessageSquareText, Microscope, Newspaper, Search, Settings, Shield, ShieldAlert, Star, Stethoscope, Target, Trophy, UserRoundSearch, Users, type LucideIcon } from "lucide-react";
 import styles from "./fm-experience.module.css";
 
 export type V6NavItem={label:string;icon:LucideIcon};
@@ -9,13 +9,11 @@ export const FM_GROUPS:V6Group[]=[
  {label:"Início",icon:Home,items:[{label:"Visão geral",icon:Home},{label:"Caixa de entrada",icon:Inbox},{label:"Calendário",icon:CalendarDays},{label:"Notícias",icon:Newspaper}]},
  {label:"Elenco",icon:Users,items:[{label:"Elenco",icon:Users},{label:"Planejamento",icon:ClipboardList},{label:"Vestiário",icon:MessageSquareText},{label:"Dinâmica social",icon:HeartHandshake},{label:"Treino",icon:Dumbbell},{label:"Centro Médico",icon:Stethoscope},{label:"Central de Dados",icon:BarChart3}]},
  {label:"Jogo",icon:LayoutGrid,items:[{label:"Táticas",icon:LayoutGrid},{label:"Adversário",icon:Target},{label:"Análise de jogo",icon:Activity},{label:"Classificação",icon:Trophy}]},
- {label:"Recrutamento",icon:UserRoundSearch,items:[{label:"Scouting",icon:Microscope},{label:"Mercado",icon:UserRoundSearch},{label:"Base",icon:StarIcon}]},
+ {label:"Recrutamento",icon:UserRoundSearch,items:[{label:"Scouting",icon:Microscope},{label:"Mercado",icon:UserRoundSearch},{label:"Base",icon:Star}]},
  {label:"Clube",icon:Building2,items:[{label:"Clube",icon:Building2},{label:"Staff",icon:ClipboardCheck},{label:"Reunião de staff",icon:Users},{label:"Diretoria",icon:Landmark},{label:"Responsabilidades",icon:Shield},{label:"Gestão & Legado",icon:Crown}]},
  {label:"Mundo",icon:Globe2,items:[{label:"Mundo",icon:Globe2},{label:"Seleção",icon:Flag},{label:"Perfil do treinador",icon:Search},{label:"Carreira",icon:BriefcaseBusiness},{label:"Histórico",icon:History},{label:"Rivalidades",icon:ShieldAlert},{label:"Mídia & Redes",icon:Bell},{label:"Configurações",icon:Settings}]},
 ];
 export const FM_MOBILE_PRIMARY=["Visão geral","Elenco","Táticas","Calendário"] as const;
-
-function StarIcon(props:React.ComponentProps<typeof Trophy>){return <Trophy {...props}/>}
 
 export function FmSidebarNav({active,onNavigate,pendingEvents=0,pendingMedia=0}:{active:string;onNavigate:(screen:string)=>void;pendingEvents?:number;pendingMedia?:number}){
  const owner=FM_GROUPS.find(group=>group.items.some(item=>item.label===active))??FM_GROUPS[0];
