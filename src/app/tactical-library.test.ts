@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TACTIC } from "@/game-engine/match";
+import { DEFAULT_TACTIC } from "../game-engine/match";
 import { scenarioForMatch, suggestedTacticalPlan, type SavedTacticPlan } from "./tactical-library";
 
 const plan=(id:string,scenario:SavedTacticPlan["scenario"]):SavedTacticPlan=>({
