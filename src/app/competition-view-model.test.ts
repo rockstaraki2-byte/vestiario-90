@@ -1,6 +1,6 @@
 import{describe,expect,it}from"vitest";
 import{aggregateLabel,competitionTable,postMatchCompetitionResults}from"./competition-view-model";
-import type{WorldCompetitionMatch,WorldParticipant,WorldTournamentState}from"@/game-engine/world-competitions";
+import type{WorldCompetitionMatch,WorldParticipant,WorldTournamentState}from"../game-engine/world-competitions";
 
 const team=(id:string,name:string,activeClubId?:string):WorldParticipant=>({id,name,shortName:name.slice(0,3).toUpperCase(),country:"Brasil",reputation:80,activeClubId});
 const pal=team("pal","Palmeiras","club-pal"),riv=team("riv","River Plate"),cer=team("cer","Cerro Porteño"),cri=team("cri","Sporting Cristal"),fla=team("fla","Flamengo"),bol=team("bol","Bolívar");
