@@ -7,6 +7,9 @@ on:
       - ".github/workflows/populate-added-world-leagues.yml"
 permissions:
   contents: write
+concurrency:
+  group: v90-data-snapshot-main
+  cancel-in-progress: false
 jobs:
   populate:
     runs-on: ubuntu-latest
@@ -26,4 +29,5 @@ jobs:
           git add src/data/world-2026/added-leagues.generated.ts
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: populate Portugal Germany Italy MLS Russia Saudi rosters"
-          git push
+          git pull --rebase origin main
+          git push origin HEAD:main
