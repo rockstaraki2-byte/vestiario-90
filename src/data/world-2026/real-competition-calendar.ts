@@ -3,6 +3,10 @@ export type RealCalendarLevel="professional"|"u23"|"u21"|"u20"|"u19"|"u18"|"u17"
 export type RealCalendarCompetition={id:string;name:string;country:string;scope:"domestic_cup"|"state"|"club_youth"|"international_youth"|"national_youth";level:RealCalendarLevel;season:string;startDate?:string;endDate?:string;dates?:string[];status:RealCalendarStatus;source:string;note?:string};
 
 export const REAL_COMPETITION_CALENDAR:RealCalendarCompetition[]=[
+ {id:"SPA2",name:"Paulistão A2",country:"Brasil",scope:"state",level:"professional",season:"2026",startDate:"2026-01-09",endDate:"2026-05-13",status:"confirmed",source:"Federação Paulista de Futebol",note:"16 clubes; regulamento e tabela oficial publicados"},
+ {id:"RJA2",name:"Campeonato Carioca Série A2",country:"Brasil",scope:"state",level:"professional",season:"2026",startDate:"2026-04-18",status:"confirmed",source:"FERJ",note:"12 clubes; turno único, semifinal e final"},
+ {id:"RJA2U17",name:"Carioca Série A2 Sub-17",country:"Brasil",scope:"club_youth",level:"u17",season:"2026",startDate:"2026-06-06",status:"confirmed",source:"FERJ",note:"23 equipes; mesma tabela do Sub-15"},
+ {id:"RJA2U15",name:"Carioca Série A2 Sub-15",country:"Brasil",scope:"club_youth",level:"u15",season:"2026",startDate:"2026-06-06",status:"confirmed",source:"FERJ",note:"23 equipes; mesma tabela do Sub-17"},
  {id:"CDBU20A",name:"Campeonato Brasileiro Série A Sub-20",country:"Brasil",scope:"club_youth",level:"u20",season:"2026",startDate:"2026-02-22",endDate:"2026-09-02",status:"confirmed",source:"CBF",note:"20 clubes; 204 partidas"},
  {id:"CDBU17",name:"Copa do Brasil Sub-17",country:"Brasil",scope:"club_youth",level:"u17",season:"2026",startDate:"2026-02-24",endDate:"2026-05-26",status:"confirmed",source:"CBF",note:"32 clubes"},
  {id:"LDU13",name:"Liga de Desenvolvimento Sub-13",country:"Brasil",scope:"club_youth",level:"u13",season:"2026",startDate:"2026-03-23",endDate:"2026-03-29",status:"confirmed",source:"CBF"},
