@@ -1,6 +1,7 @@
 import type { SeasonState } from "./season";
 import type { LeagueFixture } from "./league";
 import type { WorldCompetitionMatch, WorldParticipant } from "./world-competitions";
+import { processInternationalMarketRound } from "./international-market";
 
 const DAY=86400000;
 const aliases:Record<string,string>={"man city":"manchester city","man utd":"manchester united","paris":"paris saint germain","atleti":"atletico de madrid","vasco":"vasco da gama","atletico mg":"atletico mineiro","red bull bragantino sp":"red bull bragantino","sao paulo futebol clube":"sao paulo","ucv":"universidad central","ucv fc":"universidad central"};
@@ -44,4 +45,13 @@ function coordinateParallelLeagues(state:SeasonState){
   for(const league of Object.values(state.worldLeagues.leagues)){if(!league)continue;const clubDates=new Map<string,string[]>();for(const fixture of league.fixtures.filter(item=>!item.played).sort((a,b)=>(a.date??"").localeCompare(b.date??""))){if(!fixture.date)continue;const keys=parallelKeys(league,fixture),original=fixture.date,conflict=keys.some(key=>(cups.get(key)??[]).includes(original));let date=original;if(conflict){for(let delta=2;delta<=18;delta++){const candidate=dateAdd(original,delta),noCup=!nearAny(cups,keys,candidate,2),noLeague=keys.every(key=>(clubDates.get(key)??[]).every(other=>dayDistance(other,candidate)>=2));if(noCup&&noLeague){date=candidate;break;}}}if(date!==original){fixture.originalDate=fixture.originalDate??original;fixture.date=date;fixture.rescheduledReason="Partida de liga remarcada por compromisso de copa.";}for(const key of keys)clubDates.set(key,[...(clubDates.get(key)??[]),date]);}}
 }
 
-export function coordinateSeasonCalendars(source:SeasonState){const state=clone(source);coordinateCupConflicts(state);coordinateMainLeague(state);coordinateParallelLeagues(state);state.worldCompetitions.roundDates=state.league.fixtures.filter(f=>Boolean(f.date)).map(f=>({round:f.round,date:f.date!})).sort((a,b)=>a.date.localeCompare(b.date));return state;}
+export function coordinateSeasonCalendars(source:SeasonState){
+ const marketAlreadyTicked=source.market?.lastProcessedDate===source.currentDate;
+ const withInternationalTick=marketAlreadyTicked?processInternationalMarketRound(source):source;
+ const state=clone(withInternationalTick);
+ coordinateCupConflicts(state);
+ coordinateMainLeague(state);
+ coordinateParallelLeagues(state);
+ state.worldCompetitions.roundDates=state.league.fixtures.filter(f=>Boolean(f.date)).map(f=>({round:f.round,date:f.date!})).sort((a,b)=>a.date.localeCompare(b.date));
+ return state;
+}
