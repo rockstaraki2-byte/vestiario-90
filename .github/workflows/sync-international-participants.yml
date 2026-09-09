@@ -18,12 +18,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node scripts/fetch-international-participants-2026.mjs
-      - run: |
+      - name: Fetch participants and real squads
+        run: node scripts/fetch-international-participants-2026.mjs
+      - name: Validate generated snapshot
+        run: npm ci && npm run test -- --run
+      - name: Commit international snapshot
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/data/world-2026/international-participants.generated.ts
+          git add src/data/world-2026/international-participants.generated.ts src/data/world-2026/international-rosters.generated.ts
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "data: sync 2026 international competition participants"
+          git commit -m "data: sync 2026 international participants and squads"
           git pull --rebase origin main
           git push origin HEAD:main
