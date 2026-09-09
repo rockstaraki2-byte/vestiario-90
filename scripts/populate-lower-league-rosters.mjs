@@ -30,3 +30,4 @@ await mkdir("src/data/europe-2026",{recursive:true});
 const out=['import type { EuropeClubRoster } from "./top-leagues";','export type RealLowerRosterSnapshot={competitionId:string;clubs:EuropeClubRoster[]};',`export const REAL_LOWER_ROSTERS:RealLowerRosterSnapshot[]=${JSON.stringify(built)};`,`export const REAL_LOWER_ROSTER_SYNC_ERRORS=${JSON.stringify(errors)} as const;`];
 await writeFile("src/data/europe-2026/real-lower-rosters.generated.ts",out.join("\n")+"\n");
 console.log("done",built.map(x=>x.competitionId).join(","));
+// manual refresh requested 2026-09-09
