@@ -8,9 +8,11 @@ import { REAL_LOWER_ROSTERS } from "./europe-2026/real-lower-rosters.generated";
 import { ADDED_2026_COMPETITIONS } from "./world-2026/added-leagues.generated";
 import { INTERNATIONAL_2026_PARTICIPANTS } from "./world-2026/international-participants.generated";
 import { REAL_COMPETITION_CALENDAR } from "./world-2026/real-competition-calendar";
+import { YOUTH_WORLD_2026_COMPETITIONS } from "./world-2026/youth-competitions.generated";
+import { BRAZIL_STATE_2026_COMPETITIONS } from "./world-2026/state-competitions.generated";
 
 export type DatabaseStatusLevel="updated"|"partial"|"pending"|"error";
-export type DatabaseStatusCategory="Liga profissional"|"Base"|"Internacional"|"Estadual"|"Staff";
+export type DatabaseStatusCategory="Liga profissional"|"Copa nacional"|"Base"|"Internacional"|"Estadual"|"Staff";
 export type DatabaseStatusRow={id:string;name:string;country:string;category:DatabaseStatusCategory;status:DatabaseStatusLevel;clubs:number;players:number;photoCoverage:number;crestCoverage:number;snapshot:string;note?:string};
 
 type ClubLike={imageUrl?:string;players:Array<{transfermarktId?:string}>};
@@ -27,12 +29,14 @@ for(const comp of EUROPE_2026_COMPETITIONS)rows.push(row(comp.id,comp.name,comp.
 const realLower=new Map(REAL_LOWER_ROSTERS.map(x=>[x.competitionId,x.clubs]));
 for(const comp of EUROPE_LOWER_2026_COMPETITIONS){const real=realLower.get(comp.id)??[];rows.push(row(comp.id,comp.name,comp.country,"Liga profissional",comp.clubs,"2026-09-09",real.length?"partial":"pending",real.length?`${real.length}/${comp.clubs.length} clubes com overlay real validado`:`Participantes cadastrados; elenco real completo ainda pendente`))}
 for(const comp of ADDED_2026_COMPETITIONS)rows.push(row(comp.id,comp.name,comp.country,"Liga profissional",comp.clubs,"2026-09-09",comp.clubs.length?"updated":"pending"));
+for(const comp of YOUTH_WORLD_2026_COMPETITIONS)rows.push(row(comp.id,comp.name,comp.country,"Base",comp.clubs,"2026-09-09",comp.clubs.length?"updated":"pending",`${comp.level} • elenco real importado por competição`));
+for(const comp of BRAZIL_STATE_2026_COMPETITIONS)rows.push(row(comp.id,comp.name,`Brasil/${comp.state}`,"Estadual",comp.clubs,"2026-09-09",comp.clubs.length?"updated":"pending",`${comp.tier} • clubes e elencos reais; identidade de jogador é compartilhada com o mundo nacional`));
 const intlCountry=(id:string)=>id==="LIB"||id==="SUD"?"CONMEBOL":"UEFA";
 const ucl=INTERNATIONAL_2026_PARTICIPANTS.find(c=>c.id==="UCL"),lib=INTERNATIONAL_2026_PARTICIPANTS.find(c=>c.id==="LIB");
 const libCollision=Boolean(ucl&&lib&&ucl.clubIds.length===lib.clubIds.length&&ucl.clubIds.every((id,i)=>id===lib.clubIds[i]));
 for(const comp of INTERNATIONAL_2026_PARTICIPANTS){const invalid=comp.id==="LIB"&&libCollision;rows.push({id:comp.id,name:comp.name,country:intlCountry(comp.id),category:"Internacional",status:invalid?"error":comp.clubIds.length?"updated":"pending",clubs:invalid?0:comp.clubIds.length,players:0,photoCoverage:0,crestCoverage:0,snapshot:"2026-09-09",note:invalid?"Fonte rejeitada: participantes colidiram com a Champions; aguardando nova sincronização validada":"Participantes reais sincronizados; elencos são herdados da entidade de clube das ligas"})}
 const existing=new Set(rows.map(r=>r.id));
-for(const comp of REAL_COMPETITION_CALENDAR){if(existing.has(comp.id))continue;const category:DatabaseStatusCategory=comp.scope==="state"?"Estadual":comp.scope==="domestic_cup"?"Internacional":"Base";const status:DatabaseStatusLevel=comp.status==="confirmed"?"partial":"pending";rows.push({id:comp.id,name:comp.name,country:comp.country,category,status,clubs:0,players:0,photoCoverage:0,crestCoverage:0,snapshot:"2026-09-09",note:`Calendário ${comp.status==="confirmed"?"real confirmado; elencos/participantes em sincronização":comp.status==="partial"?"parcialmente confirmado":"aguardando datas oficiais"} • fonte: ${comp.source}${comp.note?` • ${comp.note}`:""}`})}
+for(const comp of REAL_COMPETITION_CALENDAR){if(existing.has(comp.id))continue;const category:DatabaseStatusCategory=comp.scope==="state"?"Estadual":comp.scope==="domestic_cup"?"Copa nacional":comp.scope==="international_youth"||comp.scope==="national_youth"?"Internacional":"Base";const status:DatabaseStatusLevel=comp.status==="confirmed"?"partial":"pending";rows.push({id:comp.id,name:comp.name,country:comp.country,category,status,clubs:0,players:0,photoCoverage:0,crestCoverage:0,snapshot:"2026-09-09",note:`Calendário ${comp.status==="confirmed"?"real confirmado; elencos/participantes em sincronização":comp.status==="partial"?"parcialmente confirmado":"aguardando datas oficiais"} • fonte: ${comp.source}${comp.note?` • ${comp.note}`:""}`})}
 
 export const DATABASE_STATUS_ROWS=rows;
 export const DATABASE_STATUS_SUMMARY={total:rows.length,updated:rows.filter(r=>r.status==="updated").length,partial:rows.filter(r=>r.status==="partial").length,pending:rows.filter(r=>r.status==="pending").length,error:rows.filter(r=>r.status==="error").length,clubs:rows.reduce((s,r)=>s+r.clubs,0),players:rows.reduce((s,r)=>s+r.players,0)} as const;
