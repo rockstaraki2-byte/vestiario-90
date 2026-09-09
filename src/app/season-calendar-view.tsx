@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Eye, Flag, Globe2, PauseCircle, Shield, Trophy, X } from "lucide-react";
-import { professionalCompetitionById } from "@/data/brazil-2026/competitions";
 import { clubCommitments } from "@/game-engine/calendar-coordinator";
 import { internationalWindowsForSeason, nationalSpectatorResult, worldNationalFixturesForSeason, type NationalWorldFixture } from "@/game-engine/international-calendar";
 import type { SeasonState } from "@/game-engine/season";
@@ -14,8 +13,8 @@ const monthName=(iso:string)=>new Intl.DateTimeFormat("pt-BR",{month:"long",year
 const dateLabel=(iso:string)=>new Intl.DateTimeFormat("pt-BR",{day:"2-digit",month:"short",weekday:"short",timeZone:"UTC"}).format(new Date(`${iso}T12:00:00Z`));
 
 export default function SeasonCalendarView({season}:{season:SeasonState}){
- const[filter,setFilter]=useState<Filter>("Meu clube"),[watchedId,setWatchedId]=useState<string|undefined>(),club=season.league.clubs.find(c=>c.id===season.selectedClubId)??season.league.clubs[0],leagueName=professionalCompetitionById(season.competitionId).shortName,watchKey=`v90:national-watch:${season.baseSeed}`;
- useEffect(()=>{try{setWatchedId(localStorage.getItem(watchKey)??undefined)}catch{setWatchedId(undefined)}},[watchKey]);
+ const[filter,setFilter]=useState<Filter>("Meu clube"),[watchedId,setWatchedId]=useState<string|undefined>(),club=season.league.clubs.find(c=>c.id===season.selectedClubId)??season.league.clubs[0],watchKey=`v90:national-watch:${season.baseSeed}`;
+ useEffect(()=>{const timer=window.setTimeout(()=>{try{setWatchedId(localStorage.getItem(watchKey)??undefined)}catch{setWatchedId(undefined)}},0);return()=>window.clearTimeout(timer)},[watchKey]);
  const nationalFixtures=useMemo(()=>worldNationalFixturesForSeason(season.year,season.baseSeed),[season.year,season.baseSeed]);
  const items=useMemo(()=>{
   const commitments=clubCommitments(season);
