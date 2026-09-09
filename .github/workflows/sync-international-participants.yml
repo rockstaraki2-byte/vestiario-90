@@ -7,6 +7,9 @@ on:
       - ".github/workflows/sync-international-participants.yml"
 permissions:
   contents: write
+concurrency:
+  group: v90-data-snapshot-main
+  cancel-in-progress: false
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -22,4 +25,5 @@ jobs:
           git add src/data/world-2026/international-participants.generated.ts
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: sync 2026 international competition participants"
-          git push
+          git pull --rebase origin main
+          git push origin HEAD:main
