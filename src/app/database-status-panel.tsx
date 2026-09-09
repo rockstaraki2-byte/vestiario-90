@@ -1,4 +1,5 @@
 "use client";
+import type { ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Clock3, Database, Image, Shield, UsersRound } from "lucide-react";
 import { DATABASE_STATUS_ROWS, DATABASE_STATUS_SUMMARY, type DatabaseStatusLevel } from "@/data/database-status";
 import styles from "./database-status-panel.module.css";
@@ -20,4 +21,4 @@ export default function DatabaseStatusPanel(){
   {categories.map(category=>{const rows=DATABASE_STATUS_ROWS.filter(row=>row.category===category);if(!rows.length)return null;return <div className={styles.section} key={category}><h4>{category.toUpperCase()}</h4><div className={styles.table}><div className={styles.tableHead}><span>COMPETIÇÃO</span><span>STATUS</span><span>CLUBES</span><span>JOGADORES</span><span>FOTOS</span><span>ESCUDOS</span><span>SNAPSHOT</span></div>{rows.map(row=><article key={`${category}-${row.id}`} className={styles.row}><div><b>{row.name}</b><small>{row.country}{row.note?` • ${row.note}`:""}</small></div><span className={`${styles.status} ${styles[row.status]}`}>{icon(row.status)} {label[row.status]}</span><strong>{row.clubs||"—"}</strong><strong>{row.players||"—"}</strong><strong><Image/>{row.photoCoverage?`${row.photoCoverage}%`:"—"}</strong><strong>{row.crestCoverage?`${row.crestCoverage}%`:"—"}</strong><time>{row.snapshot||"—"}</time></article>)}</div></div>})}
  </section>;
 }
-function Metric({icon,value,label}:{icon:React.ReactNode;value:string;label:string}){return <div className={styles.metric}>{icon}<span><b>{value}</b><small>{label}</small></span></div>}
+function Metric({icon,value,label}:{icon:ReactNode;value:string;label:string}){return <div className={styles.metric}>{icon}<span><b>{value}</b><small>{label}</small></span></div>}
