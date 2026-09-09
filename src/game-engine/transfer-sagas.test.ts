@@ -29,14 +29,16 @@ describe("Mercado 3.0 — negociações persistentes", () => {
     season.league.clubs[0].wageBudgetBrlMonthly = 200_000_000;
     const target = season.league.clubs[1].players[0];
     const requested = requestTransferInterest(season, target.id, "Compra").state;
-    const saga = requested.market.negotiations?.[0];
+    const saga = requested.market.negotiations?.find((item) => item.playerId === target.id && item.direction === "Entrada");
     expect(saga).toBeDefined();
 
     const early = processMarketRound({ ...requested, currentDate: requested.currentDate });
-    expect(early.market.negotiations?.[0].stage).toBe("Análise da diretoria");
+    const earlySaga = early.market.negotiations?.find((item) => item.id === saga!.id);
+    expect(earlySaga?.stage).toBe("Análise da diretoria");
 
     const due = processMarketRound({ ...early, currentDate: saga!.nextActionDate });
-    expect(due.market.negotiations?.[0].stage).not.toBe("Análise da diretoria");
+    const dueSaga = due.market.negotiations?.find((item) => item.id === saga!.id);
+    expect(dueSaga?.stage).not.toBe("Análise da diretoria");
     expect(due.league.clubs[1].players.some((player) => player.id === target.id)).toBe(true);
   });
 
