@@ -22,3 +22,4 @@ if(!built.length)throw new Error("no imports");
 await mkdir("src/data/world-2026",{recursive:true});
 const types='import type { EuropeClubRoster } from "../europe-2026/top-leagues";\nexport type AddedCompetitionId='+SPECS.map(s=>JSON.stringify(s[0])).join("|")+';\nexport type AddedCompetitionRoster={id:AddedCompetitionId;name:string;shortName:string;country:string;season:2026;startDate:string;roundCadenceDays:number;doubleRoundRobin:true;benchSize:number;maxSubstitutions:number;clubs:EuropeClubRoster[]};\n';
 await writeFile("src/data/world-2026/added-leagues.generated.ts",types+"export const ADDED_2026_COMPETITIONS:AddedCompetitionRoster[]="+JSON.stringify(built)+";\nexport const ADDED_2026_SYNC_ERRORS="+JSON.stringify(errors)+" as const;\n");
+// manual refresh requested 2026-09-09
