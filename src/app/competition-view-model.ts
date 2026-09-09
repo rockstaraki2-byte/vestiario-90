@@ -1,4 +1,4 @@
-import { aggregateScoreForMatch, type WorldCompetitionMatch, type WorldParticipant, type WorldTournamentState } from "@/game-engine/world-competitions";
+import { aggregateScoreForMatch, type WorldCompetitionMatch, type WorldParticipant, type WorldTournamentState } from "../game-engine/world-competitions";
 
 export type CompetitionTableRow={
  participant:WorldParticipant;
