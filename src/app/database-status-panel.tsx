@@ -6,7 +6,7 @@ import styles from "./database-status-panel.module.css";
 
 const label:Record<DatabaseStatusLevel,string>={updated:"Atualizada",partial:"Parcial",pending:"Pendente",error:"Erro"};
 const icon=(status:DatabaseStatusLevel)=>status==="updated"?<CheckCircle2/>:status==="partial"?<Clock3/>:<AlertTriangle/>;
-const categories=["Liga profissional","Base","Internacional","Estadual","Staff"] as const;
+const categories=["Liga profissional","Copa nacional","Estadual","Base","Internacional","Staff"] as const;
 
 export default function DatabaseStatusPanel(){
  return <section className={styles.panel}>
