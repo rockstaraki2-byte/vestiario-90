@@ -5,7 +5,7 @@ import { CalendarDays, ChevronRight, Shield, Sparkles } from "lucide-react";
 import { sortedStandings } from "@/game-engine/league";
 import { dressingRoomSummary } from "@/game-engine/people";
 import { getSelectedClub, type SeasonState } from "@/game-engine/season";
-import { clubCommitments, nextClubCommitment, type ClubCommitment } from "@/game-engine/calendar-coordinator";
+import { clubCommitments, nextClubCommitment } from "@/game-engine/calendar-coordinator";
 import { openFmEntity } from "./fm-nav";
 import styles from "./fm-experience.module.css";
 
