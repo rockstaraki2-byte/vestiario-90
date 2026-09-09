@@ -1,6 +1,7 @@
 "use client";
-import { BadgeCheck, Gauge, Save, Settings, ShieldCheck, SlidersHorizontal, UsersRound } from "lucide-react";
+import { BadgeCheck, Gauge, Save, Settings, SlidersHorizontal, UsersRound } from "lucide-react";
 import type { GamePreferences, LandingScreen, MatchSpeedPreference } from "@/game-engine/game-preferences";
+import DatabaseStatusPanel from "./database-status-panel";
 import styles from "./game-settings-view.module.css";
 
 type Props={preferences:GamePreferences;onChange:(next:GamePreferences)=>void;onSaveNow:()=>void};
@@ -15,6 +16,7 @@ export default function GameSettingsView({preferences,onChange,onSaveNow}:Props)
  const setGeneral=<K extends keyof GamePreferences["general"]>(key:K,value:GamePreferences["general"][K])=>onChange({...preferences,general:{...preferences.general,[key]:value}});
  return <div className={styles.shell}>
   <section className={styles.hero}><div><span>CONFIGURAÇÕES DA CARREIRA</span><h2>Responsabilidades, partidas e preferências do save</h2><p>Estas opções ficam gravadas somente nesta carreira. Você pode ter responsabilidades e velocidade de partida diferentes em cada jogo salvo.</p></div><Settings/></section>
+  <DatabaseStatusPanel/>
 
   <section className={styles.panel}><header><UsersRound/><div><b>RESPONSABILIDADES DA EQUIPE TÉCNICA</b><small>Defina quem executa cada rotina, como nos managers tradicionais.</small></div></header>
    <div className={styles.rows}>
