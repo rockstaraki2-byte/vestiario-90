@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { BookmarkPlus, ClipboardList, Dumbbell, Lightbulb, Move, Play, Save, Shield, SlidersHorizontal, Sparkles, Trash2, Users } from "lucide-react";
+import { BookmarkPlus, Dumbbell, Lightbulb, Move, Play, Save, Shield, SlidersHorizontal, Sparkles, Trash2, Users } from "lucide-react";
 import type { LeagueClub, LeaguePlayer } from "@/game-engine/league";
 import type { AttackFocus, BuildUp, DefensiveLine, Formation, Marking, MatchTactic, Mentality, TeamWidth } from "@/game-engine/match";
 import type { MatchdayRole } from "@/game-engine/season";
