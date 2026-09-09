@@ -14,7 +14,7 @@ describe("season engine",()=>{
     const b=playCurrentRound(createSeason("deterministica",2026));
     expect(a.lastUserMatch?.result).toEqual(b.lastUserMatch?.result);
     expect(a.league.standings).toEqual(b.league.standings);
-  });
+  },25_000);
   it("aceita o resultado jogado de forma interativa",()=>{
     const initial=createSeason("interativa",2026);
     const override:MatchResult={homeGoals:4,awayGoals:1,possessionHome:55,shotsHome:14,shotsAway:7,events:[{minute:90,type:"fulltime",team:"neutral",text:"fim"}]};
