@@ -7,7 +7,7 @@ const POSITION={GOL:"GOL",ZAG:"ZAG",LD:"LD",LE:"LE",VOL:"VOL",MC:"MC",MEI:"MEI",
 const SPECS=[
 {id:"ENG2",codes:["GB2"],minClubs:20},{id:"ENG3",codes:["GB3"],minClubs:20},{id:"ENG4",codes:["GB4"],minClubs:20},
 {id:"ESP2",codes:["ES2"],minClubs:18},{id:"ESP3",codes:["E3G1","E3G2"],minClubs:35},{id:"ESP4",codes:["E4G1","E4G2","E4G3","E4G4","E4G5"],minClubs:70},
-{id:"FRA2",codes:["FR2"],minClubs:16},{id:"FRA3",codes:["FR3"],minClubs:16},{id:"FRA4",codes:["CN2A","CN2B","CN2C"],minClubs:40}
+{id:"FRA2",codes:["FR2"],minClubs:16},{id:"FRA3",codes:["FR3"],minClubs:16},{id:"FRA4",codes:["FR5A","FR5B","FR5C"],minClubs:40}
 ];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function api(path,attempt=1){try{const r=await fetch(`${BASE}/${path}`,{headers}),text=await r.text();if(!r.ok)throw new Error(`${path} ${r.status} ${text.slice(0,120)}`);return JSON.parse(text)}catch(e){if(attempt>=4)throw e;await sleep(450*attempt);return api(path,attempt+1)}}
@@ -30,4 +30,3 @@ await mkdir("src/data/europe-2026",{recursive:true});
 const out=['import type { EuropeClubRoster } from "./top-leagues";','export type RealLowerRosterSnapshot={competitionId:string;clubs:EuropeClubRoster[]};',`export const REAL_LOWER_ROSTERS:RealLowerRosterSnapshot[]=${JSON.stringify(built)};`,`export const REAL_LOWER_ROSTER_SYNC_ERRORS=${JSON.stringify(errors)} as const;`];
 await writeFile("src/data/europe-2026/real-lower-rosters.generated.ts",out.join("\n")+"\n");
 console.log("done",built.map(x=>x.competitionId).join(","));
-// manual refresh requested 2026-09-09
