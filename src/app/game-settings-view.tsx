@@ -1,7 +1,6 @@
 "use client";
-import { BadgeCheck, Gauge, Save, Settings, SlidersHorizontal, UsersRound } from "lucide-react";
-import type { GamePreferences, LandingScreen, MatchSpeedPreference } from "@/game-engine/game-preferences";
-import DatabaseStatusPanel from "./database-status-panel";
+import { BadgeCheck, Gauge, Save, Settings, UsersRound } from "lucide-react";
+import type { GamePreferences, MatchSpeedPreference } from "@/game-engine/game-preferences";
 import styles from "./game-settings-view.module.css";
 
 type Props={preferences:GamePreferences;onChange:(next:GamePreferences)=>void;onSaveNow:()=>void};
@@ -13,10 +12,8 @@ const youth=["Treinador","Responsável pela base"] as const;
 export default function GameSettingsView({preferences,onChange,onSaveNow}:Props){
  const setResponsibility=<K extends keyof GamePreferences["responsibilities"]>(key:K,value:GamePreferences["responsibilities"][K])=>onChange({...preferences,responsibilities:{...preferences.responsibilities,[key]:value}});
  const setMatch=<K extends keyof GamePreferences["match"]>(key:K,value:GamePreferences["match"][K])=>onChange({...preferences,match:{...preferences.match,[key]:value}});
- const setGeneral=<K extends keyof GamePreferences["general"]>(key:K,value:GamePreferences["general"][K])=>onChange({...preferences,general:{...preferences.general,[key]:value}});
  return <div className={styles.shell}>
-  <section className={styles.hero}><div><span>CONFIGURAÇÕES DA CARREIRA</span><h2>Responsabilidades, partidas e preferências do save</h2><p>Estas opções ficam gravadas somente nesta carreira. Você pode ter responsabilidades e velocidade de partida diferentes em cada jogo salvo.</p></div><Settings/></section>
-  <DatabaseStatusPanel/>
+  <section className={styles.hero}><div><span>CONFIGURAÇÕES DA CARREIRA</span><h2>Responsabilidades e preferências esportivas</h2><p>Aqui ficam somente decisões que pertencem a esta carreira. Autosave, tela inicial e atualização da base de dados agora ficam nas Configurações do Jogo, antes de entrar em um save.</p></div><Settings/></section>
 
   <section className={styles.panel}><header><UsersRound/><div><b>RESPONSABILIDADES DA EQUIPE TÉCNICA</b><small>Defina quem executa cada rotina, como nos managers tradicionais.</small></div></header>
    <div className={styles.rows}>
@@ -32,20 +29,12 @@ export default function GameSettingsView({preferences,onChange,onSaveNow}:Props)
    </div>
   </section>
 
-  <div className={styles.twoCols}>
-   <section className={styles.panel}><header><Gauge/><div><b>PREFERÊNCIAS DE PARTIDA</b><small>Aplicadas automaticamente quando uma nova partida começa.</small></div></header>
-    <label className={styles.label}>VELOCIDADE PRÉ-SELECIONADA</label><div className={styles.choiceGrid}>{(["slow","normal","fast","very_fast"] as MatchSpeedPreference[]).map(speed=><button key={speed} className={preferences.match.defaultSpeed===speed?styles.active:""} onClick={()=>setMatch("defaultSpeed",speed)}><b>{speedLabels[speed]}</b><small>{speed==="slow"?"Mais fluidez no campo 2D":speed==="normal"?"Leitura detalhada":speed==="fast"?"Ritmo rápido":"Simulação acelerada"}</small></button>)}</div>
-    <Toggle title="Mostrar sugestões da comissão" detail="Exibe leitura tática e recomendações do staff antes e durante a partida." checked={preferences.match.showStaffAdvice} onChange={v=>setMatch("showStaffAdvice",v)}/>
-   </section>
+  <section className={styles.panel}><header><Gauge/><div><b>PREFERÊNCIAS DE PARTIDA</b><small>Estas opções podem ser diferentes em cada carreira.</small></div></header>
+    <label className={styles.label}>VELOCIDADE PRÉ-SELECIONADA</label><div className={styles.choiceGrid}>{(["slow","normal","fast","very_fast"] as MatchSpeedPreference[]).map(speed=><button key={speed} className={preferences.match.defaultSpeed===speed?styles.active:""} onClick={()=>setMatch("defaultSpeed",speed)}><b>{speedLabels[speed]}</b><small>{speed==="slow"?"Mais tempo para leitura":speed==="normal"?"Leitura detalhada":speed==="fast"?"Ritmo rápido":"Simulação acelerada"}</small></button>)}</div>
+    <Toggle title="Mostrar sugestões da comissão" detail="Exibe leitura tática, trocas e recomendações de planos de jogo antes e durante a partida." checked={preferences.match.showStaffAdvice} onChange={v=>setMatch("showStaffAdvice",v)}/>
+  </section>
 
-   <section className={styles.panel}><header><SlidersHorizontal/><div><b>GERAL DO SAVE</b><small>Comportamento da interface e persistência desta carreira.</small></div></header>
-    <label className={styles.label}>TELA AO CARREGAR O SAVE</label><select className={styles.select} value={preferences.general.landingScreen} onChange={e=>setGeneral("landingScreen",e.target.value as LandingScreen)}>{(["Visão geral","Caixa de entrada","Calendário","Clube"] as LandingScreen[]).map(item=><option key={item}>{item}</option>)}</select>
-    <Toggle title="Autosave" detail="Salva automaticamente a carreira após decisões e avanços. Se desligado, use Salvar agora." checked={preferences.general.autoSave} onChange={v=>setGeneral("autoSave",v)}/>
-    <Toggle title="Abrir decisões importantes" detail="Ao avançar o dia, abre automaticamente Diretoria/Caixa de entrada quando houver decisão pendente." checked={preferences.general.autoOpenDecisions} onChange={v=>setGeneral("autoOpenDecisions",v)}/>
-    <Toggle title="Abrir coletivas pendentes" detail="Quando você é responsável pelas entrevistas, abre a Central de Mídia automaticamente no dia do jogo." checked={preferences.general.autoOpenPressConferences} onChange={v=>setGeneral("autoOpenPressConferences",v)}/>
-   </section>
-  </div>
-  <section className={styles.saveBar}><div><BadgeCheck/><span><b>Configuração por carreira</b><small>As mudanças desta tela não alteram outros saves.</small></span></div><button onClick={onSaveNow}><Save/> SALVAR AGORA</button></section>
+  <section className={styles.saveBar}><div><BadgeCheck/><span><b>Configuração desta carreira</b><small>Responsabilidades e preferências de partida continuam vinculadas somente a este save.</small></span></div><button onClick={onSaveNow}><Save/> SALVAR AGORA</button></section>
  </div>;
 }
 
