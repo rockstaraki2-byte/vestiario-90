@@ -1,5 +1,6 @@
 import { professionalCompetitionById } from "../data/brazil-2026/competitions";
-import { internationalWindowsForSeason, nationalSpectatorResult, worldNationalFixturesForSeason, type NationalWorldFixture } from "./international-calendar";
+import { internationalWindowsForSeason, type NationalWorldFixture } from "./international-calendar";
+import { internationalWorldFixtures } from "./international-world";
 import type { SeasonState } from "./season";
 
 export type CalendarAgendaKind="Liga"|"Copa"|"Seleção";
@@ -74,10 +75,9 @@ export function buildCalendarAgenda(season:SeasonState):CalendarAgenda{
    all.push({id:`cup-${tournament.definition.id}-${match.id}`,date:match.date,competition:tournament.definition.shortName,stage:match.stage,kind:"Copa",homeName:match.home.name,awayName:match.away.name,homeLogo:homeClub?.imageUrl??logoByName.get(normalizeName(match.home.name)),awayLogo:awayClub?.imageUrl??logoByName.get(normalizeName(match.away.name)),played,score:played?`${match.homeGoals} × ${match.awayGoals}`:undefined,status:played?"Final":match.date===season.currentDate?"Hoje":"Agendado",isUserClub:isUser,aggregate:cupAggregate(tournament,match),decidedByPenalties:match.decidedByPenalties,originalDate:match.originalDate,rescheduledReason:match.rescheduledReason});
   }
  }
- const nationalFixtures=worldNationalFixturesForSeason(season.year,season.baseSeed);
- for(const fixture of nationalFixtures){
-  const available=fixture.date<=season.currentDate,result=available?nationalSpectatorResult(fixture,season.baseSeed):undefined;
-  all.push({id:`national-${fixture.id}`,date:fixture.date,competition:fixture.competition,stage:fixture.stage,kind:"Seleção",homeName:fixture.homeName,awayName:fixture.awayName,played:available,score:result?`${result.homeGoals} × ${result.awayGoals}`:undefined,status:available?"Final":fixture.date===season.currentDate?"Hoje":"Agendado",nationalFixtureId:fixture.id});
+ const internationalMatches=internationalWorldFixtures(season.year,season.baseSeed,season.currentDate),nationalFixtures:NationalWorldFixture[]=internationalMatches;
+ for(const fixture of internationalMatches){
+  all.push({id:`national-${fixture.id}`,date:fixture.date,competition:fixture.competition,stage:fixture.stage,kind:"Seleção",homeName:fixture.homeName,awayName:fixture.awayName,played:fixture.played,score:fixture.played?`${fixture.homeGoals??0} × ${fixture.awayGoals??0}`:undefined,status:fixture.played?(fixture.decidedByPenalties?"Final • pênaltis":"Final"):fixture.date===season.currentDate?"Hoje":"Agendado",nationalFixtureId:fixture.id,decidedByPenalties:fixture.decidedByPenalties});
  }
  for(const fixture of season.nationalCareer?.fixtures??[]){
   const duplicate=all.find(item=>item.kind==="Seleção"&&item.date===fixture.date&&item.homeName===fixture.homeName&&item.awayName===fixture.awayName);
