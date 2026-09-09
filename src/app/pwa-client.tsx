@@ -1,16 +1,44 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Database, Download, LoaderCircle, ShieldAlert, Wifi, WifiOff } from "lucide-react";
-import { SAVE_STATUS_EVENT, type CareerSaveStatus } from "./use-career-autosave";
+import { CheckCircle2, Download, Wifi, WifiOff } from "lucide-react";
 import styles from "./pwa-client.module.css";
 
 type InstallEvent=Event&{prompt:()=>Promise<void>;userChoice:Promise<{outcome:"accepted"|"dismissed"}>};
 type NavigatorStandalone=Navigator&{standalone?:boolean};
+
 export default function PwaClient(){
-  const[online,setOnline]=useState(true),[ready,setReady]=useState(false),[installEvent,setInstallEvent]=useState<InstallEvent|null>(null),[installed,setInstalled]=useState(false),[save,setSave]=useState<CareerSaveStatus>({status:"idle",backupCount:0});
-  useEffect(()=>{const timer=window.setTimeout(()=>{setOnline(navigator.onLine);setInstalled(window.matchMedia("(display-mode: standalone)").matches||Boolean((navigator as NavigatorStandalone).standalone));},0),onOnline=()=>setOnline(true),onOffline=()=>setOnline(false),onInstall=(event:Event)=>{event.preventDefault();setInstallEvent(event as InstallEvent);},onInstalled=()=>{setInstalled(true);setInstallEvent(null);},onSave=(event:Event)=>setSave((event as CustomEvent<CareerSaveStatus>).detail);window.addEventListener("online",onOnline);window.addEventListener("offline",onOffline);window.addEventListener("beforeinstallprompt",onInstall);window.addEventListener("appinstalled",onInstalled);window.addEventListener(SAVE_STATUS_EVENT,onSave);if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js",{scope:"/"}).then(async registration=>{await navigator.serviceWorker.ready;setReady(Boolean(navigator.serviceWorker.controller||registration.active));registration.active?.postMessage({type:"CACHE_APP_SHELL"});try{await navigator.storage?.persist?.();}catch{}}).catch(()=>setReady(false));navigator.serviceWorker.addEventListener("controllerchange",()=>setReady(true));}return()=>{window.clearTimeout(timer);window.removeEventListener("online",onOnline);window.removeEventListener("offline",onOffline);window.removeEventListener("beforeinstallprompt",onInstall);window.removeEventListener("appinstalled",onInstalled);window.removeEventListener(SAVE_STATUS_EVENT,onSave);};},[]);
+  const[online,setOnline]=useState(true),[ready,setReady]=useState(false),[installEvent,setInstallEvent]=useState<InstallEvent|null>(null),[installed,setInstalled]=useState(false);
+  useEffect(()=>{
+    const timer=window.setTimeout(()=>{
+      setOnline(navigator.onLine);
+      setInstalled(window.matchMedia("(display-mode: standalone)").matches||Boolean((navigator as NavigatorStandalone).standalone));
+    },0);
+    const onOnline=()=>setOnline(true),onOffline=()=>setOnline(false),onInstall=(event:Event)=>{event.preventDefault();setInstallEvent(event as InstallEvent);},onInstalled=()=>{setInstalled(true);setInstallEvent(null);};
+    window.addEventListener("online",onOnline);
+    window.addEventListener("offline",onOffline);
+    window.addEventListener("beforeinstallprompt",onInstall);
+    window.addEventListener("appinstalled",onInstalled);
+    if("serviceWorker"in navigator){
+      navigator.serviceWorker.register("/sw.js",{scope:"/"}).then(async registration=>{
+        await navigator.serviceWorker.ready;
+        setReady(Boolean(navigator.serviceWorker.controller||registration.active));
+        registration.active?.postMessage({type:"CACHE_APP_SHELL"});
+        try{await navigator.storage?.persist?.();}catch{}
+      }).catch(()=>setReady(false));
+      navigator.serviceWorker.addEventListener("controllerchange",()=>setReady(true));
+    }
+    return()=>{
+      window.clearTimeout(timer);
+      window.removeEventListener("online",onOnline);
+      window.removeEventListener("offline",onOffline);
+      window.removeEventListener("beforeinstallprompt",onInstall);
+      window.removeEventListener("appinstalled",onInstalled);
+    };
+  },[]);
   async function install(){if(!installEvent)return;await installEvent.prompt();const result=await installEvent.userChoice;if(result.outcome==="accepted")setInstalled(true);setInstallEvent(null);}
   const label=!online?"MODO OFFLINE":ready?"OFFLINE PRONTO":"PREPARANDO OFFLINE";
-  const saveLabel=save.status==="saving"?"SALVANDO...":save.status==="saved"?`SAVE SEGURO${save.backupCount?` • ${save.backupCount} BACKUP${save.backupCount===1?"":"S"}`:""}`:save.status==="error"?"FALHA AO SALVAR":"";
-  return <aside className={`${styles.shell} ${!online?styles.offline:""}`} aria-live="polite"><span className={styles.connection}>{!online?<WifiOff/>:ready?<CheckCircle2/>:<Wifi/>}<b>{label}</b></span>{save.status!=="idle"&&<span className={`${styles.saveState} ${save.status==="error"?styles.saveError:save.status==="saving"?styles.saving:""}`} title={save.error}>{save.status==="saving"?<LoaderCircle/>:save.status==="error"?<ShieldAlert/>:<Database/>}<b>{saveLabel}</b></span>}{installEvent&&!installed&&<button onClick={install}><Download/> INSTALAR</button>}</aside>;
+  return <aside className={`${styles.shell} ${!online?styles.offline:""}`} aria-live="polite">
+    <span className={styles.connection}>{!online?<WifiOff/>:ready?<CheckCircle2/>:<Wifi/>}<b>{label}</b></span>
+    {installEvent&&!installed&&<button onClick={install}><Download/> INSTALAR</button>}
+  </aside>;
 }
