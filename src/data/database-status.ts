@@ -16,6 +16,7 @@ export type DatabaseStatusLevel="updated"|"partial"|"pending"|"error";
 export type DatabaseStatusCategory="Liga profissional"|"Copa nacional"|"Base"|"Internacional"|"Estadual"|"Staff";
 export type DatabaseStatusRow={id:string;name:string;country:string;category:DatabaseStatusCategory;status:DatabaseStatusLevel;clubs:number;players:number;photoCoverage:number;crestCoverage:number;snapshot:string;note?:string};
 type ClubLike={imageUrl?:string;players:Array<{transfermarktId?:string}>};
+type InternationalSyncError={id:string;error:string};
 function pct(value:number,total:number){return total?Math.round(value/total*100):0}
 function clubStats(clubs:ClubLike[]){const players=clubs.flatMap(c=>c.players),photos=players.filter(p=>/^\d+$/.test(String(p.transfermarktId??""))).length,crests=clubs.filter(c=>Boolean(c.imageUrl)&&c.imageUrl!=="/generic-club.svg").length;return{clubs:clubs.length,players:players.length,photoCoverage:pct(photos,players.length),crestCoverage:pct(crests,clubs.length)}}
 function row(id:string,name:string,country:string,category:DatabaseStatusCategory,clubs:ClubLike[],snapshot:string,status?:DatabaseStatusLevel,note?:string):DatabaseStatusRow{const stats=clubStats(clubs);const inferred:DatabaseStatusLevel=status??(stats.clubs&&stats.players?"updated":"pending");return{id,name,country,category,status:inferred,...stats,snapshot,note}}
@@ -34,7 +35,7 @@ for(const comp of BRAZIL_STATE_2026_COMPETITIONS)rows.push(row(comp.id,comp.name
 
 const intlCountry=(id:string)=>id==="LIB"||id==="SUD"?"CONMEBOL":"UEFA";
 const intlRosters=new Map(INTERNATIONAL_2026_ROSTERS.map(x=>[x.competitionId,x.clubs]));
-const intlErrors=new Map(INTERNATIONAL_2026_SYNC_ERRORS.map(x=>[x.id,String(x.error)]));
+const intlErrors=new Map<string,string>((INTERNATIONAL_2026_SYNC_ERRORS as readonly InternationalSyncError[]).map(x=>[x.id,String(x.error)]));
 for(const comp of INTERNATIONAL_2026_PARTICIPANTS){const clubs=intlRosters.get(comp.id)??[],err=intlErrors.get(comp.id);const participantCount=comp.clubIds.length;const complete=participantCount>0&&clubs.length>=participantCount&&clubs.every(c=>c.players.length>=15);const status:DatabaseStatusLevel=err?"error":complete?"updated":clubs.length?"partial":"pending";rows.push(row(comp.id,comp.name,intlCountry(comp.id),"Internacional",clubs,"2026-09-09",status,err?`Falha na sincronização: ${err}`:complete?`${participantCount}/${participantCount} participantes com elenco real e identidade de jogadores`:`${clubs.length}/${participantCount} participantes com elenco real; sincronização parcial`))}
 for(const [id,error] of intlErrors){if(rows.some(r=>r.id===id))continue;rows.push({id,name:id,country:id==="LIB"||id==="SUD"?"CONMEBOL":"UEFA",category:"Internacional",status:"error",clubs:0,players:0,photoCoverage:0,crestCoverage:0,snapshot:"2026-09-09",note:`Falha na sincronização: ${error}`})}
 
