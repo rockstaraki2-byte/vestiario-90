@@ -1,6 +1,8 @@
 import{mkdir,writeFile}from"node:fs/promises";
 const BASE="https://tmapi-alpha.transfermarkt.technology";
+const WEBSITE="https://www.transfermarkt.com";
 const headers={Accept:"application/json","Accept-Language":"pt-BR","User-Agent":"Mozilla/5.0 (Vestiario90 sync)"};
+const siteHeaders={Accept:"text/html,application/xhtml+xml","Accept-Language":"en-US,en;q=0.9","User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36"};
 const POSITION={GOL:"GOL",ZAG:"ZAG",LD:"LD",LE:"LE",VOL:"VOL",MC:"MC",MEI:"MEI",PD:"PD",PE:"PE",CA:"ATA",SA:"ATA",MD:"PD"};
 const SPECS=[
 {id:"ENG2",codes:["GB2"],minClubs:20},{id:"ENG3",codes:["GB3"],minClubs:20},{id:"ENG4",codes:["GB4"],minClubs:20},
@@ -12,7 +14,8 @@ async function api(path,attempt=1){try{const r=await fetch(`${BASE}/${path}`,{he
 const uniq=xs=>[...new Set(xs.map(String).filter(Boolean))];
 function idsFromTable(d){return uniq((d?.data?.tables??[]).flatMap(t=>t?.clubs??[]).map(c=>c?.clubId??c?.id))}
 function idsFromClubList(d){const rows=Array.isArray(d?.data)?d.data:(d?.data?.clubs??d?.clubs??[]);return uniq((rows??[]).map(c=>c?.clubId??c?.id??c?.club?.id))}
-async function idsForCode(code){try{const ids=idsFromTable(await api(`competition/${code}/table`));if(ids.length)return ids}catch(e){console.warn("table fallback",code,String(e))}try{const ids=idsFromClubList(await api(`competition/${code}/clubs`));if(ids.length)return ids}catch(e){console.warn("clubs failed",code,String(e))}return[]}
+async function idsFromPublicPage(code){try{const url=`${WEBSITE}/x/startseite/wettbewerb/${code}/saison_id/2026`,r=await fetch(url,{headers:siteHeaders,redirect:"follow"});if(!r.ok)throw new Error(`HTTP ${r.status}`);const html=await r.text(),table=html.match(/<table[^>]*class="[^"]*items[^"]*"[^>]*>[\s\S]*?<\/table>/i)?.[0]??"",ids=uniq([...table.matchAll(/\/verein\/(\d+)/g)].map(m=>m[1]));if(ids.length)console.log("html fallback",code,ids.length);return ids}catch(e){console.warn("html failed",code,String(e));return[]}}
+async function idsForCode(code){try{const ids=idsFromTable(await api(`competition/${code}/table`));if(ids.length)return ids}catch(e){console.warn("table fallback",code,String(e))}try{const ids=idsFromClubList(await api(`competition/${code}/clubs`));if(ids.length)return ids}catch(e){console.warn("clubs failed",code,String(e))}return idsFromPublicPage(code)}
 async function clubIds(codes){const all=new Set();for(const code of codes)for(const id of await idsForCode(code))all.add(id);return[...all]}
 async function resolveClubs(ids){const out=[];for(let i=0;i<ids.length;i+=20){const qs=ids.slice(i,i+20).map(id=>`ids[]=${id}`).join("&");out.push(...((await api(`clubs?${qs}`))?.data??[]))}return out}
 async function squadIds(id){return uniq(((await api(`club/${id}/squad`))?.data?.squad??[]).map(x=>x?.playerId))}
