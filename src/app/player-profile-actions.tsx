@@ -11,7 +11,7 @@ function write(value:WatchState){localStorage.setItem(KEY,JSON.stringify(value))
 
 export default function PlayerProfileActions({player,club,isOwnClub,onNavigate}:{player:LeaguePlayer;club:LeagueClub;isOwnClub:boolean;onNavigate:(screen:string)=>void}){
  const [state,setState]=useState<WatchState>({observed:[],shortlist:[]});
- useEffect(()=>{setState(read())},[]);
+ useEffect(()=>{const timer=window.setTimeout(()=>setState(read()),0);return()=>window.clearTimeout(timer)},[]);
  if(isOwnClub)return null;
  const observed=state.observed.includes(player.id),shortlisted=state.shortlist.includes(player.id);
  const toggle=(kind:keyof WatchState)=>{const current=read(),has=current[kind].includes(player.id),next={...current,[kind]:has?current[kind].filter(id=>id!==player.id):[...current[kind],player.id]};write(next);setState(next)};
