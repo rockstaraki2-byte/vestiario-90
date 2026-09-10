@@ -68,6 +68,12 @@ function coordinateMainLeague(state:SeasonState){
   }
 }
 
+function syncCurrentLeagueRound(state:SeasonState){
+  if(state.career?.status==="Sem clube")return;
+  const next=state.league.fixtures.filter(f=>!f.played&&(f.homeClubId===state.selectedClubId||f.awayClubId===state.selectedClubId)).sort((a,b)=>a.round-b.round)[0];
+  if(next)state.currentRound=next.round;
+}
+
 function parallelKeys(league:{teams:Array<{id:string;name:string}>},fixture:LeagueFixture){const names=[league.teams.find(team=>team.id===fixture.homeClubId)?.name,league.teams.find(team=>team.id===fixture.awayClubId)?.name].filter(Boolean) as string[];return names.map(name=>`name:${normalize(name)}`);}
 function coordinateParallelLeagues(state:SeasonState){
   const cups=cupIndex(state);
@@ -121,6 +127,7 @@ export function coordinateSeasonCalendars(source:SeasonState){
  const state=clone(withInternationalTick);
  coordinateCupConflicts(state);
  coordinateMainLeague(state);
+ syncCurrentLeagueRound(state);
  coordinateParallelLeagues(state);
  const roundDates=new Map<number,string>();for(const fixture of state.league.fixtures.filter(f=>Boolean(f.date))){const current=roundDates.get(fixture.round);if(!current||fixture.date!<current)roundDates.set(fixture.round,fixture.date!);}state.worldCompetitions.roundDates=[...roundDates].map(([round,date])=>({round,date})).sort((a,b)=>a.date.localeCompare(b.date));
  return state;
