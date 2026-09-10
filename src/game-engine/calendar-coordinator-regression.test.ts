@@ -10,6 +10,7 @@ describe("calendar coordinator regressions",()=>{
   const state=createSeason("calendar-pileup-regression",2026,"club-1","BRA1");
   const clubId=state.selectedClubId;
   state.currentDate="2026-08-08";
+  state.currentRound=23;
   for(const fixture of state.league.fixtures){if(fixture.round<=20)fixture.played=true;}
   const userFixtures=state.league.fixtures.filter(f=>f.homeClubId===clubId||f.awayClubId===clubId);
   const byRound=(round:number)=>userFixtures.find(f=>f.round===round)!;
@@ -24,6 +25,7 @@ describe("calendar coordinator regressions",()=>{
    .filter(f=>!f.played&&(f.homeClubId===clubId||f.awayClubId===clubId))
    .sort((a,b)=>a.round-b.round);
 
+  expect(repaired.currentRound).toBe(21);
   expect(pending[0].round).toBe(21);
   expect(pending.every(f=>Boolean(f.date)&&f.date!>=state.currentDate)).toBe(true);
   expect(new Set(pending.map(f=>f.date)).size).toBe(pending.length);
