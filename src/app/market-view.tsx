@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRightLeft, BadgeDollarSign, BriefcaseBusiness, CircleDollarSign, Clock3, FileSignature, Handshake, Search, UsersRound } from "lucide-react";
 import type { SeasonState } from "@/game-engine/season";
 import { clubWageSpend, formatBrl, formatEur, isTransferWindowOpen, recommendedOffer, requestTransferInterest, transferNegotiations, type MarketActionResult } from "@/game-engine/market";
@@ -13,6 +13,7 @@ export default function MarketView({season,onResult}:{season:SeasonState;onResul
   const [tab,setTab]=useState<"Elenco"|"Oportunidades"|"Negociações"|"Internacional"|"Propostas"|"Histórico">("Elenco");
   const [search,setSearch]=useState("");
   const [selectedPlayerId,setSelectedPlayerId]=useState<string|null>(null);
+  useEffect(()=>{let target:{playerId?:string;playerName?:string}|undefined;try{const raw=sessionStorage.getItem("vestiario90:market-target:v1");if(!raw)return;target=JSON.parse(raw) as {playerId?:string;playerName?:string};sessionStorage.removeItem("vestiario90:market-target:v1")}catch{return}if(!target?.playerId)return;const timer=window.setTimeout(()=>{setTab("Oportunidades");setSearch(target?.playerName??"");setSelectedPlayerId(target?.playerId??null)},0);return()=>window.clearTimeout(timer)},[]);
   const club=season.league.clubs.find(c=>c.id===season.selectedClubId)!;
   const market=season.market;
   const open=isTransferWindowOpen(season.currentRound);
