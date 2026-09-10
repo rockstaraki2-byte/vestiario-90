@@ -39,7 +39,10 @@ function mainClubKey(state:SeasonState,id:string){const club=state.league.clubs.
 function coordinateMainLeague(state:SeasonState){
   const cups=cupIndex(state),rounds=[...new Set(state.league.fixtures.filter(f=>!f.played).map(f=>f.round))].sort((a,b)=>a-b),roundDates=new Map<number,string>();
   for(const round of rounds){
-    const fixtures=state.league.fixtures.filter(f=>!f.played&&f.round===round),original=fixtures.find(f=>f.date)?.date;if(!original)continue;
+    const fixtures=state.league.fixtures.filter(f=>!f.played&&f.round===round);
+    const dates=[...new Set(fixtures.map(f=>f.date).filter(Boolean))] as string[];
+    if(dates.length!==1)continue;
+    const original=dates[0];
     const keys=[...new Set(fixtures.flatMap(f=>[mainClubKey(state,f.homeClubId),mainClubKey(state,f.awayClubId)]))],blocked=isClubDateBlockedByInternationalWindow(original,state.year),hasConflict=blocked||nearAny(cups,keys,original,MIN_CLUB_GAP);let date=original;
     if(hasConflict){for(let delta=1;delta<=SEARCH_DAYS;delta++){const candidate=dateAdd(original,delta);if(candidate<state.currentDate||isClubDateBlockedByInternationalWindow(candidate,state.year))continue;const noCup=!nearAny(cups,keys,candidate,MIN_CLUB_GAP),noRound=[...roundDates.values()].every(other=>dayDistance(other,candidate)>=MIN_CLUB_GAP);if(noCup&&noRound){date=candidate;break;}}}
     roundDates.set(round,date);
