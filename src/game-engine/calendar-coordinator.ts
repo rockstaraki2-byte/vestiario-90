@@ -39,12 +39,45 @@ function mainClubKey(state:SeasonState,id:string){const club=state.league.clubs.
 function coordinateMainLeague(state:SeasonState){
   const cups=cupIndex(state),rounds=[...new Set(state.league.fixtures.filter(f=>!f.played).map(f=>f.round))].sort((a,b)=>a-b),roundDates=new Map<number,string>();
   for(const round of rounds){
-    const fixtures=state.league.fixtures.filter(f=>!f.played&&f.round===round),original=fixtures.find(f=>f.date)?.date;if(!original)continue;
+    const fixtures=state.league.fixtures.filter(f=>!f.played&&f.round===round);
+    const dates=[...new Set(fixtures.map(f=>f.date).filter(Boolean))] as string[];
+    if(dates.length!==1)continue;
+    const original=dates[0];
     const keys=[...new Set(fixtures.flatMap(f=>[mainClubKey(state,f.homeClubId),mainClubKey(state,f.awayClubId)]))],blocked=isClubDateBlockedByInternationalWindow(original,state.year),hasConflict=blocked||nearAny(cups,keys,original,MIN_CLUB_GAP);let date=original;
     if(hasConflict){for(let delta=1;delta<=SEARCH_DAYS;delta++){const candidate=dateAdd(original,delta);if(candidate<state.currentDate||isClubDateBlockedByInternationalWindow(candidate,state.year))continue;const noCup=!nearAny(cups,keys,candidate,MIN_CLUB_GAP),noRound=[...roundDates.values()].every(other=>dayDistance(other,candidate)>=MIN_CLUB_GAP);if(noCup&&noRound){date=candidate;break;}}}
     roundDates.set(round,date);
     if(date!==original)for(const fixture of fixtures){fixture.originalDate=fixture.originalDate??fixture.date;fixture.date=date;fixture.rescheduledReason=blocked?`${internationalReason(state,original)} Rodada remarcada.`:"Rodada remarcada para garantir descanso entre liga e copa/competição internacional.";}
   }
+}
+
+function repairControlledClubSchedule(state:SeasonState){
+  if(state.career?.status==="Sem clube")return;
+  const clubId=state.selectedClubId;
+  const clubFixtures=state.league.fixtures.filter(f=>f.homeClubId===clubId||f.awayClubId===clubId);
+  const cupDates=state.worldCompetitions.tournaments.flatMap(tournament=>tournament.matches.filter(match=>match.home.activeClubId===clubId||match.away.activeClubId===clubId).map(match=>match.date));
+  const occupied=clubFixtures.filter(f=>f.played&&Boolean(f.date)).map(f=>f.date!);
+  let latest=occupied.reduce<string|undefined>((value,date)=>!value||date>value?date:value,undefined);
+  const pending=clubFixtures.filter(f=>!f.played&&Boolean(f.date)).sort((a,b)=>a.round-b.round||(a.date??"").localeCompare(b.date??""));
+  for(const fixture of pending){
+    const original=fixture.date!;
+    let start=original<state.currentDate?state.currentDate:original;
+    if(latest){const ordered=dateAdd(latest,MIN_CLUB_GAP);if(ordered>start)start=ordered;}
+    const collides=original<state.currentDate||isClubDateBlockedByInternationalWindow(original,state.year)||cupDates.some(date=>dayDistance(date,original)<MIN_CLUB_GAP)||occupied.some(date=>dayDistance(date,original)<MIN_CLUB_GAP)||Boolean(latest&&original<dateAdd(latest,MIN_CLUB_GAP));
+    let chosen=original;
+    if(collides){
+      chosen=start;
+      for(let delta=0;delta<=SEARCH_DAYS;delta++){
+        const candidate=dateAdd(start,delta);
+        if(isClubDateBlockedByInternationalWindow(candidate,state.year))continue;
+        if(cupDates.some(date=>dayDistance(date,candidate)<MIN_CLUB_GAP))continue;
+        if(occupied.some(date=>dayDistance(date,candidate)<MIN_CLUB_GAP))continue;
+        chosen=candidate;break;
+      }
+    }
+    if(chosen!==original){fixture.originalDate=fixture.originalDate??original;fixture.date=chosen;fixture.rescheduledReason=original<state.currentDate?"Partida atrasada reposicionada para a próxima data válida do calendário.":"Partida remarcada para evitar sobreposição e preservar o intervalo entre compromissos do clube.";}
+    occupied.push(fixture.date!);latest=fixture.date!;
+  }
+  if(pending[0])state.currentRound=pending[0].round;
 }
 
 function parallelKeys(league:{teams:Array<{id:string;name:string}>},fixture:LeagueFixture){const names=[league.teams.find(team=>team.id===fixture.homeClubId)?.name,league.teams.find(team=>team.id===fixture.awayClubId)?.name].filter(Boolean) as string[];return names.map(name=>`name:${normalize(name)}`);}
@@ -98,6 +131,7 @@ export function coordinateSeasonCalendars(source:SeasonState){
  const state=clone(withInternationalTick);
  coordinateCupConflicts(state);
  coordinateMainLeague(state);
+ repairControlledClubSchedule(state);
  coordinateParallelLeagues(state);
  state.worldCompetitions.roundDates=state.league.fixtures.filter(f=>Boolean(f.date)).map(f=>({round:f.round,date:f.date!})).sort((a,b)=>a.date.localeCompare(b.date));
  return state;
