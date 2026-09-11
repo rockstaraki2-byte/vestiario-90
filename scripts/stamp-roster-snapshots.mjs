@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 const DEFAULT_FILES = [
   "src/data/brasileirao-2026/transfermarkt-snapshot.ts",
   "src/data/brazil-2026/expanded-rosters.ts",
+  "src/data/brazil-2026/serie-d.ts",
   "src/data/europe-2026/top-leagues.ts",
   "src/data/world-2026/state-competitions.generated.ts",
 ];
