@@ -1,0 +1,41 @@
+name: Sync Brazil B C and youth rosters
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/fetch-brazil-competitions-2026.mjs"
+      - "scripts/refresh-brazil-expanded-2026.mjs"
+      - ".github/workflows/sync-brazil-expanded-rosters.yml"
+permissions:
+  contents: write
+concurrency:
+  group: v90-brazil-expanded-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch Serie B C and youth squads
+        run: node scripts/refresh-brazil-expanded-2026.mjs
+      - name: Validate snapshot
+        run: |
+          test -s src/data/brazil-2026/expanded-rosters.ts
+          grep -q 'snapshot:"2026-09-10"' src/data/brazil-2026/expanded-rosters.ts
+          grep -q '"BRA2"' src/data/brazil-2026/expanded-rosters.ts
+          grep -q '"BRA3"' src/data/brazil-2026/expanded-rosters.ts
+          grep -q '"CB20"' src/data/brazil-2026/expanded-rosters.ts
+          grep -q '"SPjr"' src/data/brazil-2026/expanded-rosters.ts
+      - name: Commit roster snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/brazil-2026/expanded-rosters.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data: refresh Brazil Serie B C and youth squads"
+          git pull --rebase origin main
+          git push origin HEAD:main
