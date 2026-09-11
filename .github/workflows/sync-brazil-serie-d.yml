@@ -1,6 +1,11 @@
 name: Sync Brasileirao Serie D rosters
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/refresh-brazil-serie-d-2026.mjs"
+      - ".github/workflows/sync-brazil-serie-d.yml"
 permissions:
   contents: write
 concurrency:
