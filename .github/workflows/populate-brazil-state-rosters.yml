@@ -29,7 +29,7 @@ jobs:
           grep -q "BRAZIL_STATE_2026_COMPETITIONS" src/data/world-2026/state-competitions.generated.ts
           grep -q "BRAZIL_STATE_2026_SYNC_ERRORS" src/data/world-2026/state-competitions.generated.ts
           node -e 'import("./src/data/world-2026/state-competitions.generated.ts").then(m=>{console.log(`State coverage: ${m.BRAZIL_STATE_2026_COMPETITIONS.length}/27`); if(m.BRAZIL_STATE_2026_COMPETITIONS.length<10) process.exit(1)})'
-          npx tsc --noEmit
+          npm run build
       - name: Commit state snapshot
         run: |
           git config user.name "github-actions[bot]"
