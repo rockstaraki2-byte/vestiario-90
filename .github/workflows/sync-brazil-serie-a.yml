@@ -1,10 +1,6 @@
 name: Sync Brasileirao Serie A rosters
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "scripts/fetch-transfermarkt-snapshot.mjs"
-      - ".github/workflows/sync-brazil-serie-a.yml"
 permissions:
   contents: write
 concurrency:
@@ -21,10 +17,13 @@ jobs:
           node-version: 22
       - name: Fetch current Serie A squads
         run: node scripts/fetch-transfermarkt-snapshot.mjs
+      - name: Stamp snapshot date
+        run: node scripts/stamp-roster-snapshots.mjs src/data/brasileirao-2026/transfermarkt-snapshot.ts
       - name: Validate snapshot
         run: |
+          SNAPSHOT_DATE=$(TZ=America/Sao_Paulo date +%F)
           test -s src/data/brasileirao-2026/transfermarkt-snapshot.ts
-          grep -q 'snapshot:"2026-09-10"' src/data/brasileirao-2026/transfermarkt-snapshot.ts
+          grep -q "$SNAPSHOT_DATE" src/data/brasileirao-2026/transfermarkt-snapshot.ts
           grep -q 'clubs:20' src/data/brasileirao-2026/transfermarkt-snapshot.ts
       - name: Commit roster snapshot
         run: |

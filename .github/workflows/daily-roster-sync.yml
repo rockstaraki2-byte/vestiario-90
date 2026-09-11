@@ -1,0 +1,108 @@
+name: Daily roster sync
+on:
+  schedule:
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: v90-daily-roster-sync-main
+  cancel-in-progress: true
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Refresh roster sources
+        shell: bash
+        run: |
+          set -u
+          : > /tmp/roster-failures
+
+          run_sync() {
+            label="$1"
+            script="$2"
+            shift 2
+            echo "::group::$label"
+            if node "$script"; then
+              if [ "$#" -gt 0 ]; then
+                if node scripts/stamp-roster-snapshots.mjs "$@"; then
+                  echo "✅ $label" >> "$GITHUB_STEP_SUMMARY"
+                else
+                  echo "$label (snapshot stamp)" >> /tmp/roster-failures
+                  echo "❌ $label — falha ao carimbar snapshot" >> "$GITHUB_STEP_SUMMARY"
+                fi
+              else
+                echo "✅ $label" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            else
+              echo "$label" >> /tmp/roster-failures
+              echo "❌ $label" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            echo "::endgroup::"
+          }
+
+          run_sync "Brasil Série A" scripts/fetch-transfermarkt-snapshot.mjs src/data/brasileirao-2026/transfermarkt-snapshot.ts
+          run_sync "Brasil Séries B/C + base" scripts/refresh-brazil-expanded-2026.mjs src/data/brazil-2026/expanded-rosters.ts
+          run_sync "Inglaterra/Espanha/França — 1ª divisão" scripts/fetch-europe-top-leagues-2026.mjs src/data/europe-2026/top-leagues.ts
+          run_sync "Inglaterra/Espanha/França — divisões inferiores" scripts/populate-lower-league-rosters.mjs
+          run_sync "Portugal/Alemanha/Itália/MLS/Rússia/Arábia" scripts/fetch-added-leagues-2026.mjs
+          run_sync "Libertadores/Sul-Americana/UEFA" scripts/fetch-international-participants-2026.mjs
+          run_sync "Estaduais do Brasil" scripts/fetch-brazil-state-competitions-2026.mjs src/data/world-2026/state-competitions.generated.ts
+          run_sync "Competições de base internacionais" scripts/fetch-youth-competitions-2026.mjs
+      - name: Validate generated database
+        run: |
+          test -s src/data/brasileirao-2026/transfermarkt-snapshot.ts
+          test -s src/data/brazil-2026/expanded-rosters.ts
+          test -s src/data/europe-2026/top-leagues.ts
+          test -s src/data/europe-2026/real-lower-rosters.generated.ts
+          test -s src/data/world-2026/added-leagues.generated.ts
+          test -s src/data/world-2026/international-participants.generated.ts
+          test -s src/data/world-2026/international-rosters.generated.ts
+          test -s src/data/world-2026/state-competitions.generated.ts
+          test -s src/data/world-2026/youth-competitions.generated.ts
+          npm run lint
+          npm test
+          npm run build
+      - name: Commit all successful roster updates once
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/data/brasileirao-2026/transfermarkt-snapshot.ts \
+            src/data/brazil-2026/expanded-rosters.ts \
+            src/data/europe-2026/top-leagues.ts \
+            src/data/europe-2026/real-lower-rosters.generated.ts \
+            src/data/world-2026/added-leagues.generated.ts \
+            src/data/world-2026/international-participants.generated.ts \
+            src/data/world-2026/international-rosters.generated.ts \
+            src/data/world-2026/state-competitions.generated.ts \
+            src/data/world-2026/youth-competitions.generated.ts
+          if git diff --cached --quiet; then
+            echo "Nenhuma mudança de elenco detectada." >> "$GITHUB_STEP_SUMMARY"
+          else
+            SNAPSHOT_DATE=$(TZ=America/Sao_Paulo date +%F)
+            git commit -m "data: daily roster sync ${SNAPSHOT_DATE}"
+            git pull --rebase origin main
+            git push origin HEAD:main
+            echo "✅ Um único commit/deploy gerado para ${SNAPSHOT_DATE}." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Report partial source failures
+        if: always()
+        run: |
+          if [ -s /tmp/roster-failures ]; then
+            echo "### Fontes com falha parcial" >> "$GITHUB_STEP_SUMMARY"
+            sed 's/^/- /' /tmp/roster-failures >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "### Sincronização completa" >> "$GITHUB_STEP_SUMMARY"
+          echo "Todas as fontes previstas foram processadas." >> "$GITHUB_STEP_SUMMARY"

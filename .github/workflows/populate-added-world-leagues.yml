@@ -1,10 +1,6 @@
 name: Populate added world leagues
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "scripts/fetch-added-leagues-2026.mjs"
-      - ".github/workflows/populate-added-world-leagues.yml"
 permissions:
   contents: write
 concurrency:

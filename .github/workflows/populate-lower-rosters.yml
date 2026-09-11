@@ -1,10 +1,6 @@
 name: Populate real lower-league rosters
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "scripts/populate-lower-league-rosters.mjs"
-      - ".github/workflows/populate-lower-rosters.yml"
 permissions:
   contents: write
 concurrency:

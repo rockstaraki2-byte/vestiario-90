@@ -1,10 +1,6 @@
 name: Populate verified youth rosters
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "scripts/fetch-youth-competitions-2026.mjs"
-      - ".github/workflows/populate-youth-rosters.yml"
 permissions:
   contents: write
 jobs:
