@@ -13,6 +13,7 @@ import { aggregateScoreForMatch, userWorldCompetitionMatches } from "@/game-engi
 import { NATIONAL_COMPETITIONS_2026 } from "@/data/national-teams-2026";
 import InternationalCompetitionBrowser from "./international-competition-browser";
 import NationalWorldBrowser from "./national-world-browser";
+import StateChampionshipBrowser from "./state-championship-browser";
 import SeasonLegacyPanel from "./season-legacy-panel";
 import WorldAwardsPanel from "./world-awards-panel";
 import { openFmEntity } from "./fm-nav";
@@ -44,7 +45,7 @@ export default function FootballWorldView({season}:{season:SeasonState}){
    </section>
   </div>}
 
-  {tab==="Competições"&&<><InternationalCompetitionBrowser state={world}/><SeasonLegacyPanel ecosystem={season.ecosystem}/><div className={styles.grid}>
+  {tab==="Competições"&&<><StateChampionshipBrowser/><InternationalCompetitionBrowser state={world}/><SeasonLegacyPanel ecosystem={season.ecosystem}/><div className={styles.grid}>
    <section className={styles.panel}><header><div><span>SEU CLUBE NAS COPAS</span><h3>{userCupMatches.length} compromisso{userCupMatches.length===1?"":"s"}</h3></div><CalendarRange/></header><div className={styles.cupList}>{userCupMatches.length?userCupMatches.slice(0,24).map(({tournament,match})=><article key={match.id}><div><b>{tournament.definition.shortName}</b><small>{match.stage}{match.leg?` • ${match.leg}º jogo`:""} • {match.date}</small></div><div className={styles.score}><span>{match.home.shortName}</span><strong>{match.played?`${match.homeGoals} × ${match.awayGoals}`:"×"}</strong><span>{match.away.shortName}</span></div>{match.tieId&&match.played&&(()=>{const agg=aggregateScoreForMatch(tournament,match);return agg?<small>AGREGADO: {match.home.shortName} {agg.homeGoals} × {agg.awayGoals} {match.away.shortName} • {agg.legsPlayed}/{agg.legsTotal} jogos</small>:null})()}<em>{match.played?(match.decidedByPenalties?"Final • pênaltis":"Final"):"Agendado"}</em></article>):<Empty text="Seu clube não está classificado para uma competição paralela neste momento."/>}</div></section>
    <section className={styles.panel}><header><div><span>TORNEIOS</span><h3>Formatos do mundo do save</h3></div><Trophy/></header><div className={styles.tournaments}>{world.tournaments.map(t=><article key={t.definition.id}><div><i><Shield/></i><div><b>{t.definition.name}</b><span>{t.definition.format} • {t.definition.participants.toLocaleString("pt-BR")} participantes</span></div></div><div className={styles.tournamentMeta}><small>{t.completed?"CAMPEÃO":"FASE ATUAL"}</small><strong>{t.completed?world.history.find(h=>h.year===world.season&&h.competitionId===t.definition.id)?.championName??"Definido":t.currentStage}</strong></div><p className={styles.rules}>{t.definition.rulesSummary}</p></article>)}</div></section>
    <section className={`${styles.panel} ${styles.wide}`}><header><div><span>HISTÓRICO DE CAMPEÕES</span><h3>Memória do mundo</h3></div><BadgeCheck/></header><div className={styles.history}>{world.history.length?world.history.slice(0,30).map(item=><article key={`${item.year}-${item.competitionId}`}><b>{item.year}</b><span>{item.competitionName}</span><strong>{item.championName}</strong></article>):<Empty text="Os campeões aparecerão conforme as competições forem concluídas."/>}</div></section>
