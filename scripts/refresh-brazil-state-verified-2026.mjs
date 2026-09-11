@@ -78,7 +78,8 @@ function parseExport(source, marker) {
   const jsonStart = start + marker.length;
   const end = source.indexOf(";", jsonStart);
   if (end < 0) throw new Error(`terminator not found: ${marker}`);
-  return JSON.parse(source.slice(jsonStart, end));
+  const raw = source.slice(jsonStart, end).replace(/\s+as const\s*$/, "");
+  return JSON.parse(raw);
 }
 
 async function resolveClubs(ids) {
