@@ -1,10 +1,6 @@
 name: Populate Brazilian state rosters
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "scripts/fetch-brazil-state-competitions-2026.mjs"
-      - ".github/workflows/populate-brazil-state-rosters.yml"
 permissions:
   contents: write
 concurrency:
@@ -21,9 +17,13 @@ jobs:
           node-version: 22
       - name: Fetch verified state squads
         run: node scripts/fetch-brazil-state-competitions-2026.mjs
+      - name: Stamp snapshot date
+        run: node scripts/stamp-roster-snapshots.mjs src/data/world-2026/state-competitions.generated.ts
       - name: Validate generated snapshot
         run: |
+          SNAPSHOT_DATE=$(TZ=America/Sao_Paulo date +%F)
           test -s src/data/world-2026/state-competitions.generated.ts
+          grep -q "$SNAPSHOT_DATE" src/data/world-2026/state-competitions.generated.ts
           grep -q "BRAZIL_STATE_2026_COMPETITIONS" src/data/world-2026/state-competitions.generated.ts
           grep -q "BRAZIL_STATE_2026_SYNC_ERRORS" src/data/world-2026/state-competitions.generated.ts
       - name: Commit state snapshot
