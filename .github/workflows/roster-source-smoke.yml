@@ -1,0 +1,31 @@
+name: Roster source smoke
+on:
+  pull_request:
+    paths:
+      - "scripts/refresh-brazil-serie-d-2026.mjs"
+      - "scripts/fetch-brazil-state-competitions-2026.mjs"
+      - ".github/workflows/roster-source-smoke.yml"
+jobs:
+  live-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Refresh Serie D from live squads
+        run: node scripts/refresh-brazil-serie-d-2026.mjs
+      - name: Validate Serie D coverage
+        run: |
+          grep -q '"clubs":96' src/data/brazil-2026/serie-d.ts
+          node -e 'import("./src/data/brazil-2026/serie-d.ts").then(m=>{const players=m.BRAZIL_SERIE_D_2026_CLUBS.reduce((n,c)=>n+c.players.length,0); console.log(`Serie D: ${m.BRAZIL_SERIE_D_2026_CLUBS.length} clubs / ${players} players / ${m.BRAZIL_SERIE_D_2026_SYNC_ERRORS.length} source warnings`); if(m.BRAZIL_SERIE_D_2026_CLUBS.length!==96||players<1800) process.exit(1)})'
+      - name: Refresh Brazilian state championships
+        run: node scripts/fetch-brazil-state-competitions-2026.mjs
+      - name: Validate state coverage improvement
+        run: |
+          node -e 'import("./src/data/world-2026/state-competitions.generated.ts").then(m=>{const n=m.BRAZIL_STATE_2026_COMPETITIONS.length; const players=m.BRAZIL_STATE_2026_COMPETITIONS.reduce((s,c)=>s+c.clubs.reduce((x,k)=>x+k.players.length,0),0); console.log(`State competitions: ${n}/27 available / ${players} players / ${m.BRAZIL_STATE_2026_SYNC_ERRORS.length} source warnings`); if(n<10) process.exit(1)})'
+      - name: Typecheck generated snapshots
+        run: npx tsc --noEmit
