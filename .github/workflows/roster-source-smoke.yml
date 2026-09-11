@@ -28,5 +28,5 @@ jobs:
       - name: Validate state coverage improvement
         run: |
           node -e 'import("./src/data/world-2026/state-competitions.generated.ts").then(m=>{const n=m.BRAZIL_STATE_2026_COMPETITIONS.length; const players=m.BRAZIL_STATE_2026_COMPETITIONS.reduce((s,c)=>s+c.clubs.reduce((x,k)=>x+k.players.length,0),0); console.log(`State competitions: ${n}/27 available / ${players} players / ${m.BRAZIL_STATE_2026_SYNC_ERRORS.length} source warnings`); if(n<10) process.exit(1)})'
-      - name: Typecheck generated snapshots
-        run: npx tsc --noEmit
+      - name: Validate generated snapshots with production build
+        run: npm run build
