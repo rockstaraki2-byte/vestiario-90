@@ -21,7 +21,7 @@ export function parseWorldCupSquadHtml(html:string,team:string):VerifiedNational
  for(const row of table.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)){
   const cells=[...row[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(cell=>clean(cell[1]));if(cells.length<4)continue;
   const posText=cells[1]??"",code=(posText.match(/\b(GK|DF|MF|FW)\b/i)?.[1]??posText.match(/(GK|DF|MF|FW)/i)?.[1]??"").toUpperCase(),position=POSITION[code];if(!position)continue;
-  const name=(cells[2]??"").replace(/\s*\(captain\)\s*/i," ").trim(),club=(cells[cells.length-1]??"").trim();if(!name||!club||/player/i.test(name))continue;
+  const name=(cells[2]??"").replace(/\s*\(captain\)\s*/i," ").trim(),club=(cells[cells.length-1]??"").trim();if(!name||!club||/^player$/i.test(name))continue;
   players.push({name,club,position});
  }
  if(players.length<11)return undefined;
