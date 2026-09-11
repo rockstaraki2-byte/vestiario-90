@@ -1,10 +1,6 @@
 name: Sync international participants
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "scripts/fetch-international-participants-2026.mjs"
-      - ".github/workflows/sync-international-participants.yml"
 permissions:
   contents: write
 concurrency:
