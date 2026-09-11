@@ -58,7 +58,7 @@ jobs:
           run_sync "Inglaterra/Espanha/França — divisões inferiores" scripts/populate-lower-league-rosters.mjs
           run_sync "Portugal/Alemanha/Itália/MLS/Rússia/Arábia" scripts/fetch-added-leagues-2026.mjs
           run_sync "Libertadores/Sul-Americana/UEFA" scripts/fetch-international-participants-2026.mjs
-          run_sync "Estaduais do Brasil" scripts/fetch-brazil-state-competitions-2026.mjs src/data/world-2026/state-competitions.generated.ts
+          run_sync "Estaduais do Brasil" scripts/refresh-brazil-state-verified-2026.mjs src/data/world-2026/state-competitions.generated.ts
           run_sync "Competições de base internacionais" scripts/fetch-youth-competitions-2026.mjs
       - name: Validate generated database
         run: |
@@ -73,6 +73,7 @@ jobs:
           test -s src/data/world-2026/international-participants.generated.ts
           test -s src/data/world-2026/international-rosters.generated.ts
           test -s src/data/world-2026/state-competitions.generated.ts
+          node -e 'import("./src/data/world-2026/state-competitions.generated.ts").then(m=>{console.log(`State coverage: ${m.BRAZIL_STATE_2026_COMPETITIONS.length}/27`); if(m.BRAZIL_STATE_2026_COMPETITIONS.length<10) process.exit(1)})'
           test -s src/data/world-2026/youth-competitions.generated.ts
           npm run lint
           npm test
