@@ -1,6 +1,12 @@
 name: Populate Brazilian state rosters
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/fetch-brazil-state-competitions-2026.mjs"
+      - "scripts/refresh-brazil-state-verified-2026.mjs"
+      - ".github/workflows/populate-brazil-state-rosters.yml"
 permissions:
   contents: write
 concurrency:
