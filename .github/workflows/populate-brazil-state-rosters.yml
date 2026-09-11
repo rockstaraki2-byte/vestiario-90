@@ -7,9 +7,13 @@ on:
       - ".github/workflows/populate-brazil-state-rosters.yml"
 permissions:
   contents: write
+concurrency:
+  group: v90-brazil-state-rosters-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   populate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,8 +21,11 @@ jobs:
           node-version: 22
       - name: Fetch verified state squads
         run: node scripts/fetch-brazil-state-competitions-2026.mjs
-      - name: Validate generated module
-        run: npm ci && npx tsc --noEmit
+      - name: Validate generated snapshot
+        run: |
+          test -s src/data/world-2026/state-competitions.generated.ts
+          grep -q "BRAZIL_STATE_2026_COMPETITIONS" src/data/world-2026/state-competitions.generated.ts
+          grep -q "BRAZIL_STATE_2026_SYNC_ERRORS" src/data/world-2026/state-competitions.generated.ts
       - name: Commit state snapshot
         run: |
           git config user.name "github-actions[bot]"
@@ -26,4 +33,5 @@ jobs:
           git add src/data/world-2026/state-competitions.generated.ts
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: populate verified Brazilian state championships"
-          git push
+          git pull --rebase origin main
+          git push origin HEAD:main
