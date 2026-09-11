@@ -18,3 +18,4 @@ await patch("src/app/football-world-view.tsx",content=>{
  return c;
 });
 console.log("State championships integrated into World and global search");
+// rerun 2026-09-10 after extending the long market rollover regression timeout
