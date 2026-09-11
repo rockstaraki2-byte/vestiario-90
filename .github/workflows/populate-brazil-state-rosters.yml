@@ -1,6 +1,12 @@
 name: Populate Brazilian state rosters
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/fetch-brazil-state-competitions-2026.mjs"
+      - "scripts/refresh-brazil-state-verified-2026.mjs"
+      - ".github/workflows/populate-brazil-state-rosters.yml"
 permissions:
   contents: write
 concurrency:
@@ -9,14 +15,16 @@ concurrency:
 jobs:
   populate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Fetch verified state squads
-        run: node scripts/fetch-brazil-state-competitions-2026.mjs
+          cache: npm
+      - run: npm ci
+      - name: Fetch state squads with verified fallbacks
+        run: node scripts/refresh-brazil-state-verified-2026.mjs
       - name: Stamp snapshot date
         run: node scripts/stamp-roster-snapshots.mjs src/data/world-2026/state-competitions.generated.ts
       - name: Validate generated snapshot
@@ -26,6 +34,8 @@ jobs:
           grep -q "$SNAPSHOT_DATE" src/data/world-2026/state-competitions.generated.ts
           grep -q "BRAZIL_STATE_2026_COMPETITIONS" src/data/world-2026/state-competitions.generated.ts
           grep -q "BRAZIL_STATE_2026_SYNC_ERRORS" src/data/world-2026/state-competitions.generated.ts
+          node -e 'import("./src/data/world-2026/state-competitions.generated.ts").then(m=>{console.log(`State coverage: ${m.BRAZIL_STATE_2026_COMPETITIONS.length}/27`); if(m.BRAZIL_STATE_2026_COMPETITIONS.length<10) process.exit(1)})'
+          npm run build
       - name: Commit state snapshot
         run: |
           git config user.name "github-actions[bot]"
