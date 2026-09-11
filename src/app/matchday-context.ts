@@ -11,6 +11,8 @@ export type MatchdayParallelMatch={
   awayName:string;
   homeShort:string;
   awayShort:string;
+  homeImageUrl?:string;
+  awayImageUrl?:string;
   result:MatchResult;
 };
 
@@ -35,7 +37,7 @@ export function buildParallelRoundMatches(state:SeasonState,userFixtureId?:strin
         homeStarters,
         awayStarters,
       );
-      return{id:fixture.id,round,homeId:home.id,awayId:away.id,homeName:home.name,awayName:away.name,homeShort:home.shortName,awayShort:away.shortName,result};
+      return{id:fixture.id,round,homeId:home.id,awayId:away.id,homeName:home.name,awayName:away.name,homeShort:home.shortName,awayShort:away.shortName,homeImageUrl:home.imageUrl,awayImageUrl:away.imageUrl,result};
     });
 }
 
