@@ -30,4 +30,4 @@ await mkdir("src/data/world-2026",{recursive:true});
 await writeFile("src/data/world-2026/international-participants.generated.ts",`export const INTERNATIONAL_2026_PARTICIPANTS=${JSON.stringify(participantsOut)} as const;\nexport const INTERNATIONAL_2026_SYNC_ERRORS=${JSON.stringify(errors)} as const;\n`);
 await writeFile("src/data/world-2026/international-rosters.generated.ts",`import type { EuropeClubRoster } from "../europe-2026/top-leagues";\nexport type InternationalRosterSnapshot={competitionId:string;clubs:EuropeClubRoster[]};\nexport const INTERNATIONAL_2026_ROSTERS:InternationalRosterSnapshot[]=${JSON.stringify(rostersOut)};\n`);
 if(errors.length)console.warn("Partial international sync:",errors.map(e=>e.id).join(","));
-// manual rerun after Libertadores source correction: 2026-09-09
+// manual rerun after Libertadores source correction: 2026-09-10
