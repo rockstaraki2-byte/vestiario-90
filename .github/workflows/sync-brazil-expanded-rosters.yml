@@ -1,11 +1,6 @@
 name: Sync Brazil B C and youth rosters
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "scripts/fetch-brazil-competitions-2026.mjs"
-      - "scripts/refresh-brazil-expanded-2026.mjs"
-      - ".github/workflows/sync-brazil-expanded-rosters.yml"
 permissions:
   contents: write
 concurrency:
@@ -22,10 +17,13 @@ jobs:
           node-version: 22
       - name: Fetch Serie B C and youth squads
         run: node scripts/refresh-brazil-expanded-2026.mjs
+      - name: Stamp snapshot date
+        run: node scripts/stamp-roster-snapshots.mjs src/data/brazil-2026/expanded-rosters.ts
       - name: Validate snapshot
         run: |
+          SNAPSHOT_DATE=$(TZ=America/Sao_Paulo date +%F)
           test -s src/data/brazil-2026/expanded-rosters.ts
-          grep -q 'snapshot:"2026-09-10"' src/data/brazil-2026/expanded-rosters.ts
+          grep -q "$SNAPSHOT_DATE" src/data/brazil-2026/expanded-rosters.ts
           grep -q '"BRA2"' src/data/brazil-2026/expanded-rosters.ts
           grep -q '"BRA3"' src/data/brazil-2026/expanded-rosters.ts
           grep -q '"CB20"' src/data/brazil-2026/expanded-rosters.ts
