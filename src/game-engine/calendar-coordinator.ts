@@ -27,7 +27,7 @@ function coordinateCupConflicts(state:SeasonState){
   for(const item of all){
     const keys=cupKeys(item.match),original=item.match.date,userInvolved=item.match.home.activeClubId===state.selectedClubId||item.match.away.activeClubId===state.selectedClubId,stale=Boolean(userInvolved&&original<state.currentDate),blocked=isClubDateBlockedByInternationalWindow(original,state.year),conflict=stale||blocked||keys.some(key=>(occupied.get(key)??[]).some(entry=>dayDistance(entry.date,original)<MIN_CLUB_GAP));
     if(conflict){
-      let chosen=original,anchor=stale?state.currentDate:original;
+      let chosen=original;const anchor=stale?state.currentDate:original;
       for(const delta of candidateOffsets(blocked||stale)){const candidate=dateAdd(anchor,delta);if(candidate<state.currentDate||isClubDateBlockedByInternationalWindow(candidate,state.year))continue;const safe=keys.every(key=>(occupied.get(key)??[]).every(entry=>dayDistance(entry.date,candidate)>=MIN_CLUB_GAP));if(safe){chosen=candidate;break;}}
       if(chosen!==original){item.match.originalDate=item.match.originalDate??original;item.match.date=chosen;item.match.roundDue=roundForDate(state,chosen);item.match.rescheduledReason=stale?"Partida de copa pendente recuperada e reposicionada na próxima data válida.":blocked?`${internationalReason(state,original)} Partida de clubes reagendada.`:"Conflito de calendário: foi preservado um intervalo mínimo entre compromissos do clube.";}
     }
