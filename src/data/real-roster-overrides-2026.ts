@@ -1,6 +1,6 @@
 import type { ExpandedClubRoster, ExpandedRosterPlayer } from "./brazil-2026/expanded-rosters";
 
-export const REAL_ROSTER_OVERRIDES_SNAPSHOT = "2026-09-13";
+export const REAL_ROSTER_OVERRIDES_SNAPSHOT = "2026-09-14";
 
 type BrazilProfessionalCompetitionId = "BRA1" | "BRA2" | "BRA3" | "BRA4";
 type RosterOverride = {
@@ -14,7 +14,10 @@ export const REAL_ROSTER_OVERRIDES: RosterOverride[] = [
   {
     competitionId: "BRA1",
     clubMatch: "vitoria",
-    add: [{ transfermarktId: "real-20260912-darlan-dutra", name: "Darlan Dutra", position: "ZAG", age: 23, marketValueEur: null }],
+    add: [
+      { transfermarktId: "real-20260912-darlan-dutra", name: "Darlan Dutra", position: "ZAG", age: 23, marketValueEur: null },
+      { transfermarktId: "real-20260914-ignacio-laquintana", name: "Ignacio Laquintana", position: "PD", age: 27, marketValueEur: null },
+    ],
   },
   {
     competitionId: "BRA2",
@@ -44,6 +47,7 @@ export const REAL_ROSTER_OVERRIDES: RosterOverride[] = [
     competitionId: "BRA1",
     clubMatch: "chapecoense",
     add: [{ transfermarktId: "real-20260913-dudu-chape", name: "Dudu", position: "LD", age: 29, marketValueEur: null }],
+    removeNames: ["Neto Pessoa"],
   },
   {
     competitionId: "BRA1",
@@ -58,7 +62,7 @@ export const REAL_ROSTER_OVERRIDES: RosterOverride[] = [
   {
     competitionId: "BRA1",
     clubMatch: "bragantino",
-    removeNames: ["Filipinho"],
+    removeNames: ["Filipinho", "Ignacio Laquintana", "Nacho Laquintana"],
   },
   {
     competitionId: "BRA2",
@@ -67,6 +71,21 @@ export const REAL_ROSTER_OVERRIDES: RosterOverride[] = [
       { transfermarktId: "real-20260913-chico-da-costa", name: "Chico da Costa", position: "ATA", age: 31, marketValueEur: null },
       { transfermarktId: "real-20260913-jailson", name: "Jailson", position: "VOL", age: 30, marketValueEur: null },
     ],
+  },
+  {
+    competitionId: "BRA2",
+    clubMatch: "sport recife",
+    removeNames: ["Pedro Martins"],
+    add: [
+      { transfermarktId: "real-20260914-kervin-andrade", name: "Kervin Andrade", position: "PD", age: 21, marketValueEur: null },
+      { transfermarktId: "real-20260914-neto-pessoa", name: "Neto Pessoa", position: "ATA", age: 32, marketValueEur: null },
+      { transfermarktId: "real-20260914-rai-lopes", name: "Raí Lopes", position: "LE", age: 26, marketValueEur: null },
+    ],
+  },
+  {
+    competitionId: "BRA2",
+    clubMatch: "ceara",
+    add: [{ transfermarktId: "real-20260914-saulo-mineiro", name: "Saulo Mineiro", position: "ATA", age: 29, marketValueEur: null }],
   },
   {
     competitionId: "BRA3",
@@ -90,6 +109,21 @@ export const REAL_ROSTER_OVERRIDES: RosterOverride[] = [
     competitionId: "BRA3",
     clubMatch: "paysandu",
     add: [{ transfermarktId: "real-20260913-nico-schiappacasse", name: "Nico Schiappacasse", position: "ATA", age: 27, marketValueEur: null }],
+  },
+  {
+    competitionId: "BRA3",
+    clubMatch: "ferroviaria",
+    add: [{ transfermarktId: "real-20260914-fabio-rampi", name: "Fábio Rampi", position: "GOL", age: 37, marketValueEur: null }],
+  },
+  {
+    competitionId: "BRA3",
+    clubMatch: "brusque",
+    add: [{ transfermarktId: "real-20260914-pedro-martins", name: "Pedro Martins", position: "VOL", age: 26, marketValueEur: null }],
+  },
+  {
+    competitionId: "BRA4",
+    clubMatch: "sao jose",
+    removeNames: ["Fábio Rampi", "Fabio Rampi"],
   },
 ];
 
