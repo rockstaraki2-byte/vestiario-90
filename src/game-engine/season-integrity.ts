@@ -17,6 +17,7 @@ export function auditSeasonIntegrity(state:SeasonState):SeasonIntegrityReport{
  if(!state.baseSeed)issue("SAVE_SEED_MISSING","error","O save perdeu a seed base usada para manter o mundo determinístico.");
  if(!state.league.clubs.length)issue("LEAGUE_WITHOUT_CLUBS","error","A liga ativa não possui clubes.");
  if(!unique(clubIds))issue("DUPLICATE_CLUB_ID","error","Há clubes diferentes usando o mesmo identificador na liga ativa.");
+ for(const club of state.league.clubs){const ids=club.players.map(player=>player.id);if(club.players.length<11)issue("INSUFFICIENT_SQUAD","error",`${club.name} possui apenas ${club.players.length} jogadores no elenco profissional.`);if(!unique(ids))issue("DUPLICATE_PLAYER_ID","error",`${club.name} possui jogadores com identificador duplicado.`);}
  if(!unique(fixtureIds))issue("DUPLICATE_LEAGUE_FIXTURE_ID","error","Há partidas da liga ativa com identificador duplicado.");
  if(standingIds.length!==clubIds.length||!unique(standingIds)||standingIds.some(id=>!clubSet.has(id)))issue("STANDINGS_COVERAGE","error","A classificação não corresponde exatamente aos clubes da liga ativa.");
  for(const fixture of state.league.fixtures){
