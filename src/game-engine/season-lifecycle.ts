@@ -19,12 +19,14 @@ export function publishCompetitionChampions(state:SeasonState){
 }
 
 function pendingUserCupMatches(state:SeasonState){return state.worldCompetitions.tournaments.some(tournament=>tournament.matches.some(match=>!match.played&&(match.home.activeClubId===state.selectedClubId||match.away.activeClubId===state.selectedClubId)));}
+function reopenPrematureClosure(state:SeasonState){return state.completed?{...state,completed:false,seasonSummary:undefined}:state;}
 
 export function closeSeasonIfReady(state:SeasonState){
  let next=publishCompetitionChampions(state);
  if(next.completed&&next.seasonSummary?.year===next.year)return next;
  const leagueFinished=next.league.fixtures.every(fixture=>fixture.played);
- if(!leagueFinished||pendingUserCupMatches(next))return next;
+ if(!leagueFinished)return reopenPrematureClosure(next);
+ if(pendingUserCupMatches(next))return reopenPrematureClosure(next);
  const standings=sortedStandings(next.league),championRow=standings[0],champion=next.league.clubs.find(club=>club.id===championRow?.clubId),position=Math.max(1,standings.findIndex(row=>row.clubId===next.selectedClubId)+1),honors:SeasonHonor[]=[];
  if(champion)honors.push({competitionId:next.competitionId,competitionName:next.league.competitionName??next.competitionId,championName:champion.name,kind:"Liga"});
  for(const tournament of next.worldCompetitions.tournaments.filter(item=>item.completed&&item.championId)){
