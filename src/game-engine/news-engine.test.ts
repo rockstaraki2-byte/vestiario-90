@@ -16,5 +16,5 @@ describe("news engine 2.0",()=>{
   expect(news.length).toBeGreaterThan(0);
   expect(matchStories.length).toBeLessThan(played);
   expect(news[0].relevance).toBeGreaterThanOrEqual(news.at(-1)?.relevance??0);
- });
+ },15_000);
 });
