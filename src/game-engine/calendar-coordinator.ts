@@ -25,11 +25,11 @@ function coordinateCupConflicts(state:SeasonState){
   const tournaments=state.worldCompetitions.tournaments,all=tournaments.flatMap(tournament=>tournament.matches.filter(match=>!match.played).map(match=>({tournament,match}))).sort((a,b)=>a.match.date.localeCompare(b.match.date)||priority(b.tournament.definition.kind)-priority(a.tournament.definition.kind));
   const occupied=new Map<string,Array<{date:string;matchId:string}>>();
   for(const item of all){
-    const keys=cupKeys(item.match),original=item.match.date,blocked=isClubDateBlockedByInternationalWindow(original,state.year),conflict=blocked||keys.some(key=>(occupied.get(key)??[]).some(entry=>dayDistance(entry.date,original)<MIN_CLUB_GAP));
+    const keys=cupKeys(item.match),original=item.match.date,userInvolved=item.match.home.activeClubId===state.selectedClubId||item.match.away.activeClubId===state.selectedClubId,stale=Boolean(userInvolved&&original<state.currentDate),blocked=isClubDateBlockedByInternationalWindow(original,state.year),conflict=stale||blocked||keys.some(key=>(occupied.get(key)??[]).some(entry=>dayDistance(entry.date,original)<MIN_CLUB_GAP));
     if(conflict){
-      let chosen=original;
-      for(const delta of candidateOffsets(blocked)){const candidate=dateAdd(original,delta);if(candidate<state.currentDate||isClubDateBlockedByInternationalWindow(candidate,state.year))continue;const safe=keys.every(key=>(occupied.get(key)??[]).every(entry=>dayDistance(entry.date,candidate)>=MIN_CLUB_GAP));if(safe){chosen=candidate;break;}}
-      if(chosen!==original){item.match.originalDate=item.match.originalDate??original;item.match.date=chosen;item.match.roundDue=roundForDate(state,chosen);item.match.rescheduledReason=blocked?`${internationalReason(state,original)} Partida de clubes reagendada.`:"Conflito de calendário: foi preservado um intervalo mínimo entre compromissos do clube.";}
+      let chosen=original,anchor=stale?state.currentDate:original;
+      for(const delta of candidateOffsets(blocked||stale)){const candidate=dateAdd(anchor,delta);if(candidate<state.currentDate||isClubDateBlockedByInternationalWindow(candidate,state.year))continue;const safe=keys.every(key=>(occupied.get(key)??[]).every(entry=>dayDistance(entry.date,candidate)>=MIN_CLUB_GAP));if(safe){chosen=candidate;break;}}
+      if(chosen!==original){item.match.originalDate=item.match.originalDate??original;item.match.date=chosen;item.match.roundDue=roundForDate(state,chosen);item.match.rescheduledReason=stale?"Partida de copa pendente recuperada e reposicionada na próxima data válida.":blocked?`${internationalReason(state,original)} Partida de clubes reagendada.`:"Conflito de calendário: foi preservado um intervalo mínimo entre compromissos do clube.";}
     }
     for(const key of keys)occupied.set(key,[...(occupied.get(key)??[]),{date:item.match.date,matchId:item.match.id}]);
   }
@@ -77,6 +77,7 @@ function repairControlledClubSchedule(state:SeasonState){
     if(chosen!==original){fixture.originalDate=fixture.originalDate??original;fixture.date=chosen;fixture.rescheduledReason=original<state.currentDate?"Partida atrasada reposicionada para a próxima data válida do calendário.":"Partida remarcada para evitar sobreposição e preservar o intervalo entre compromissos do clube.";}
     occupied.push(fixture.date!);latest=fixture.date!;
   }
+  if(pending[0])state.currentRound=pending[0].round;
 }
 
 function parallelKeys(league:{teams:Array<{id:string;name:string}>},fixture:LeagueFixture){const names=[league.teams.find(team=>team.id===fixture.homeClubId)?.name,league.teams.find(team=>team.id===fixture.awayClubId)?.name].filter(Boolean) as string[];return names.map(name=>`name:${normalize(name)}`);}
