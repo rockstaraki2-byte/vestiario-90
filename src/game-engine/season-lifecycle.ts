@@ -1,5 +1,6 @@
 import { sortedStandings } from "./league";
 import type { SeasonState } from "./season";
+import { repairSeasonIntegrity } from "./season-integrity";
 
 export type SeasonHonor={competitionId:string;competitionName:string;championName:string;kind:"Liga"|"Copa nacional"|"Continental"|"Estadual"};
 export type SeasonSummary={year:number;closedAt:string;leagueChampion:string;userLeaguePosition:number;honors:SeasonHonor[]};
@@ -22,7 +23,7 @@ function pendingUserCupMatches(state:SeasonState){return state.worldCompetitions
 function reopenPrematureClosure(state:SeasonState){return state.completed?{...state,completed:false,seasonSummary:undefined}:state;}
 
 export function closeSeasonIfReady(state:SeasonState){
- let next=publishCompetitionChampions(state);
+ let next=publishCompetitionChampions(repairSeasonIntegrity(state).state);
  if(next.completed&&next.seasonSummary?.year===next.year)return next;
  const leagueFinished=next.league.fixtures.every(fixture=>fixture.played);
  if(!leagueFinished)return reopenPrematureClosure(next);

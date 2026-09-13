@@ -1,0 +1,32 @@
+name: Long-term stability
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 9 * * *"
+  pull_request:
+    paths:
+      - "src/game-engine/season.ts"
+      - "src/game-engine/season-lifecycle.ts"
+      - "src/game-engine/season-integrity.ts"
+      - "src/game-engine/season-stability.stress.ts"
+      - "src/game-engine/calendar-coordinator.ts"
+      - "src/game-engine/world-competitions.ts"
+      - "src/game-engine/world-leagues.ts"
+      - "src/game-engine/season-ecosystem.ts"
+
+permissions:
+  contents: read
+
+jobs:
+  twenty-season-stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:stability
