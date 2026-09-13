@@ -37,7 +37,9 @@ export function auditSeasonIntegrity(state:SeasonState):SeasonIntegrityReport{
   for(const match of tournament.matches){
    worldMatchKeys.push(`${tournament.definition.id}:${match.id}`);
    if(!validIsoDate(match.date))issue("MISSING_CUP_DATE","error",`A partida ${match.id} de ${tournament.definition.shortName} está sem data válida.`);
-   if(!participantIds.has(match.home.id)||!participantIds.has(match.away.id)||match.home.id===match.away.id)issue("INVALID_CUP_FIXTURE","error",`A partida ${match.id} de ${tournament.definition.shortName} possui participantes inválidos.`);
+   if(!match.home?.id||!match.away?.id||match.home.id===match.away.id)issue("INVALID_CUP_FIXTURE","error",`A partida ${match.id} de ${tournament.definition.shortName} possui participantes inválidos.`);
+   if(match.home.activeClubId&&!clubSet.has(match.home.activeClubId))issue("INVALID_CUP_ACTIVE_CLUB","error",`A partida ${match.id} aponta um clube ativo inexistente no mandante.`);
+   if(match.away.activeClubId&&!clubSet.has(match.away.activeClubId))issue("INVALID_CUP_ACTIVE_CLUB","error",`A partida ${match.id} aponta um clube ativo inexistente no visitante.`);
   }
   if(tournament.completed&&(!tournament.championId||!participantIds.has(tournament.championId)))issue("COMPLETED_TOURNAMENT_WITHOUT_CHAMPION","error",`${tournament.definition.shortName} terminou sem campeão válido.`);
  }
