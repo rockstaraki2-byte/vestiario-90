@@ -17,6 +17,7 @@ function forceFinishForStress(source:SeasonState){
  state.currentRound=(state.league.totalRounds??38)+1;state.currentDate=maxDate(state);
  return closeSeasonIfReady(state);
 }
+function issueText(state:SeasonState){return auditSeasonIntegrity(state).issues.map(item=>`${item.code}: ${item.message}`).join(" | ");}
 
 describe("long-term career stability",()=>{
  it("survives 20 consecutive season transitions and stays structurally healthy",()=>{
@@ -26,13 +27,13 @@ describe("long-term career stability",()=>{
    const closingYear=state.year;
    state=forceFinishForStress(state);
    const closedAudit=auditSeasonIntegrity(state);
-   expect(closedAudit.errors,`integrity errors while closing ${closingYear}: ${closedAudit.issues.map(i=>i.code).join(",")}`).toBe(0);
+   expect(closedAudit.errors,`integrity errors while closing ${closingYear}: ${issueText(state)}`).toBe(0);
    expect(state.completed).toBe(true);
    expect(state.seasonSummary?.year).toBe(closingYear);
    expect(state.seasonHistory?.filter(item=>item.year===closingYear)).toHaveLength(1);
    state=startNextSeason(state);
    const openedAudit=auditSeasonIntegrity(state);
-   expect(openedAudit.errors,`integrity errors while opening ${state.year}: ${openedAudit.issues.map(i=>i.code).join(",")}`).toBe(0);
+   expect(openedAudit.errors,`integrity errors while opening ${state.year}: ${issueText(state)}`).toBe(0);
    expect(state.completed).toBe(false);
    expect(state.year).toBe(closingYear+1);
    expect(state.league.fixtures.some(fixture=>!fixture.played)).toBe(true);
