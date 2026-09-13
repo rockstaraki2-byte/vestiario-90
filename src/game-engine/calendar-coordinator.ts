@@ -77,7 +77,6 @@ function repairControlledClubSchedule(state:SeasonState){
     if(chosen!==original){fixture.originalDate=fixture.originalDate??original;fixture.date=chosen;fixture.rescheduledReason=original<state.currentDate?"Partida atrasada reposicionada para a próxima data válida do calendário.":"Partida remarcada para evitar sobreposição e preservar o intervalo entre compromissos do clube.";}
     occupied.push(fixture.date!);latest=fixture.date!;
   }
-  if(pending[0])state.currentRound=pending[0].round;
 }
 
 function parallelKeys(league:{teams:Array<{id:string;name:string}>},fixture:LeagueFixture){const names=[league.teams.find(team=>team.id===fixture.homeClubId)?.name,league.teams.find(team=>team.id===fixture.awayClubId)?.name].filter(Boolean) as string[];return names.map(name=>`name:${normalize(name)}`);}
