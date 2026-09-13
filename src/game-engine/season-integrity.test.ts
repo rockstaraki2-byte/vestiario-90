@@ -1,0 +1,13 @@
+import{describe,expect,it}from"vitest";
+import{coordinateSeasonCalendars}from"./calendar-coordinator";
+import{pickAiStartingXI}from"./club-ai";
+import{internationalDutyPlayerIds}from"./international-duty";
+import{createSeason}from"./season";
+import{processWorldCompetitionsByDate}from"./world-competitions";
+
+describe("season integrity",()=>{
+ it("adds verified state championships to Brazilian saves and starts before the first user state match",()=>{const state=createSeason("state-calendar",2026),states=state.worldCompetitions.tournaments.filter(t=>t.definition.kind==="Estadual");expect(states.length).toBeGreaterThanOrEqual(10);const userMatches=states.flatMap(t=>t.matches).filter(m=>m.home.activeClubId===state.selectedClubId||m.away.activeClubId===state.selectedClubId).sort((a,b)=>a.date.localeCompare(b.date));expect(userMatches.length).toBeGreaterThan(0);expect(state.currentDate<userMatches[0].date).toBe(true)});
+ it("processes cup fixtures by real calendar date instead of league round",()=>{const state=createSeason("cup-by-date",2026),pending=state.worldCompetitions.tournaments.flatMap(t=>t.matches).filter(m=>!m.played).sort((a,b)=>a.date.localeCompare(b.date)),target=pending[0];expect(target).toBeTruthy();const next=processWorldCompetitionsByDate(state.worldCompetitions,target.date,"cup-by-date");const played=next.tournaments.flatMap(t=>t.matches).find(m=>m.id===target.id);expect(played?.played).toBe(true)});
+ it("keeps called-up players out of club selections during international windows",()=>{const state=createSeason("international-duty",2026);state.currentDate="2026-03-25";const duty=internationalDutyPlayerIds(state),club=state.league.clubs.map(c=>({club:c,count:c.players.filter(p=>duty.has(p.id)).length})).sort((a,b)=>b.count-a.count)[0];expect(duty.size).toBeGreaterThan(0);expect(club.count).toBeGreaterThan(0);const xi=pickAiStartingXI(club.club,state.clubAi,duty);expect(xi.every(player=>!duty.has(player.id))).toBe(true)});
+ it("recovers an overdue user cup match instead of letting it disappear",()=>{const state=createSeason("legacy-cup-repair",2026),match=state.worldCompetitions.tournaments.flatMap(t=>t.matches).find(m=>m.home.activeClubId===state.selectedClubId||m.away.activeClubId===state.selectedClubId);expect(match).toBeTruthy();state.currentDate="2026-09-01";match!.date="2026-04-01";match!.played=false;match!.originalDate=undefined;const repaired=coordinateSeasonCalendars(state),fixed=repaired.worldCompetitions.tournaments.flatMap(t=>t.matches).find(m=>m.id===match!.id)!;expect(fixed.date>=state.currentDate).toBe(true);expect(fixed.originalDate).toBe("2026-04-01");expect(fixed.rescheduledReason).toContain("pendente recuperada")});
+});

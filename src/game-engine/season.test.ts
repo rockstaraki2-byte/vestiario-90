@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createSeason, playCurrentRound, resolveSeasonWorldChoice, startNextSeason } from "./season";
+import { closeSeasonIfReady } from "./season-lifecycle";
 import type { MatchResult } from "./match";
 
 describe("season engine",()=>{
@@ -31,15 +32,20 @@ describe("season engine",()=>{
     expect(result.state.lineupIds).toHaveLength(11);
     expect(result.state.lineupIds.every(id=>target.players.some(player=>player.id===id))).toBe(true);
   });
-  it("fecha 38 rodadas e permite virar a temporada",()=>{
+  it("encerra a temporada somente depois dos compromissos finais e permite virar o ano",()=>{
     let season=createSeason("carreira",2026);
     for(let round=1;round<=38;round++)season=playCurrentRound(season);
-    expect(season.completed).toBe(true);
     expect(new Set(season.league.standings.map(s=>s.played))).toEqual(new Set([38]));
     expect(season.championClubId).toBeTruthy();
+    expect(season.completed).toBe(false);
+    for(const tournament of season.worldCompetitions.tournaments)for(const match of tournament.matches)if(match.home.activeClubId===season.selectedClubId||match.away.activeClubId===season.selectedClubId)match.played=true;
+    season=closeSeasonIfReady(season);
+    expect(season.completed).toBe(true);
+    expect(season.seasonSummary?.leagueChampion).toBeTruthy();
+    expect(season.livingWorld.news.some(item=>item.id===`season-closed-${season.year}`)).toBe(true);
     const next=startNextSeason(season);
     expect(next.year).toBe(2027);
     expect(next.currentRound).toBe(1);
     expect(new Set(next.league.standings.map(s=>s.played))).toEqual(new Set([0]));
-  },25_000);
+  },35_000);
 });
