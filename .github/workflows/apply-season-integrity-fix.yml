@@ -25,9 +25,7 @@ jobs:
           cache: npm
       - name: Apply structural fixes
         run: node scripts/apply-season-integrity-fix-v2.mjs
-      - name: Validate
-        run: npm ci && npm run lint && npm test && npm run build
-      - name: Commit generated source fixes
+      - name: Materialize source fixes on feature branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -36,3 +34,5 @@ jobs:
           git commit -m "fix(season): close seasons and preserve full competition calendar"
           git pull --rebase origin fix/season-lifecycle-calendar-duty-states
           git push origin HEAD:fix/season-lifecycle-calendar-duty-states
+      - name: Validate branch
+        run: npm ci && npm run lint && npm test && npm run build
