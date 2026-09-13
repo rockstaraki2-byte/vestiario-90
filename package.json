@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:stability": "vitest run src/game-engine/season-stability.stress.ts --testTimeout=300000",
+    "test:stability": "vitest run --config vitest.stability.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
