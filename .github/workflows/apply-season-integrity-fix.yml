@@ -6,6 +6,7 @@ on:
       - fix/season-lifecycle-calendar-duty-states
     paths:
       - "scripts/apply-season-integrity-fix.mjs"
+      - "scripts/apply-season-integrity-fix-v2.mjs"
       - ".github/workflows/apply-season-integrity-fix.yml"
 permissions:
   contents: write
@@ -23,7 +24,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Apply structural fixes
-        run: node scripts/apply-season-integrity-fix.mjs
+        run: node scripts/apply-season-integrity-fix-v2.mjs
       - name: Validate
         run: npm ci && npm run lint && npm test && npm run build
       - name: Commit generated source fixes
