@@ -19,6 +19,7 @@ function forceFinishForStress(source:SeasonState){
 }
 function issueText(state:SeasonState){return auditSeasonIntegrity(state).issues.map(item=>`${item.code}: ${item.message}`).join(" | ");}
 function selfCupMatches(state:SeasonState){return state.worldCompetitions.tournaments.flatMap(t=>t.matches.filter(match=>match.home.id===match.away.id).map(match=>`${t.definition.id}:${match.id}`));}
+function thinSquads(state:SeasonState){return state.league.clubs.filter(club=>club.players.length<22).map(club=>`${club.name}:${club.players.length}`).join(", ");}
 
 describe("long-term career stability",()=>{
  it("survives 20 consecutive season transitions and stays structurally healthy",()=>{
@@ -43,7 +44,7 @@ describe("long-term career stability",()=>{
    if(checkpoints.has(seasonNumber)){
     expect(state.seasonHistory?.length).toBe(seasonNumber);
     expect(state.league.clubs.length).toBeGreaterThan(0);
-    expect(state.league.clubs.every(club=>club.players.length>=11)).toBe(true);
+    expect(thinSquads(state),`squads below 22 players in ${state.year}: ${thinSquads(state)}`).toBe("");
    }
   }
   expect(state.year).toBe(2046);
