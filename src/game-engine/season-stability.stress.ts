@@ -18,11 +18,13 @@ function forceFinishForStress(source:SeasonState){
  return closeSeasonIfReady(state);
 }
 function issueText(state:SeasonState){return auditSeasonIntegrity(state).issues.map(item=>`${item.code}: ${item.message}`).join(" | ");}
+function selfCupMatches(state:SeasonState){return state.worldCompetitions.tournaments.flatMap(t=>t.matches.filter(match=>match.home.id===match.away.id).map(match=>`${t.definition.id}:${match.id}`));}
 
 describe("long-term career stability",()=>{
  it("survives 20 consecutive season transitions and stays structurally healthy",()=>{
   let state=createSeason("twenty-season-stress",2026);
   const checkpoints=new Set([5,10,20]);
+  expect(selfCupMatches(state),"competition participant matching must never create a club against itself").toHaveLength(0);
   for(let seasonNumber=1;seasonNumber<=20;seasonNumber++){
    const closingYear=state.year;
    state=forceFinishForStress(state);
@@ -34,6 +36,7 @@ describe("long-term career stability",()=>{
    state=startNextSeason(state);
    const openedAudit=auditSeasonIntegrity(state);
    expect(openedAudit.errors,`integrity errors while opening ${state.year}: ${issueText(state)}`).toBe(0);
+   expect(selfCupMatches(state),`identity collision in competitions generated for ${state.year}`).toHaveLength(0);
    expect(state.completed).toBe(false);
    expect(state.year).toBe(closingYear+1);
    expect(state.league.fixtures.some(fixture=>!fixture.played)).toBe(true);
