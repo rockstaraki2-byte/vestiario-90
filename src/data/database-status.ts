@@ -11,6 +11,7 @@ import { INTERNATIONAL_2026_ROSTERS } from "./world-2026/international-rosters.g
 import { REAL_COMPETITION_CALENDAR, type RealCalendarStatus } from "./world-2026/real-competition-calendar";
 import { YOUTH_WORLD_2026_COMPETITIONS } from "./world-2026/youth-competitions.generated";
 import { BRAZIL_STATE_2026_COMPETITIONS, BRAZIL_STATE_2026_META, BRAZIL_STATE_2026_SYNC_ERRORS } from "./world-2026/state-competitions.generated";
+import { DOMESTIC_CUP_FIELD_CONFIGS, DOMESTIC_CUP_META, domesticCupClubsForStatus } from "./world-2026/domestic-cup-fields";
 
 export type DatabaseStatusLevel="updated"|"partial"|"pending"|"error";
 export type DatabaseHealthLevel=DatabaseStatusLevel|"na";
@@ -30,13 +31,7 @@ type RowOptions={expectedClubs?:number;note?:string;syncError?:string;calendarSt
 
 export const DATABASE_MIN_ROSTER_SIZE=18;
 export const DATABASE_ENGINE_SUPPORTED_IDS:ReadonlySet<string>=new Set(["CDB","LIB","SUD","FAC","EFL","CDR","CDF","UCL","UEL","UECL"]);
-const DOMESTIC_ENGINE_CUPS=[
- {id:"CDB",name:"Copa do Brasil",country:"Brasil",participants:126},
- {id:"FAC",name:"FA Cup",country:"Inglaterra",participants:745},
- {id:"EFL",name:"EFL Cup (Carabao Cup)",country:"Inglaterra",participants:92},
- {id:"CDR",name:"Copa del Rey",country:"Espanha",participants:116},
- {id:"CDF",name:"Coupe de France",country:"França",participants:7000},
-] as const;
+const DOMESTIC_ENGINE_CUPS=DOMESTIC_CUP_FIELD_CONFIGS;
 const calendarById=new Map(REAL_COMPETITION_CALENDAR.map(comp=>[comp.id,comp] as const));
 const stateEngineIds=new Set(BRAZIL_STATE_2026_COMPETITIONS.filter(comp=>comp.tier==="A1"&&comp.clubs.length>=4).map(comp=>comp.id));
 
@@ -115,8 +110,8 @@ for(const comp of INTERNATIONAL_2026_PARTICIPANTS){const clubs=intlRosters.get(c
 for(const [id,error] of intlErrors){if(rows.some(r=>r.id===id))continue;rows.push(row(id,id,intlCountry(id),"Internacional",[],"2026-09-10",{syncError:error,note:`Falha na sincronização: ${error}`}))}
 
 const existing=new Set(rows.map(r=>r.id));
-for(const comp of REAL_COMPETITION_CALENDAR){if(existing.has(comp.id))continue;const category:DatabaseStatusCategory=comp.scope==="state"?"Estadual":comp.scope==="domestic_cup"?"Copa nacional":comp.scope==="international_youth"||comp.scope==="national_youth"?"Internacional":"Base",cup=DOMESTIC_ENGINE_CUPS.find(item=>item.id===comp.id);rows.push(row(comp.id,comp.name,comp.country,category,[],"2026-09-14",{expectedClubs:cup?.participants,calendarStatus:calendarLevel(comp.status),note:`Calendário ${comp.status==="confirmed"?"real confirmado":comp.status==="partial"?"parcialmente confirmado":"aguardando datas oficiais"} • fonte: ${comp.source}${comp.note?` • ${comp.note}`:""}`}))}
-for(const cup of DOMESTIC_ENGINE_CUPS){if(rows.some(r=>r.id===cup.id))continue;rows.push(row(cup.id,cup.name,cup.country,"Copa nacional",[],"2026-09-14",{expectedClubs:cup.participants,calendarStatus:"partial",engineStatus:"updated",note:"Motor competitivo ativo; datas internas disponíveis, mas participantes reais da copa ainda não foram auditados neste painel"}))}
+for(const comp of REAL_COMPETITION_CALENDAR){if(existing.has(comp.id))continue;const category:DatabaseStatusCategory=comp.scope==="state"?"Estadual":comp.scope==="domestic_cup"?"Copa nacional":comp.scope==="international_youth"||comp.scope==="national_youth"?"Internacional":"Base",cup=DOMESTIC_ENGINE_CUPS.find(item=>item.id===comp.id),cupClubs=cup?domesticCupClubsForStatus(cup.id):[];rows.push(row(comp.id,comp.name,comp.country,category,cupClubs,cup?DOMESTIC_CUP_META.snapshot:"2026-09-14",{expectedClubs:cup?.fieldSize,calendarStatus:calendarLevel(comp.status),note:cup?`${cup.entryStage} • ${cup.mode==="confirmed"?"participantes reais confirmados":"campo real elegível até definição do sorteio"} • ${cup.fieldSize} clubes no motor / ${cup.totalParticipants} na competição • ${cup.source}`:`Calendário ${comp.status==="confirmed"?"real confirmado":comp.status==="partial"?"parcialmente confirmado":"aguardando datas oficiais"} • fonte: ${comp.source}${comp.note?` • ${comp.note}`:""}`}))}
+for(const cup of DOMESTIC_ENGINE_CUPS){if(rows.some(r=>r.id===cup.id))continue;const clubs=domesticCupClubsForStatus(cup.id);rows.push(row(cup.id,cup.name,cup.country,"Copa nacional",clubs,DOMESTIC_CUP_META.snapshot,{expectedClubs:cup.fieldSize,calendarStatus:"partial",engineStatus:"updated",note:`${cup.entryStage} • ${cup.mode==="confirmed"?"participantes reais confirmados":"campo real elegível"} • ${cup.fieldSize} clubes no motor / ${cup.totalParticipants} na competição • ${cup.source}`}))}
 
 export const DATABASE_STATUS_ROWS=rows;
 export const DATABASE_STATUS_SUMMARY={
