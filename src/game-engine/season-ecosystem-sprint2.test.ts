@@ -18,6 +18,8 @@ describe("football ecosystem sprint 2",()=>{
     expect(duplicates).toEqual([]);
     expect(names).toContain("Botafogo-SP");
     expect(names).toContain("Botafogo-PB");
+    expect(names).toContain("América-RN");
+    expect(names).toContain("América-RJ");
   });
 
   it("compõe toda a pirâmide brasileira sem sobrescrever a Série B",()=>{
