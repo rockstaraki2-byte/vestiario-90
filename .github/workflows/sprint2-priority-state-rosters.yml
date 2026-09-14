@@ -1,0 +1,59 @@
+name: Sprint 2 priority state rosters
+on:
+  push:
+    branches:
+      - integration/database-roadmap
+    paths:
+      - "scripts/run-brazil-state-sync-v5.mjs"
+      - ".github/workflows/sprint2-priority-state-rosters.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: v90-sprint2-state-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  populate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/database-roadmap
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Resolve priority 2026 state championships
+        run: node scripts/run-brazil-state-sync-v5.mjs
+      - name: Validate priority state snapshot
+        run: |
+          node - <<'NODE'
+          import("./src/data/world-2026/state-competitions.generated.ts").then((m) => {
+            const priority = ["MGA1","RSA1","PRA1","BAA1","PEA1","GOA1"];
+            const expected = {MGA1:12,RSA1:12,PRA1:12,BAA1:10,PEA1:8,GOA1:12};
+            const rows = new Map(m.BRAZIL_STATE_2026_COMPETITIONS.map((c) => [c.id,c]));
+            for (const id of priority) {
+              const c = rows.get(id);
+              if (!c) throw new Error(`${id} missing from generated snapshot`);
+              if (c.clubs.length < Math.ceil(expected[id] * 0.72)) throw new Error(`${id} insufficient clubs: ${c.clubs.length}/${expected[id]}`);
+              if (c.coverage?.players < c.clubs.length * 8) throw new Error(`${id} insufficient roster coverage`);
+              if (String(c.sourceMode ?? "").includes("preserved")) throw new Error(`${id} must be freshly resolved in Sprint 2`);
+              for (const club of c.clubs) {
+                if (!club.transfermarktId || !club.imageUrl) throw new Error(`${id}: club without real identity/badge`);
+              }
+              console.log(`${id}: ${c.clubs.length} clubs / ${c.coverage?.players ?? 0} players / ${c.sourceMode}`);
+            }
+          }).catch((error) => { console.error(error); process.exit(1); });
+          NODE
+          npm run build
+      - name: Commit validated state snapshot to integration branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/world-2026/state-competitions.generated.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data(sprint2): populate priority Brazilian state championships"
+          git push origin HEAD:integration/database-roadmap
