@@ -40,6 +40,13 @@ function disambiguateBrazilClub(id: "BRA2" | "BRA3", club: CompetitionClubRoster
     : { ...club, name: "Botafogo-PB", shortName: "BOTAFOGO-PB" };
 }
 
+function disambiguateSerieDClub(club: CompetitionClubRoster): CompetitionClubRoster {
+  if (club.name !== "América FC") return club;
+  if (club.transfermarktId === 1751) return { ...club, name: "América-RN", shortName: "AMÉRICA-RN" };
+  if (club.transfermarktId === 9138) return { ...club, name: "América-RJ", shortName: "AMÉRICA-RJ" };
+  return club;
+}
+
 const get = (id: "BRA2" | "BRA3" | "CB20" | "SPjr") => {
   const value = expanded.get(id);
   if (!value) throw new Error(`Competição ${id} não encontrada no snapshot 2026`);
@@ -49,7 +56,7 @@ const get = (id: "BRA2" | "BRA3" | "CB20" | "SPjr") => {
   return value.clubs;
 };
 
-const serieD = applyBrazilRosterOverrides("BRA4", BRAZIL_SERIE_D_2026_CLUBS);
+const serieD = applyBrazilRosterOverrides("BRA4", BRAZIL_SERIE_D_2026_CLUBS).map(disambiguateSerieDClub);
 
 export const BRAZIL_2026_COMPETITIONS: CompetitionDefinition[] = [
   { id: "BRA1", name: "Campeonato Brasileiro Série A", shortName: "Série A", kind: "professional", country: "Brasil", season: 2026, selectableAsCareer: true, startDate: "2026-01-28", roundCadenceDays: 7, doubleRoundRobin: true, benchSize: 12, maxSubstitutions: 5, clubs: serieA },
