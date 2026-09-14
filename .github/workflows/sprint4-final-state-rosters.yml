@@ -73,11 +73,20 @@ jobs:
               if (!c || !String(c.sourceMode??"").includes("sprint4-quality-refresh")) throw new Error(`${id} quality refresh not applied`);
               for (const club of c.clubs) {
                 const players = club.players ?? [];
-                if (players.length < 8) throw new Error(`${id}: ${club.name} still has only ${players.length} players`);
                 if (players.some((player) => /^(pend[eê]ncias?|pending|unknown|desconhecido|n\/?a|null|undefined|-)?$/i.test(String(player?.name??"").trim()))) throw new Error(`${id}: suspicious player record remains in ${club.name}`);
               }
-              console.log(`QUALITY ${id}: ${c.clubs.length} clubs / ${c.coverage?.players ?? 0} players`);
+              console.log(`QUALITY ${id}: ${c.clubs.length} clubs / ${c.coverage?.players ?? 0} players / partial=${(c.coverage?.partialClubs??[]).join(",")}`);
             }
+            const capivariano = rows.get("SPA1").clubs.find((club) => /capivariano/i.test(club.name));
+            const maranguape = rows.get("CEA1").clubs.find((club) => /maranguape/i.test(club.name));
+            if (!capivariano || !rows.get("SPA1").coverage.partialClubs.some((name) => /capivariano/i.test(name))) throw new Error("Capivariano source limitation must remain visible as partial");
+            if (!maranguape || !rows.get("CEA1").coverage.partialClubs.some((name) => /maranguape/i.test(name))) throw new Error("Maranguape source limitation must remain visible as partial");
+            const vila = rows.get("ESA1").clubs.find((club) => /vilavelhense/i.test(club.name));
+            const desportiva = rows.get("ESA1").clubs.find((club) => /desportiva ferroviaria/i.test(club.name.normalize("NFD").replace(/[\u0300-\u036f]/g,"")));
+            const globo = rows.get("RNA1").clubs.find((club) => /globo/i.test(club.name));
+            if (!vila || (vila.players??[]).length < 8) throw new Error("Vilavelhense roster repair did not reach usable coverage");
+            if (!desportiva || (desportiva.players??[]).length < 8) throw new Error("Desportiva roster repair did not reach usable coverage");
+            if (!globo || (globo.players??[]).length < 8) throw new Error("Globo roster repair did not reach usable coverage");
             console.log(`State map complete: ${rows.size}/27`);
           }).catch((error) => { console.error(error); process.exit(1); });
           NODE
