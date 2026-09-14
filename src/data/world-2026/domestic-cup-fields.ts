@@ -30,6 +30,10 @@ const EFL_2026_THIRD_ROUND=[
  "Leyton Orient","Bradford City","Reading","Brentford","Peterborough United","Barnsley","West Ham United","Fulham"
 ] as const;
 
+const CONFIRMED_CLUB_IDS:Partial<Record<DomesticCupEngineId,Record<string,string>>>={
+ CDB:{"Operário-PR":"27214"}
+};
+
 export const DOMESTIC_CUP_FIELD_CONFIGS:readonly DomesticCupFieldConfig[]=[
  {id:"CDB",name:"Copa do Brasil",country:"Brasil",totalParticipants:126,fieldSize:32,entryStage:"5ª fase",mode:"confirmed",tierIds:["BRA1","BRA2","BRA3","BRA4"],confirmedNames:CDB_2026_FIFTH_PHASE,source:"CBF • sorteio oficial da 5ª fase em 23/03/2026",note:"Campo exato da 5ª fase: 20 clubes da Série A + 12 classificados da 4ª fase."},
  {id:"FAC",name:"FA Cup",country:"Inglaterra",totalParticipants:745,fieldSize:64,entryStage:"3ª fase",mode:"eligibility",tierIds:["ENG1","ENG2","ENG3","ENG4"],source:"The FA • calendário 2026/27; sorteio da 3ª fase ainda futuro no snapshot",note:"Os 44 clubes de Premier League/Championship entram automaticamente; as 20 vagas restantes são preenchidas de forma determinística com clubes reais das divisões inferiores carregadas até o sorteio real existir."},
@@ -107,7 +111,8 @@ export function resolveDomesticCupField(id:DomesticCupEngineId):DomesticCupResol
  };
  const unresolvedConfirmed:string[]=[];
  for(const name of config.confirmedNames??[]){
-  const club=eligible.find(item=>sameClub(item.name,name));
+  const confirmedId=CONFIRMED_CLUB_IDS[id]?.[name];
+  const club=confirmedId?eligible.find(item=>String(item.transfermarktId)===confirmedId):eligible.find(item=>sameClub(item.name,name));
   if(!club)unresolvedConfirmed.push(name);else add(club);
  }
  const beforeFallback=chosen.length;
