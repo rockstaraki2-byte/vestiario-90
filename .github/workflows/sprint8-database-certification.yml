@@ -1,0 +1,36 @@
+name: Sprint 8 database certification
+on:
+  push:
+    branches:
+      - sprint8-database-certification
+    paths:
+      - "src/data/database-certification.ts"
+      - "src/data/database-certification.test.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/sprint8-database-certification.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: v90-sprint8-certification-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Dependency security audit
+        run: npm audit --audit-level=moderate
+      - name: Certify playable database
+        run: npx vitest run src/data/database-certification.test.ts src/data/database-status.test.ts src/data/world-2026/international-cup-fields.test.ts src/game-engine/international-cup-engine.test.ts
+      - name: Validate full test suite
+        run: npm test
+      - name: Validate production build
+        run: npm run build
