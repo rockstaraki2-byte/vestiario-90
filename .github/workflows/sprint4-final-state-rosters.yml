@@ -43,6 +43,8 @@ jobs:
               ALA1:["20092","12600","18545","11449","52513","85388","96022","12914","138869"]
             };
             const qualityTargets = new Set(["SPA1","CEA1","ESA1","RNA1"]);
+            const invalidClubNames = new Set(["virtual","placeholder","pendencia","pendencias"]);
+            const normalize = (value) => String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
             const rows = new Map(m.BRAZIL_STATE_2026_COMPETITIONS.map((c) => [c.id,c]));
             if (rows.size !== 27) throw new Error(`Expected 27 state championships, found ${rows.size}`);
             for (const [id,ids] of Object.entries(expectedIds)) {
@@ -59,7 +61,7 @@ jobs:
               if (missing.length || unexpected.length) throw new Error(`${id} identity mismatch; missing=${missing.join(",")} unexpected=${unexpected.join(",")}`);
               for (const club of c.clubs) {
                 if (!club.transfermarktId || !club.imageUrl) throw new Error(`${id}: club without identity/badge`);
-                if (/virtual|placeholder|pend[eê]ncia/i.test(String(club.name))) throw new Error(`${id}: invalid club ${club.name}`);
+                if (invalidClubNames.has(normalize(club.name))) throw new Error(`${id}: invalid club ${club.name}`);
               }
               console.log(`${id}: ${c.clubs.length} clubs / ${c.coverage?.players ?? 0} players / ${c.sourceMode}`);
             }
