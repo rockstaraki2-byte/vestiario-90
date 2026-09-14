@@ -8,8 +8,14 @@ function keys(values:string[]){return values.map(value=>value.normalize("NFD").r
 describe("football ecosystem sprint 2",()=>{
   it("mantém identidades canônicas únicas entre as séries nacionais",()=>{
     const professional=BRAZIL_2026_COMPETITIONS.filter(item=>item.kind==="professional");
-    const names=professional.flatMap(item=>item.clubs.map(club=>club.name));
-    expect(new Set(keys(names)).size).toBe(names.length);
+    const seen=new Map<string,string>(),duplicates:string[]=[],names:string[]=[];
+    for(const competition of professional)for(const club of competition.clubs){
+      names.push(club.name);
+      const key=keys([club.name])[0],previous=seen.get(key);
+      if(previous)duplicates.push(`${club.name}: ${previous} x ${competition.id}`);
+      else seen.set(key,competition.id);
+    }
+    expect(duplicates).toEqual([]);
     expect(names).toContain("Botafogo-SP");
     expect(names).toContain("Botafogo-PB");
   });
