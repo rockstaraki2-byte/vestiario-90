@@ -4,6 +4,13 @@ const BASE = "https://tmapi-alpha.transfermarkt.technology";
 const STATE_FILE = "src/data/world-2026/state-competitions.generated.ts";
 const TARGET_COMPETITIONS = new Set(["SPA1","CEA1","ESA1","RNA1"]);
 const headers = { Accept:"application/json", "Accept-Language":"pt-BR", "User-Agent":"Mozilla/5.0 (Vestiario90 sprint4 quality refresh)" };
+const siteHeaders = {
+  Accept:"text/html,application/xhtml+xml,*/*",
+  "Accept-Language":"pt-BR,pt;q=0.9,en;q=0.7",
+  "Cache-Control":"no-cache",
+  Referer:"https://www.transfermarkt.com.br/",
+  "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/140 Safari/537.36"
+};
 const POS = { GOL:"GOL", ZAG:"ZAG", LD:"LD", LE:"LE", VOL:"VOL", MC:"MC", MEI:"MEI", PD:"PD", PE:"PE", CA:"ATA", SA:"ATA", MD:"PD" };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const clean = (value) => String(value ?? "").trim().replace(/\s+/g," ");
@@ -44,8 +51,7 @@ function mapPlayer(profile) {
     ...(profile?.marketValueDetails?.current?.determined&&marketValueEur!==null?{marketValueUpdated:profile.marketValueDetails.current.determined}:{})
   };
 }
-async function freshRoster(clubId) {
-  const playerIds = [...new Set(((await api(`club/${clubId}/squad`))?.data?.squad??[]).map((item)=>String(item?.playerId??"")).filter(Boolean))];
+async function profilesForIds(playerIds) {
   const profiles=[];
   for (let index=0; index<playerIds.length; index+=40) {
     const query=playerIds.slice(index,index+40).map((id)=>`ids[]=${encodeURIComponent(id)}`).join("&");
@@ -54,13 +60,42 @@ async function freshRoster(clubId) {
   }
   return profiles.map(mapPlayer).filter(Boolean);
 }
+function playerIdsFromSquadHtml(html) {
+  const table = html.match(/<table[^>]*class=["'][^"']*items[^"']*["'][^>]*>[\s\S]*?<\/table>/i)?.[0] ?? html;
+  const ids = [...table.matchAll(/\/spieler\/(\d+)/g)].map((match)=>String(match[1]));
+  return [...new Set(ids)];
+}
+async function publicSquadPlayerIds(clubId) {
+  const domains=["https://www.transfermarkt.com.br","https://www.transfermarkt.com","https://www.transfermarkt.co.uk"];
+  const paths=[`/x/kader/verein/${clubId}/saison_id/2025`,`/x/kader/verein/${clubId}`];
+  for(const domain of domains) for(const path of paths) {
+    try {
+      const response=await fetch(`${domain}${path}`,{headers:siteHeaders,redirect:"follow"});
+      if(!response.ok) continue;
+      const ids=playerIdsFromSquadHtml(await response.text());
+      if(ids.length>=8) return ids;
+    } catch {}
+  }
+  return [];
+}
+async function freshRoster(clubId) {
+  const apiIds = [...new Set(((await api(`club/${clubId}/squad`))?.data?.squad??[]).map((item)=>String(item?.playerId??"")).filter(Boolean))];
+  const apiRoster = await profilesForIds(apiIds);
+  if(apiRoster.length>=8) return {players:apiRoster,source:"tmapi-squad"};
+  const publicIds=await publicSquadPlayerIds(clubId);
+  if(publicIds.length) {
+    const publicRoster=await profilesForIds(publicIds);
+    if(publicRoster.length>apiRoster.length) return {players:publicRoster,source:"transfermarkt-public-squad"};
+  }
+  return {players:apiRoster,source:"tmapi-squad-partial"};
+}
 
 let source = await readFile(STATE_FILE,"utf8");
 const parsed = parseCompetitions(source);
 const results=[];
 for (const competition of parsed.competitions) {
   if (!TARGET_COMPETITIONS.has(competition.id)) continue;
-  let refreshed=0,kept=0,removedSuspicious=0;
+  let refreshed=0,kept=0,publicFallbacks=0,removedSuspicious=0;
   const clubErrors=[];
   for (const club of competition.clubs) {
     const cleanedExisting=(club.players??[]).filter((player)=>{
@@ -69,16 +104,18 @@ for (const competition of parsed.competitions) {
       return valid;
     });
     try {
-      const fresh=await freshRoster(club.transfermarktId);
+      const freshResult=await freshRoster(club.transfermarktId);
+      const fresh=freshResult.players;
       if (fresh.length >= 8) {
         club.players=fresh;
         club.marketValueEur=fresh.reduce((sum,item)=>sum+(item.marketValueEur??0),0);
         refreshed++;
+        if(freshResult.source==="transfermarkt-public-squad") publicFallbacks++;
       } else {
         club.players=cleanedExisting.length>=fresh.length?cleanedExisting:fresh;
         club.marketValueEur=club.players.reduce((sum,item)=>sum+(item.marketValueEur??0),0);
         kept++;
-        clubErrors.push({clubId:String(club.transfermarktId),error:`fresh roster below threshold (${fresh.length})`});
+        clubErrors.push({clubId:String(club.transfermarktId),error:`fresh roster below threshold (${fresh.length}; ${freshResult.source})`});
       }
     } catch(error) {
       club.players=cleanedExisting;
@@ -91,7 +128,7 @@ for (const competition of parsed.competitions) {
   const partialClubs=competition.clubs.filter((club)=>(club.players?.length??0)<10).map((club)=>club.name);
   competition.coverage={clubs:competition.clubs.length,players,partialClubs,clubErrors};
   competition.sourceMode=`${String(competition.sourceMode??"existing").replace(/\+sprint4-quality-refresh/g,"")}+sprint4-quality-refresh`;
-  results.push({id:competition.id,clubs:competition.clubs.length,players,partialClubs,refreshed,kept,removedSuspicious});
+  results.push({id:competition.id,clubs:competition.clubs.length,players,partialClubs,refreshed,kept,publicFallbacks,removedSuspicious});
 }
 source=source.slice(0,parsed.jsonStart)+JSON.stringify(parsed.competitions)+source.slice(parsed.end);
 await writeFile(STATE_FILE,source);
