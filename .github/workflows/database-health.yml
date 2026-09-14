@@ -5,22 +5,30 @@ on:
     paths:
       - "src/data/database-status.ts"
       - "src/data/database-status.test.ts"
+      - "src/data/database-certification.ts"
+      - "src/data/database-certification.test.ts"
       - "src/data/**/rosters*.ts"
       - "src/data/**/*.generated.ts"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/database-health.yml"
   push:
     branches: [main]
     paths:
       - "src/data/database-status.ts"
       - "src/data/database-status.test.ts"
+      - "src/data/database-certification.ts"
+      - "src/data/database-certification.test.ts"
       - "src/data/**/rosters*.ts"
       - "src/data/**/*.generated.ts"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/database-health.yml"
 
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,7 +36,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Validate database health model
-        run: npx vitest run src/data/database-status.test.ts
+      - name: Dependency security audit
+        run: npm audit --audit-level=moderate
+      - name: Validate database health and certification
+        run: npx vitest run src/data/database-status.test.ts src/data/database-certification.test.ts
       - name: Validate production build
         run: npm run build

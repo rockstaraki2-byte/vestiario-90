@@ -1,0 +1,89 @@
+name: Sprint 3 state rosters
+on:
+  push:
+    branches:
+      - integration/database-roadmap
+    paths:
+      - "scripts/run-brazil-state-sync-v8.mjs"
+      - "scripts/run-brazil-state-sync-v9.mjs"
+      - ".github/workflows/sprint3-state-rosters.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: v90-sprint3-state-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  populate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/database-roadmap
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Resolve Sprint 3 state championships
+        run: node scripts/run-brazil-state-sync-v9.mjs
+      - name: Validate Sprint 3 state snapshot
+        run: |
+          node - <<'NODE'
+          import("./src/data/world-2026/state-competitions.generated.ts").then((m) => {
+            const priority = ["PAA1","ALA1","SEA1","MAA1","PIA1","AMA1","DFA1","MSA1"];
+            const expectedIds = {
+              PAA1:["10997","6347","20799","20803","27642","32192","33211","54907","66814","94529","111762","119509"],
+              ALA1:["20092","12600","18545","11449","52513","85388","96022","138869"],
+              SEA1:["19956","87826","3280","122240","56342","94168","82391","8547","56341","7816"],
+              MAA1:["3319","12009","23778","34293","75260","87160","92884","137869"],
+              PIA1:["41872","62794","64925","87817","96019","96020","122695","137892"],
+              AMA1:["87727","87730","94182","46022","22782","104329","65676","8143"],
+              DFA1:["12279","7014","4790","3973","7015","27832","38023","74824","83810","87734"],
+              MSA1:["36962","7096","19709","32386","36304","77648","88545","115269","136568","137903"]
+            };
+            const rows = new Map(m.BRAZIL_STATE_2026_COMPETITIONS.map((c) => [c.id,c]));
+            const errors = m.BRAZIL_STATE_2026_SYNC_ERRORS;
+            for (const id of priority) {
+              const c = rows.get(id);
+              if (!c) throw new Error(`${id} missing from generated snapshot`);
+              if (c.clubs.length !== expectedIds[id].length) throw new Error(`${id} incomplete participants: ${c.clubs.length}/${expectedIds[id].length}`);
+              if (c.coverage?.players < c.clubs.length * 8) throw new Error(`${id} insufficient roster coverage: ${c.coverage?.players ?? 0}`);
+              if (String(c.sourceMode ?? "").includes("preserved")) throw new Error(`${id} must be freshly resolved in Sprint 3`);
+              if (errors.some((item) => String(item.id ?? item.competitionId ?? "") === id)) throw new Error(`${id} still has a sync error`);
+              const actualIds = c.clubs.map((club) => String(club.transfermarktId ?? ""));
+              const identities = new Set(actualIds);
+              if (identities.size !== c.clubs.length) throw new Error(`${id}: duplicate club identity detected`);
+              const missing = expectedIds[id].filter((clubId) => !identities.has(clubId));
+              const unexpected = actualIds.filter((clubId) => !expectedIds[id].includes(clubId));
+              if (missing.length || unexpected.length) throw new Error(`${id}: identity mismatch; missing=${missing.join(",")} unexpected=${unexpected.join(",")}`);
+              for (const club of c.clubs) {
+                if (!club.transfermarktId || !club.imageUrl) throw new Error(`${id}: club without real identity/badge`);
+                if (/virtual|placeholder/i.test(String(club.name))) throw new Error(`${id}: virtual participant ${club.name}`);
+              }
+              if (id === "ALA1") {
+                const murici = c.clubs.filter((club) => /murici/i.test(String(club.name)) || String(club.transfermarktId) === "138869");
+                if (murici.length !== 1 || String(murici[0].transfermarktId) !== "138869") throw new Error("ALA1 must contain only the 2026 Murici Sport Clube identity 138869");
+              }
+              if (id === "AMA1") {
+                const itacoatiara = c.clubs.find((club) => String(club.transfermarktId) === "87730");
+                if (!itacoatiara || !/itacoatiara/i.test(itacoatiara.name)) throw new Error("AMA1 must expose historical JC FC identity 87730 as Itacoatiara FC");
+              }
+              console.log(`${id}: ${c.clubs.length} clubs / ${c.coverage?.players ?? 0} players / ${c.sourceMode}`);
+            }
+            const nonPriorityErrors = errors.filter((item) => !priority.includes(String(item.id ?? item.competitionId ?? "")));
+            if (!nonPriorityErrors.length) throw new Error("Remaining state diagnostics were lost");
+            console.log(`Preserved remaining diagnostics: ${nonPriorityErrors.length}`);
+          }).catch((error) => { console.error(error); process.exit(1); });
+          NODE
+          npm run build
+      - name: Commit validated Sprint 3 snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/world-2026/state-competitions.generated.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data(sprint3): populate second-wave Brazilian state championships"
+          git push origin HEAD:integration/database-roadmap
