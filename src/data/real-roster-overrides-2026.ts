@@ -125,6 +125,14 @@ export const REAL_ROSTER_OVERRIDES: RosterOverride[] = [
     clubMatch: "sao jose",
     removeNames: ["Fábio Rampi", "Fabio Rampi"],
   },
+  {
+    competitionId: "BRA4",
+    clubMatch: "jacuipense",
+    add: [
+      { transfermarktId: "real-20260914-david-santana", name: "David Santana", position: "MC", age: 25, marketValueEur: null },
+      { transfermarktId: "real-20260914-jarles-baiano", name: "Jarles Baiano", position: "ATA", age: 30, marketValueEur: null },
+    ],
+  },
 ];
 
 function normalized(value: string) {
