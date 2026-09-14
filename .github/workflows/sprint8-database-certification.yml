@@ -6,8 +6,12 @@ on:
     paths:
       - "src/data/database-certification.ts"
       - "src/data/database-certification.test.ts"
+      - "src/app/database-status-panel.tsx"
+      - "docs/sprints/sprint-8-certificacao-base.md"
       - "package.json"
       - "package-lock.json"
+      - ".github/workflows/database-health.yml"
+      - ".github/workflows/daily-roster-sync.yml"
       - ".github/workflows/sprint8-database-certification.yml"
   workflow_dispatch:
 permissions:
@@ -48,4 +52,5 @@ jobs:
           git add package.json package-lock.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "fix(deps): upgrade Vitest past security advisories"
+          git pull --rebase origin sprint8-database-certification
           git push origin HEAD:sprint8-database-certification
