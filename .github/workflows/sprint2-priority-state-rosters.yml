@@ -5,6 +5,7 @@ on:
       - integration/database-roadmap
     paths:
       - "scripts/run-brazil-state-sync-v5.mjs"
+      - "scripts/run-brazil-state-sync-v6.mjs"
       - ".github/workflows/sprint2-priority-state-rosters.yml"
   workflow_dispatch:
 permissions:
@@ -27,7 +28,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Resolve priority 2026 state championships
-        run: node scripts/run-brazil-state-sync-v5.mjs
+        run: node scripts/run-brazil-state-sync-v6.mjs
       - name: Validate priority state snapshot
         run: |
           node - <<'NODE'
@@ -35,17 +36,22 @@ jobs:
             const priority = ["MGA1","RSA1","PRA1","BAA1","PEA1","GOA1"];
             const expected = {MGA1:12,RSA1:12,PRA1:12,BAA1:10,PEA1:8,GOA1:12};
             const rows = new Map(m.BRAZIL_STATE_2026_COMPETITIONS.map((c) => [c.id,c]));
+            const errors = m.BRAZIL_STATE_2026_SYNC_ERRORS;
             for (const id of priority) {
               const c = rows.get(id);
               if (!c) throw new Error(`${id} missing from generated snapshot`);
               if (c.clubs.length < Math.ceil(expected[id] * 0.72)) throw new Error(`${id} insufficient clubs: ${c.clubs.length}/${expected[id]}`);
               if (c.coverage?.players < c.clubs.length * 8) throw new Error(`${id} insufficient roster coverage`);
               if (String(c.sourceMode ?? "").includes("preserved")) throw new Error(`${id} must be freshly resolved in Sprint 2`);
+              if (errors.some((item) => String(item.id ?? item.competitionId ?? "") === id)) throw new Error(`${id} still has a sync error`);
               for (const club of c.clubs) {
                 if (!club.transfermarktId || !club.imageUrl) throw new Error(`${id}: club without real identity/badge`);
               }
               console.log(`${id}: ${c.clubs.length} clubs / ${c.coverage?.players ?? 0} players / ${c.sourceMode}`);
             }
+            const nonPriorityErrors = errors.filter((item) => !priority.includes(String(item.id ?? item.competitionId ?? "")));
+            if (!nonPriorityErrors.length) throw new Error("Non-priority state diagnostics were lost");
+            console.log(`Preserved non-priority diagnostics: ${nonPriorityErrors.length}`);
           }).catch((error) => { console.error(error); process.exit(1); });
           NODE
           npm run build
