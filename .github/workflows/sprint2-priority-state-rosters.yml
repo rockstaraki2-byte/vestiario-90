@@ -6,6 +6,7 @@ on:
     paths:
       - "scripts/run-brazil-state-sync-v5.mjs"
       - "scripts/run-brazil-state-sync-v6.mjs"
+      - "scripts/run-brazil-state-sync-v7.mjs"
       - ".github/workflows/sprint2-priority-state-rosters.yml"
   workflow_dispatch:
 permissions:
@@ -40,10 +41,12 @@ jobs:
             for (const id of priority) {
               const c = rows.get(id);
               if (!c) throw new Error(`${id} missing from generated snapshot`);
-              if (c.clubs.length < Math.ceil(expected[id] * 0.72)) throw new Error(`${id} insufficient clubs: ${c.clubs.length}/${expected[id]}`);
+              if (c.clubs.length !== expected[id]) throw new Error(`${id} incomplete participants: ${c.clubs.length}/${expected[id]}`);
               if (c.coverage?.players < c.clubs.length * 8) throw new Error(`${id} insufficient roster coverage`);
               if (String(c.sourceMode ?? "").includes("preserved")) throw new Error(`${id} must be freshly resolved in Sprint 2`);
               if (errors.some((item) => String(item.id ?? item.competitionId ?? "") === id)) throw new Error(`${id} still has a sync error`);
+              const identities = new Set(c.clubs.map((club) => String(club.transfermarktId ?? "")));
+              if (identities.size !== c.clubs.length) throw new Error(`${id}: duplicate club identity detected`);
               for (const club of c.clubs) {
                 if (!club.transfermarktId || !club.imageUrl) throw new Error(`${id}: club without real identity/badge`);
               }
