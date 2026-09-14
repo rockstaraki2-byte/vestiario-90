@@ -1,0 +1,34 @@
+name: Database health
+
+on:
+  pull_request:
+    paths:
+      - "src/data/database-status.ts"
+      - "src/data/database-status.test.ts"
+      - "src/data/**/rosters*.ts"
+      - "src/data/**/*.generated.ts"
+      - ".github/workflows/database-health.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/data/database-status.ts"
+      - "src/data/database-status.test.ts"
+      - "src/data/**/rosters*.ts"
+      - "src/data/**/*.generated.ts"
+      - ".github/workflows/database-health.yml"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate database health model
+        run: npx vitest run src/data/database-status.test.ts
+      - name: Validate production build
+        run: npm run build
