@@ -1,5 +1,5 @@
 import { DATABASE_ENGINE_SUPPORTED_IDS, DATABASE_STATUS_ROWS, type DatabaseStatusRow } from "./database-status";
-import { DOMESTIC_CUP_FIELD_CONFIGS } from "./world-2026/domestic-cup-fields";
+import { DOMESTIC_CUP_FIELD_CONFIGS, resolveDomesticCupField, type DomesticCupEngineId } from "./world-2026/domestic-cup-fields";
 import { INTERNATIONAL_CUP_FIELD_CONFIGS } from "./world-2026/international-cup-fields";
 
 export type DatabaseCertificationLevel="certified"|"warning"|"blocked";
@@ -10,9 +10,15 @@ const expectedById=new Map<string,number>([
  ...DOMESTIC_CUP_FIELD_CONFIGS.map(config=>[config.id,config.fieldSize] as const),
  ...INTERNATIONAL_CUP_FIELD_CONFIGS.map(config=>[config.id,config.expectedParticipants] as const),
 ]);
+const domesticIds=new Set(DOMESTIC_CUP_FIELD_CONFIGS.map(config=>config.id));
 
 function issue(row:DatabaseStatusRow|undefined,competitionId:string,code:string,message:string,blocking:boolean):DatabaseCertificationIssue{
  return{competitionId:row?.id??competitionId,code,message,blocking};
+}
+function shortRosterDetail(competitionId:string,count:number){
+ if(!domesticIds.has(competitionId as DomesticCupEngineId))return `${count} clube(s) com elenco abaixo do mínimo`;
+ const clubs=resolveDomesticCupField(competitionId as DomesticCupEngineId).clubs.filter(club=>club.players.length<18).map(club=>`${club.name} (${club.players.length})`);
+ return `${count} clube(s) com elenco abaixo do mínimo${clubs.length?`: ${clubs.join(", ")}`:""}`;
 }
 
 export function certifyDatabase(snapshotDate=new Date().toISOString().slice(0,10)):DatabaseCertificationReport{
@@ -26,7 +32,7 @@ export function certifyDatabase(snapshotDate=new Date().toISOString().slice(0,10
   if(expected!==undefined&&row.clubs!==expected)issues.push(issue(row,competitionId,"participant-count",`Participantes reais ${row.clubs}/${expected}`,true));
   if(row.virtualClubs>0)issues.push(issue(row,competitionId,"virtual-club",`${row.virtualClubs} clube(s) virtual(is) em competição jogável`,true));
   if(row.suspiciousPlayers>0)issues.push(issue(row,competitionId,"suspicious-player",`${row.suspiciousPlayers} jogador(es) suspeito(s)`,true));
-  if(row.shortRosterClubs>0)issues.push(issue(row,competitionId,"short-roster",`${row.shortRosterClubs} clube(s) com elenco abaixo do mínimo`,true));
+  if(row.shortRosterClubs>0)issues.push(issue(row,competitionId,"short-roster",shortRosterDetail(competitionId,row.shortRosterClubs),true));
   if(row.missingCrestClubs>0)issues.push(issue(row,competitionId,"missing-crest",`${row.missingCrestClubs} clube(s) sem escudo válido`,false));
  }
  for(const row of DATABASE_STATUS_ROWS){
