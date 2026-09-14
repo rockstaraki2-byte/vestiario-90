@@ -29,7 +29,7 @@ type SyncError={id?:string;competitionId?:string;name?:string;state?:string;tier
 type RowOptions={expectedClubs?:number;note?:string;syncError?:string;calendarStatus?:DatabaseHealthLevel;engineStatus?:DatabaseHealthLevel};
 
 export const DATABASE_MIN_ROSTER_SIZE=18;
-export const DATABASE_ENGINE_SUPPORTED_IDS=new Set(["CDB","LIB","SUD","FAC","EFL","CDR","CDF","UCL","UEL","UECL"] as const);
+export const DATABASE_ENGINE_SUPPORTED_IDS:ReadonlySet<string>=new Set(["CDB","LIB","SUD","FAC","EFL","CDR","CDF","UCL","UEL","UECL"]);
 const DOMESTIC_ENGINE_CUPS=[
  {id:"CDB",name:"Copa do Brasil",country:"Brasil",participants:126},
  {id:"FAC",name:"FA Cup",country:"Inglaterra",participants:745},
@@ -56,8 +56,8 @@ function clubStats(clubs:readonly ClubLike[]){
  return{clubs:clubs.length,players:players.length,photoCoverage:pct(photos,players.length),crestCoverage:pct(crests,clubs.length),healthyRosterClubs,shortRosterClubs,missingCrestClubs:clubs.length-crests,suspiciousPlayers,virtualClubs};
 }
 function calendarLevel(status:RealCalendarStatus):DatabaseHealthLevel{return status==="confirmed"?"updated":status==="partial"?"partial":"pending"}
-function inferredCalendar(id:string,category:DatabaseStatusCategory,clubs:number){const real=calendarById.get(id);if(real)return calendarLevel(real.status);if(DATABASE_ENGINE_SUPPORTED_IDS.has(id as never))return"partial";if(category==="Liga profissional"&&clubs)return"partial";if(category==="Estadual"&&clubs)return"partial";return"pending"}
-function inferredEngine(id:string,category:DatabaseStatusCategory,clubs:number):DatabaseHealthLevel{if(DATABASE_ENGINE_SUPPORTED_IDS.has(id as never)||stateEngineIds.has(id))return"updated";if(category==="Liga profissional")return clubs?"updated":"pending";if(category==="Base"||category==="Staff")return"na";return"pending"}
+function inferredCalendar(id:string,category:DatabaseStatusCategory,clubs:number){const real=calendarById.get(id);if(real)return calendarLevel(real.status);if(DATABASE_ENGINE_SUPPORTED_IDS.has(id))return"partial";if(category==="Liga profissional"&&clubs)return"partial";if(category==="Estadual"&&clubs)return"partial";return"pending"}
+function inferredEngine(id:string,category:DatabaseStatusCategory,clubs:number):DatabaseHealthLevel{if(DATABASE_ENGINE_SUPPORTED_IDS.has(id)||stateEngineIds.has(id))return"updated";if(category==="Liga profissional")return clubs?"updated":"pending";if(category==="Base"||category==="Staff")return"na";return"pending"}
 function coverageLevel(value:number,total:number):DatabaseHealthLevel{if(!total)return"pending";if(value>=total)return"updated";return value>0?"partial":"pending"}
 function scoreLevel(level:DatabaseHealthLevel){return level==="updated"?1:level==="partial"?.55:0}
 function qualityScore(levels:Array<[DatabaseHealthLevel,number]>) {const active=levels.filter(([level])=>level!=="na");const weight=active.reduce((sum,[,w])=>sum+w,0);return weight?Math.round(active.reduce((sum,[level,w])=>sum+scoreLevel(level)*w,0)/weight*100):0}
@@ -70,9 +70,9 @@ function row(id:string,name:string,country:string,category:DatabaseStatusCategor
  const stats=clubStats(clubs),expected=options.expectedClubs??stats.clubs;
  const calendarStatus=options.calendarStatus??inferredCalendar(id,category,stats.clubs);
  const engineStatus=options.engineStatus??inferredEngine(id,category,stats.clubs);
- const clubStatus=stats.virtualClubs?"partial":coverageLevel(stats.clubs,expected);
- const rosterStatus=stats.clubs===0?"pending":stats.healthyRosterClubs===stats.clubs?"updated":stats.players?"partial":"pending";
- const crestStatus=stats.clubs===0?"pending":coverageLevel(stats.clubs-stats.missingCrestClubs,stats.clubs);
+ const clubStatus:DatabaseHealthLevel=stats.virtualClubs?"partial":coverageLevel(stats.clubs,expected);
+ const rosterStatus:DatabaseHealthLevel=stats.clubs===0?"pending":stats.healthyRosterClubs===stats.clubs?"updated":stats.players?"partial":"pending";
+ const crestStatus:DatabaseHealthLevel=stats.clubs===0?"pending":coverageLevel(stats.clubs-stats.missingCrestClubs,stats.clubs);
  const alerts:DatabaseAlert[]=[];
  if(options.syncError)alerts.push(alert("sync-error",`Falha de sincronização: ${options.syncError}`,"error"));
  if(stats.shortRosterClubs)alerts.push(alert("short-roster",`${stats.shortRosterClubs} clube(s) com menos de ${DATABASE_MIN_ROSTER_SIZE} jogadores`));
@@ -82,7 +82,7 @@ function row(id:string,name:string,country:string,category:DatabaseStatusCategor
  if(engineStatus==="pending"&&(category==="Copa nacional"||category==="Estadual"||category==="Internacional"))alerts.push(alert("missing-engine","Competição sem motor jogável integrado"));
  if(stats.clubs===0&&category!=="Base"&&category!=="Staff")alerts.push(alert("missing-clubs",expected?`0/${expected} participantes reais mapeados`:"Participantes reais ainda não mapeados"));
  if(calendarStatus==="pending")alerts.push(alert("calendar-pending","Calendário real ainda não confirmado/integrado"));
- const levels=[calendarStatus,engineStatus,clubStatus,rosterStatus,crestStatus];
+ const levels:DatabaseHealthLevel[]=[calendarStatus,engineStatus,clubStatus,rosterStatus,crestStatus];
  const quality=qualityScore([[calendarStatus,15],[engineStatus,25],[clubStatus,20],[rosterStatus,25],[crestStatus,15]]);
  return{id,name,country,category,status:overallStatus(levels,options.syncError),...stats,expectedClubs:expected||undefined,snapshot,note:options.note,calendarStatus,engineStatus,clubStatus,rosterStatus,crestStatus,qualityScore:quality,alerts};
 }
