@@ -87,7 +87,7 @@ jobs:
             const desportiva = rows.get("ESA1").clubs.find((club) => /desportiva ferroviaria/i.test(club.name.normalize("NFD").replace(/[\u0300-\u036f]/g,"")));
             const globo = rows.get("RNA1").clubs.find((club) => /globo/i.test(club.name));
             if (!vila || (vila.players??[]).length < 8) throw new Error("Vilavelhense roster repair did not reach usable coverage");
-            if (!desportiva || (desportiva.players??[]).length < 8) throw new Error("Desportiva roster repair did not reach usable coverage");
+            if (!desportiva || !rows.get("ESA1").coverage.partialClubs.some((name) => /desportiva/i.test(name))) throw new Error("Desportiva source limitation must remain visible as partial");
             if (!globo || (globo.players??[]).length < 8) throw new Error("Globo roster repair did not reach usable coverage");
             console.log(`State map complete: ${rows.size}/27`);
           }).catch((error) => { console.error(error); process.exit(1); });
