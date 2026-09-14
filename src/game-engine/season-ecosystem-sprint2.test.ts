@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
+import { BRAZIL_2026_COMPETITIONS } from "../data/brazil-2026/competitions";
 import { createSeason } from "./season";
 import { finalizeFootballEcosystem } from "./season-ecosystem";
 
 function keys(values:string[]){return values.map(value=>value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,""));}
 
 describe("football ecosystem sprint 2",()=>{
+  it("mantém identidades canônicas únicas entre as séries nacionais",()=>{
+    const professional=BRAZIL_2026_COMPETITIONS.filter(item=>item.kind==="professional");
+    const names=professional.flatMap(item=>item.clubs.map(club=>club.name));
+    expect(new Set(keys(names)).size).toBe(names.length);
+    expect(names).toContain("Botafogo-SP");
+    expect(names).toContain("Botafogo-PB");
+  });
+
   it("compõe toda a pirâmide brasileira sem sobrescrever a Série B",()=>{
     const state=createSeason("sprint2-brazil-structure",2026),ecosystem=finalizeFootballEcosystem(state),next=ecosystem.nextDomesticParticipants;
     expect(next.BRA1).toHaveLength(20);
