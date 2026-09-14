@@ -1,20 +1,33 @@
 name: Populate verified youth rosters
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/fetch-youth-competitions-2026.mjs"
+      - ".github/workflows/populate-youth-rosters.yml"
 permissions:
   contents: write
+concurrency:
+  group: v90-youth-rosters-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   populate:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - run: npm ci
       - name: Fetch real youth squads
         run: node scripts/fetch-youth-competitions-2026.mjs
       - name: Validate generated module
-        run: npm ci && npx tsc --noEmit
+        run: |
+          node -e 'import("./src/data/world-2026/youth-competitions.generated.ts").then(m=>{console.log(`Youth coverage: ${m.YOUTH_WORLD_2026_COMPETITIONS.length}/6; errors: ${m.YOUTH_WORLD_2026_SYNC_ERRORS.length}`); if(m.YOUTH_WORLD_2026_COMPETITIONS.length===0) process.exit(1)})'
+          npx tsc --noEmit
       - name: Commit youth snapshot
         run: |
           git config user.name "github-actions[bot]"
@@ -22,4 +35,5 @@ jobs:
           git add src/data/world-2026/youth-competitions.generated.ts
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data: populate verified youth rosters"
-          git push
+          git pull --rebase origin main
+          git push origin HEAD:main
