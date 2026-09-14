@@ -36,7 +36,7 @@ function htmlClubCandidates(html) {
 async function searchClubId(query) {
   for (const domain of SEARCH_DOMAINS) {
     try {
-      const jsonUrl = \`\${domain}/news/search?index=clubs_lang_new&q=\${encodeURIComponent(query)}\`;
+      const jsonUrl = domain + "/news/search?index=clubs_lang_new&q=" + encodeURIComponent(query);
       const response = await fetch(jsonUrl, { headers:{...siteHeaders,Accept:"application/json,text/plain,*/*"}, redirect:"follow" });
       if (response.ok) {
         const text = await response.text();
@@ -47,7 +47,7 @@ async function searchClubId(query) {
       }
     } catch {}
     try {
-      const htmlUrl = \`\${domain}/schnellsuche/ergebnis/schnellsuche?query=\${encodeURIComponent(query)}\`;
+      const htmlUrl = domain + "/schnellsuche/ergebnis/schnellsuche?query=" + encodeURIComponent(query);
       const response = await fetch(htmlUrl, { headers:siteHeaders, redirect:"follow" });
       if (!response.ok) continue;
       const candidates = htmlClubCandidates(await response.text()).sort((a,b) => scoreCandidate(query,b) - scoreCandidate(query,a));
