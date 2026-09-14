@@ -1,0 +1,49 @@
+name: Sprint 5 state quality hardening
+on:
+  push:
+    branches:
+      - sprint5-quality-hardening
+      - integration/database-roadmap
+    paths:
+      - "scripts/harden-state-quality-sprint5.mjs"
+      - "scripts/validate-state-quality-sprint5.mjs"
+      - "src/data/world-2026/state-competitions.generated.ts"
+      - "src/data/database-status.ts"
+      - "src/data/database-status.test.ts"
+      - ".github/workflows/sprint5-state-quality.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: v90-sprint5-state-quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Refresh and sanitize short state rosters
+        run: node scripts/harden-state-quality-sprint5.mjs
+      - name: Validate strict state quality invariants
+        run: node scripts/validate-state-quality-sprint5.mjs
+      - name: Validate database health model
+        run: npx vitest run src/data/database-status.test.ts
+      - name: Validate production build
+        run: npm run build
+      - name: Persist validated Sprint 5 snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/world-2026/state-competitions.generated.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data(sprint5): harden Brazilian state roster quality"
+          git push origin HEAD:${GITHUB_REF_NAME}
