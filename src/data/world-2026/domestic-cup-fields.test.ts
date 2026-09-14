@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PROFESSIONAL_COMPETITIONS } from "../brazil-2026/competitions";
-import { DOMESTIC_CUP_FIELD_CONFIGS, domesticCupClubKey, domesticCupConfirmedNames, resolveDomesticCupField } from "./domestic-cup-fields";
+import { DOMESTIC_CUP_FIELD_CONFIGS, domesticCupClubKey, domesticCupConfirmedNames, domesticCupConfirmedTransfermarktId, resolveDomesticCupField } from "./domestic-cup-fields";
 
 describe("Sprint 6 domestic cup fields",()=>{
  it("builds complete real engine-entry fields for all supported domestic cups",()=>{
@@ -17,9 +17,15 @@ describe("Sprint 6 domestic cup fields",()=>{
   for(const id of ["CDB","EFL"] as const){
    const field=resolveDomesticCupField(id);
    expect(field.unresolvedConfirmed,`${id} has unresolved confirmed clubs`).toEqual([]);
-   const actual=new Set(field.clubs.map(club=>domesticCupClubKey(club.name)));
-   const expected=domesticCupConfirmedNames(id).map(domesticCupClubKey);
-   for(const key of expected)expect(actual.has(key),`${id} missing ${key}`).toBe(true);
+   const actualNames=new Set(field.clubs.map(club=>domesticCupClubKey(club.name)));
+   for(const name of domesticCupConfirmedNames(id)){
+    const confirmedId=domesticCupConfirmedTransfermarktId(id,name);
+    if(confirmedId){
+     expect(field.clubs.some(club=>String(club.transfermarktId)===confirmedId),`${id} missing ${name} (${confirmedId})`).toBe(true);
+    }else{
+     expect(actualNames.has(domesticCupClubKey(name)),`${id} missing ${name}`).toBe(true);
+    }
+   }
   }
  });
 
