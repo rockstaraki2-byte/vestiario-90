@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 
 const STATE_FILE = "src/data/world-2026/state-competitions.generated.ts";
-const PRIORITY_IDS = new Set(["ACA1","APA1","RRA1","ROA1","TOA1"]);
+const PRIORITY_IDS = new Set(["ACA1","APA1","RRA1","ROA1","TOA1","ALA1"]);
 
 function parseExportedJson(source, marker) {
   const start = source.indexOf(marker);
