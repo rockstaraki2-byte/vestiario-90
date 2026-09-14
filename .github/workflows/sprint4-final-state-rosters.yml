@@ -1,0 +1,76 @@
+name: Sprint 4 final state rosters
+on:
+  push:
+    branches:
+      - integration/database-roadmap
+    paths:
+      - "scripts/run-brazil-state-sync-v10.mjs"
+      - "scripts/run-brazil-state-sync-v11.mjs"
+      - ".github/workflows/sprint4-final-state-rosters.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: v90-sprint4-state-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  populate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/database-roadmap
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Resolve final five 2026 state championships
+        run: node scripts/run-brazil-state-sync-v11.mjs
+      - name: Validate 27-state snapshot
+        run: |
+          node - <<'NODE'
+          import("./src/data/world-2026/state-competitions.generated.ts").then((m) => {
+            const expectedCounts = {ACA1:8,APA1:8,RRA1:9,ROA1:7,TOA1:8};
+            const expectedNames = {
+              ACA1:["Galvez","Independência","ADESG","Vasco","Humaitá","Rio Branco","São Francisco","Santa Cruz"],
+              APA1:["Trem","Ypiranga","Oratório","Cristal","Independente","Macapá","Santos","São José"],
+              RRA1:["Atlético Roraima","Baré","Sampaio","Monte Roraima","Náutico","Progresso","Rio Negro","River","São Raimundo"],
+              ROA1:["Barcelona","Porto Velho","Genus","Guaporé","Ji-Paraná","Rondoniense","Cacoalense"],
+              TOA1:["Araguaína","Bela Vista","Capital","Guaraí","Gurupi","Palmas","Tocantinópolis","União"]
+            };
+            const rows = new Map(m.BRAZIL_STATE_2026_COMPETITIONS.map((c) => [c.id,c]));
+            if (rows.size !== 27) throw new Error(`Expected 27 state championships, found ${rows.size}`);
+            for (const [id,count] of Object.entries(expectedCounts)) {
+              const c = rows.get(id);
+              if (!c) throw new Error(`${id} missing`);
+              if (c.clubs.length !== count) throw new Error(`${id} incomplete participants: ${c.clubs.length}/${count}`);
+              if (String(c.sourceMode ?? "").includes("preserved")) throw new Error(`${id} must be freshly resolved`);
+              if (c.coverage?.players < c.clubs.length * 8) throw new Error(`${id} insufficient roster coverage`);
+              const identities = new Set(c.clubs.map((club) => String(club.transfermarktId ?? "")));
+              if (identities.size !== c.clubs.length) throw new Error(`${id} duplicate club identity`);
+              for (const club of c.clubs) {
+                if (!club.transfermarktId || !club.imageUrl) throw new Error(`${id}: club without identity/badge`);
+                if (/virtual|placeholder|pend[eê]ncia/i.test(String(club.name))) throw new Error(`${id}: invalid club ${club.name}`);
+              }
+              const normalized = c.clubs.map((club) => String(club.name).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase());
+              for (const token of expectedNames[id]) {
+                const needle = token.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+                if (!normalized.some((name) => name.includes(needle))) throw new Error(`${id}: expected participant token missing: ${token}`);
+              }
+              console.log(`${id}: ${c.clubs.length} clubs / ${c.coverage?.players ?? 0} players / ${c.sourceMode}`);
+            }
+            console.log(`State map complete: ${rows.size}/27`);
+          }).catch((error) => { console.error(error); process.exit(1); });
+          NODE
+          npm run build
+      - name: Commit validated 27-state snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/world-2026/state-competitions.generated.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data(sprint4): complete all Brazilian state championships"
+          git push origin HEAD:integration/database-roadmap
