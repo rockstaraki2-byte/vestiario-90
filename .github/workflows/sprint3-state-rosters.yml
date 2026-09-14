@@ -1,0 +1,69 @@
+name: Sprint 3 state rosters
+on:
+  push:
+    branches:
+      - integration/database-roadmap
+    paths:
+      - "scripts/run-brazil-state-sync-v8.mjs"
+      - "scripts/run-brazil-state-sync-v9.mjs"
+      - ".github/workflows/sprint3-state-rosters.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: v90-sprint3-state-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  populate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/database-roadmap
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Resolve Sprint 3 state championships
+        run: node scripts/run-brazil-state-sync-v9.mjs
+      - name: Validate Sprint 3 state snapshot
+        run: |
+          node - <<'NODE'
+          import("./src/data/world-2026/state-competitions.generated.ts").then((m) => {
+            const priority = ["PAA1","ALA1","SEA1","MAA1","PIA1","AMA1","DFA1","MSA1"];
+            const expected = {PAA1:12,ALA1:8,SEA1:10,MAA1:8,PIA1:8,AMA1:8,DFA1:10,MSA1:10};
+            const rows = new Map(m.BRAZIL_STATE_2026_COMPETITIONS.map((c) => [c.id,c]));
+            const errors = m.BRAZIL_STATE_2026_SYNC_ERRORS;
+            for (const id of priority) {
+              const c = rows.get(id);
+              if (!c) throw new Error(`${id} missing from generated snapshot`);
+              if (c.clubs.length !== expected[id]) throw new Error(`${id} incomplete participants: ${c.clubs.length}/${expected[id]}`);
+              if (c.coverage?.players < c.clubs.length * 8) throw new Error(`${id} insufficient roster coverage: ${c.coverage?.players ?? 0}`);
+              if (String(c.sourceMode ?? "").includes("preserved")) throw new Error(`${id} must be freshly resolved in Sprint 3`);
+              if (errors.some((item) => String(item.id ?? item.competitionId ?? "") === id)) throw new Error(`${id} still has a sync error`);
+              const identities = new Set(c.clubs.map((club) => String(club.transfermarktId ?? "")));
+              if (identities.size !== c.clubs.length) throw new Error(`${id}: duplicate club identity detected`);
+              for (const club of c.clubs) {
+                if (!club.transfermarktId || !club.imageUrl) throw new Error(`${id}: club without real identity/badge`);
+                if (/virtual|placeholder/i.test(String(club.name))) throw new Error(`${id}: virtual participant ${club.name}`);
+              }
+              if (id === "ALA1" && c.clubs.some((club) => /murici/i.test(club.name))) throw new Error("ALA1 still contains Murici, which did not participate in 2026");
+              console.log(`${id}: ${c.clubs.length} clubs / ${c.coverage?.players ?? 0} players / ${c.sourceMode}`);
+            }
+            const nonPriorityErrors = errors.filter((item) => !priority.includes(String(item.id ?? item.competitionId ?? "")));
+            if (!nonPriorityErrors.length) throw new Error("Remaining state diagnostics were lost");
+            console.log(`Preserved remaining diagnostics: ${nonPriorityErrors.length}`);
+          }).catch((error) => { console.error(error); process.exit(1); });
+          NODE
+          npm run build
+      - name: Commit validated Sprint 3 snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/data/world-2026/state-competitions.generated.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "data(sprint3): populate second-wave Brazilian state championships"
+          git push origin HEAD:integration/database-roadmap
