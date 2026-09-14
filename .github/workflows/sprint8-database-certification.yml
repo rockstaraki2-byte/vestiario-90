@@ -29,6 +29,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Upgrade npm lockfile engine
+        run: npm install -g npm@11
       - name: Upgrade vulnerable Vitest toolchain
         run: npm install --save-dev vitest@4.1.11
       - name: Dependency security audit
