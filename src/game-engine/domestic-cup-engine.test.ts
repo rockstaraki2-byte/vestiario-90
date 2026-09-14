@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLeague } from "./league";
 import { createWorldCompetitions } from "./world-competitions";
-import { DOMESTIC_CUP_FIELD_CONFIGS, domesticCupClubKey, domesticCupConfirmedNames } from "../data/world-2026/domestic-cup-fields";
+import { DOMESTIC_CUP_FIELD_CONFIGS, domesticCupClubKey, resolveDomesticCupField } from "../data/world-2026/domestic-cup-fields";
 
 describe("Sprint 6 domestic cup engine",()=>{
  it("creates every supported domestic cup with a complete non-virtual field",()=>{
@@ -15,12 +15,14 @@ describe("Sprint 6 domestic cup engine",()=>{
   }
  });
 
- it("uses the confirmed 2026 fields for Copa do Brasil and Carabao Cup",()=>{
+ it("uses exactly the resolved real fields for confirmed 2026 cups",()=>{
   const league=createLeague("sprint6-confirmed",2026,"ENG1"),world=createWorldCompetitions("ENG1",league,2026,"sprint6-confirmed");
   for(const id of ["CDB","EFL"] as const){
    const tournament=world.tournaments.find(item=>item.definition.id===id)!;
    const actual=new Set(tournament.participants.map(item=>domesticCupClubKey(item.name)));
-   for(const name of domesticCupConfirmedNames(id))expect(actual.has(domesticCupClubKey(name)),`${id} missing ${name}`).toBe(true);
+   const expected=resolveDomesticCupField(id).clubs.map(club=>domesticCupClubKey(club.name));
+   expect(actual.size).toBe(expected.length);
+   for(const key of expected)expect(actual.has(key),`${id} engine missing resolved club ${key}`).toBe(true);
   }
  });
 
