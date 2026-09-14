@@ -4,6 +4,7 @@ import { sortedStandings } from "./league";
 import { sortedParallelStandings } from "./world-leagues";
 import type { SeasonState } from "./season";
 import type { WorldCompetitionId } from "./world-competitions";
+import { completeRealQualificationField, NEXT_SEASON_TOP_LEAGUE_SLOTS } from "./next-season-qualification";
 
 export type EcosystemClub={name:string;shortName:string;country:string;competitionId:ProfessionalCompetitionId;reputation:number;points:number;position:number};
 export type DomesticMovement={clubName:string;from:string;to:string;reason:string};
@@ -37,11 +38,11 @@ function tournamentChampion(state:SeasonState,id:WorldCompetitionId){const tourn
 function tournamentRunnerUp(state:SeasonState,id:WorldCompetitionId){const tournament=state.worldCompetitions.tournaments.find(x=>x.definition.id===id),champion=tournament?.participants.find(x=>x.id===tournament.championId),final=tournament?.matches.filter(match=>match.stage==="Final"&&match.played).sort((a,b)=>a.date.localeCompare(b.date)).at(-1);if(!champion||!final)return undefined;return final.home.id===champion.id?final.away:final.home;}
 function entry(source:EntrySource,reason:string):QualificationEntrant{return{name:source.name,shortName:source.shortName,country:source.country,reputation:source.reputation,reason};}
 function addEntry(target:QualificationEntrant[],source:EntrySource|undefined,reason:string,blocked?:Set<string>){if(!source)return false;const key=clubKey(source.name);if(blocked?.has(key)||target.some(item=>clubKey(item.name)===key))return false;target.push(entry(source,reason));return true;}
-function fillEntrants(base:QualificationEntrant[],state:SeasonState,id:WorldCompetitionId,count:number,blocked=new Set<string>()){const own=new Set(base.map(item=>clubKey(item.name))),tournament=state.worldCompetitions.tournaments.find(t=>t.definition.id===id),pool=[...(tournament?.participants??[])].sort((a,b)=>b.reputation-a.reputation);for(const participant of pool){const key=clubKey(participant.name);if(base.length>=count)break;if(blocked.has(key)||own.has(key))continue;base.push(entry(participant,"Coeficiente/rota continental"));own.add(key);}let i=1;while(base.length<count){const name=`Classificado ${id} ${i}`,key=clubKey(name);if(!blocked.has(key)&&!own.has(key)){base.push({name,shortName:`${id}${i}`,country:id==="LIB"||id==="SUD"?"CONMEBOL":"Europa",reputation:62,reason:"Qualificatória continental"});own.add(key);}i++;}return base.slice(0,count);}
+function fillEntrants(base:QualificationEntrant[],state:SeasonState,id:WorldCompetitionId,count:number,blocked=new Set<string>()){const own=new Set(base.map(item=>clubKey(item.name))),tournament=state.worldCompetitions.tournaments.find(t=>t.definition.id===id),pool=[...(tournament?.participants??[])].sort((a,b)=>b.reputation-a.reputation);for(const participant of pool){const key=clubKey(participant.name);if(base.length>=count)break;if(blocked.has(key)||own.has(key))continue;base.push(entry(participant,"Coeficiente/rota continental real"));own.add(key);}if(id!=="LIB"&&id!=="SUD"&&id!=="UCL"&&id!=="UEL"&&id!=="UECL")throw new Error(`${id}: unsupported continental qualification field`);return completeRealQualificationField(base,id,count,blocked);}
 function associationPerformance(state:SeasonState){const score:Record<string,number>={};for(const id of ["UCL","UEL","UECL"] as WorldCompetitionId[]){const tournament=state.worldCompetitions.tournaments.find(x=>x.definition.id===id);for(const match of tournament?.matches.filter(x=>x.played)??[]){const hg=match.homeGoals??0,ag=match.awayGoals??0;score[match.home.country]=(score[match.home.country]??0)+(hg>ag?2:hg===ag?1:0);score[match.away.country]=(score[match.away.country]??0)+(ag>hg?2:hg===ag?1:0);}}return Object.entries(score).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([country])=>country);}
 function addLeagueSlots(target:QualificationEntrant[],rows:EcosystemClub[],slots:number,reason:string,blocked:Set<string>){let added=0;for(const club of rows){if(added>=slots)break;if(addEntry(target,club,reason,blocked)){blocked.add(clubKey(club.name));added++;}}}
 
-function internationalPlan(state:SeasonState){const result:Partial<Record<WorldCompetitionId,QualificationEntrant[]>>={},bra=transitionRows(state,"BRA1"),eng=transitionRows(state,"ENG1"),esp=transitionRows(state,"ESP1"),fra=transitionRows(state,"FRA1");
+function internationalPlan(state:SeasonState){const result:Partial<Record<WorldCompetitionId,QualificationEntrant[]>>={},bra=transitionRows(state,"BRA1"),eng=transitionRows(state,"ENG1"),esp=transitionRows(state,"ESP1"),fra=transitionRows(state,"FRA1"),ger=transitionRows(state,"GER1"),ita=transitionRows(state,"ITA1"),por=transitionRows(state,"POR1");
  const lib:QualificationEntrant[]=[],domesticLib=new Set<string>(),libChamp=tournamentChampion(state,"LIB"),sudChamp=tournamentChampion(state,"SUD"),cdbChampion=tournamentChampion(state,"CDB"),cdbRunner=tournamentRunnerUp(state,"CDB");
  for(const champion of [libChamp,sudChamp])if(champion?.country==="Brasil")addEntry(lib,champion,"Campeão continental");
  const addDomesticLib=(source:EntrySource|undefined,reason:string)=>{if(!source)return;const key=clubKey(source.name);domesticLib.add(key);addEntry(lib,source,reason);};
@@ -55,18 +56,18 @@ function internationalPlan(state:SeasonState){const result:Partial<Record<WorldC
 
  const perf=new Set(associationPerformance(state)),ucl:QualificationEntrant[]=[],uel:QualificationEntrant[]=[],uecl:QualificationEntrant[]=[],uclOccupied=new Set<string>(),uclChamp=tournamentChampion(state,"UCL"),uelChamp=tournamentChampion(state,"UEL");
  for(const champion of [uclChamp,uelChamp])if(champion&&addEntry(ucl,champion,champion===uclChamp?"Campeão da Champions":"Campeão da Europa League",uclOccupied))uclOccupied.add(clubKey(champion.name));
- for(const rows of [eng,esp]){addLeagueSlots(ucl,rows,4,"Classificação nacional",uclOccupied);if(perf.has(rows[0]?.country??""))addLeagueSlots(ucl,rows.slice(4),1,"Vaga extra por desempenho UEFA",uclOccupied);}
- addLeagueSlots(ucl,fra,3,"Classificação nacional",uclOccupied);addLeagueSlots(ucl,fra.slice(3),1,"Rota preliminar da Champions",uclOccupied);
+ for(const [id,rows] of [["ENG1",eng],["ESP1",esp],["GER1",ger],["ITA1",ita],["FRA1",fra],["POR1",por]] as const){const slots=NEXT_SEASON_TOP_LEAGUE_SLOTS.UCL[id];addLeagueSlots(ucl,rows,slots,`Classificação nacional • ${id}`,uclOccupied);if(perf.has(rows[0]?.country??""))addLeagueSlots(ucl,rows.slice(slots),1,"Vaga extra por desempenho UEFA",uclOccupied);}
  result.UCL=fillEntrants(ucl,state,"UCL",36);
  for(const qualifier of result.UCL??[])uclOccupied.add(clubKey(qualifier.name));
 
  const addEuropaAssociation=(rows:EcosystemClub[],cupId:WorldCompetitionId)=>{const country=rows[0]?.country,chosen=()=>uel.filter(item=>item.country===country).length,winner=tournamentChampion(state,cupId);if(winner?.country===country)addEntry(uel,winner,"Campeão da copa nacional",uclOccupied);for(const club of rows){if(chosen()>=2)break;addEntry(uel,club,"Classificação nacional / vaga redistribuída",uclOccupied);}};
  addEuropaAssociation(eng,"FAC");addEuropaAssociation(esp,"CDR");addEuropaAssociation(fra,"CDF");
+ for(const [id,rows] of [["GER1",ger],["ITA1",ita],["POR1",por]] as const)addLeagueSlots(uel,rows,NEXT_SEASON_TOP_LEAGUE_SLOTS.UEL[id],`Classificação nacional • ${id}`,uclOccupied);
  result.UEL=fillEntrants(uel,state,"UEL",36,uclOccupied);
  const allUefaOccupied=new Set(uclOccupied);for(const qualifier of result.UEL??[])allUefaOccupied.add(clubKey(qualifier.name));
 
  const eflWinner=tournamentChampion(state,"EFL");if(!addEntry(uecl,eflWinner,"Campeão da Copa da Liga",allUefaOccupied))addLeagueSlots(uecl,eng,1,"Classificação nacional / vaga redistribuída",allUefaOccupied);else if(eflWinner)allUefaOccupied.add(clubKey(eflWinner.name));
- addLeagueSlots(uecl,esp,1,"Classificação nacional",allUefaOccupied);addLeagueSlots(uecl,fra,1,"Classificação nacional",allUefaOccupied);
+ addLeagueSlots(uecl,esp,1,"Classificação nacional",allUefaOccupied);addLeagueSlots(uecl,fra,1,"Classificação nacional",allUefaOccupied);for(const [id,rows] of [["GER1",ger],["ITA1",ita],["POR1",por]] as const)addLeagueSlots(uecl,rows,NEXT_SEASON_TOP_LEAGUE_SLOTS.UECL[id],`Classificação nacional • ${id}`,allUefaOccupied);
  result.UECL=fillEntrants(uecl,state,"UECL",36,allUefaOccupied);
  return result;
 }
