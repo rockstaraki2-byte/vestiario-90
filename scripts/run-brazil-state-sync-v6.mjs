@@ -17,7 +17,7 @@ const beforeSource = await readFile(STATE_FILE, "utf8");
 const previousErrors = parseExportedJson(beforeSource, "export const BRAZIL_STATE_2026_SYNC_ERRORS=");
 const preservedErrors = previousErrors.filter((item) => !PRIORITY_IDS.has(String(item.id ?? item.competitionId ?? "")));
 
-await import(`./run-brazil-state-sync-v5.mjs?run=${Date.now()}`);
+await import(`./run-brazil-state-sync-v7.mjs?run=${Date.now()}`);
 
 let afterSource = await readFile(STATE_FILE, "utf8");
 const currentErrors = parseExportedJson(afterSource, "export const BRAZIL_STATE_2026_SYNC_ERRORS=");
