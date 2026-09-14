@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 async function replaceExact(path, replacements) {
  let source=await readFile(path,"utf8");
  for(const [before,after,label] of replacements){
+  if(source.includes(after))continue;
   if(!source.includes(before))throw new Error(`${path}: patch anchor not found: ${label}`);
   source=source.replace(before,after);
  }
