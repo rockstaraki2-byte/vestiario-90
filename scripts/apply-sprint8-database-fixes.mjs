@@ -2,11 +2,21 @@ import{readFile,writeFile}from"node:fs/promises";
 
 const path="src/data/real-roster-overrides-2026.ts";
 let source=await readFile(path,"utf8");
-const marker='export const REAL_ROSTER_OVERRIDES_2026:Record<string,ExpandedRosterPlayer[]>={\n';
-const roster=' "EC Jacuipense":[{"transfermarktId":"889807","name":"Italo Pezão","position":"GOL","age":25,"marketValueEur":null},{"transfermarktId":"1082827","name":"Eric Santos","position":"GOL","age":22,"marketValueEur":null},{"transfermarktId":"889817","name":"Marcelo","position":"GOL","age":30,"marketValueEur":null},{"transfermarktId":"688873","name":"Matheus Cabral","position":"ZAG","age":27,"marketValueEur":null},{"transfermarktId":"1220392","name":"Daniel Costa","position":"ZAG","age":21,"marketValueEur":null},{"transfermarktId":"680404","name":"Railon","position":"ZAG","age":32,"marketValueEur":null},{"transfermarktId":"542072","name":"Weverton","position":"ZAG","age":27,"marketValueEur":null},{"transfermarktId":"642593","name":"Vicente","position":"LE","age":31,"marketValueEur":null},{"transfermarktId":"1365450","name":"Vicente","position":"LD","age":26,"marketValueEur":null},{"transfermarktId":"1558891","name":"Cauã Roseira","position":"MC","age":20,"marketValueEur":null},{"transfermarktId":"684234","name":"Guilherme Rend","position":"VOL","age":28,"marketValueEur":null},{"transfermarktId":"976599","name":"Vinícius Amaral","position":"VOL","age":24,"marketValueEur":null},{"transfermarktId":"692905","name":"Gabriel Pereira","position":"VOL","age":29,"marketValueEur":null},{"transfermarktId":"676044","name":"Thiaguinho","position":"PE","age":28,"marketValueEur":null},{"transfermarktId":"739418","name":"Ruan Nascimento","position":"PE","age":25,"marketValueEur":null},{"transfermarktId":"982646","name":"William","position":"PD","age":23,"marketValueEur":null},{"transfermarktId":"real-jac-2026-david-santana","name":"David Santana","position":"MC","age":25,"marketValueEur":null},{"transfermarktId":"real-jac-2026-jarles-baiano","name":"Jarles Baiano","position":"ATA","age":30,"marketValueEur":null}],\n';
-if(!source.includes(' "EC Jacuipense":[')){
- if(!source.includes(marker))throw new Error("REAL_ROSTER_OVERRIDES_2026 marker not found");
- source=source.replace(marker,marker+roster);
+const sentinel='clubMatch: "jacuipense"';
+const marker='\n];\n\nfunction normalized';
+const override=`
+  {
+    competitionId: "BRA4",
+    clubMatch: "jacuipense",
+    add: [
+      { transfermarktId: "real-20260914-david-santana", name: "David Santana", position: "MC", age: 25, marketValueEur: null },
+      { transfermarktId: "real-20260914-jarles-baiano", name: "Jarles Baiano", position: "ATA", age: 30, marketValueEur: null },
+    ],
+  },`;
+
+if(!source.includes(sentinel)){
+ if(!source.includes(marker))throw new Error("REAL_ROSTER_OVERRIDES closing marker not found");
+ source=source.replace(marker,`${override}${marker}`);
  await writeFile(path,source);
- console.log("Added verified 18-player EC Jacuipense override");
-}else console.log("EC Jacuipense override already present");
+ console.log("Added verified Jacuipense 2026 roster additions");
+}else console.log("Jacuipense roster override already present");
