@@ -38,8 +38,9 @@ function parseCompetitions(source) {
   const start = source.indexOf(marker);
   if (start < 0) throw new Error("State competition export not found");
   const jsonStart = start + marker.length;
-  const end = source.indexOf(";", jsonStart);
-  if (end < 0) throw new Error("State competition export end not found");
+  const closing = source.indexOf("];", jsonStart);
+  if (closing < 0) throw new Error("State competition export end not found");
+  const end = closing + 1;
   return {jsonStart,end,competitions:JSON.parse(source.slice(jsonStart,end))};
 }
 
