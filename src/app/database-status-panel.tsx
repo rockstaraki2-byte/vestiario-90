@@ -1,12 +1,14 @@
 "use client";
 import type { ReactNode } from "react";
 import { Activity, AlertTriangle, CalendarDays, CheckCircle2, Clock3, Cpu, Database, Shield, UsersRound } from "lucide-react";
+import { DATABASE_CERTIFICATION_REPORT } from "@/data/database-certification";
 import { DATABASE_STATUS_ROWS, DATABASE_STATUS_SUMMARY, type DatabaseHealthLevel, type DatabaseStatusRow } from "@/data/database-status";
 import styles from "./database-status-panel.module.css";
 
 const categories=["Liga profissional","Copa nacional","Estadual","Base","Internacional","Staff"] as const;
 const healthLabel:Record<DatabaseHealthLevel,string>={updated:"OK",partial:"Parcial",pending:"Falta",error:"Erro",na:"N/D"};
 const healthTitle:Record<DatabaseHealthLevel,string>={updated:"Cobertura validada",partial:"Cobertura parcial",pending:"Ainda não disponível",error:"Erro detectado",na:"Não se aplica"};
+const certificationLabel={certified:"APROVADA",warning:"ALERTA",blocked:"BLOQUEADA"} as const;
 
 function Health({level,detail}:{level:DatabaseHealthLevel;detail?:string}){return <span className={`${styles.health} ${styles[level]}`} title={detail??healthTitle[level]}>{level==="updated"?<CheckCircle2/>:level==="partial"?<Clock3/>:level==="na"?<span className={styles.naDot}>—</span>:<AlertTriangle/>}<b>{healthLabel[level]}</b></span>}
 function qualityClass(score:number){return score>=80?styles.qualityGood:score>=50?styles.qualityWarn:styles.qualityBad}
@@ -20,6 +22,7 @@ export default function DatabaseStatusPanel(){
   </header>
 
   <div className={styles.summary}>
+   <Metric icon={<Shield/>} value={certificationLabel[DATABASE_CERTIFICATION_REPORT.level]} label={`CERTIFICAÇÃO • ${DATABASE_CERTIFICATION_REPORT.releaseRows} JOGÁVEIS`}/>
    <Metric icon={<CheckCircle2/>} value={`${DATABASE_STATUS_SUMMARY.healthy}/${DATABASE_STATUS_SUMMARY.total}`} label="SAUDÁVEIS"/>
    <Metric icon={<Clock3/>} value={String(DATABASE_STATUS_SUMMARY.attention)} label="ATENÇÃO"/>
    <Metric icon={<AlertTriangle/>} value={String(DATABASE_STATUS_SUMMARY.critical)} label="CRÍTICAS"/>
@@ -29,6 +32,7 @@ export default function DatabaseStatusPanel(){
   </div>
 
   <div className={styles.integrityStrip}>
+   <span><b>{DATABASE_CERTIFICATION_REPORT.blockingIssues.length}</b> bloqueios de certificação</span>
    <span><b>{DATABASE_STATUS_SUMMARY.shortRosters}</b> elencos abaixo de 18</span>
    <span><b>{DATABASE_STATUS_SUMMARY.missingCrests}</b> clubes sem escudo</span>
    <span><b>{DATABASE_STATUS_SUMMARY.suspiciousPlayers}</b> registros suspeitos</span>

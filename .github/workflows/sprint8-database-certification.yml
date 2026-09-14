@@ -1,0 +1,60 @@
+name: Sprint 8 database certification
+on:
+  push:
+    branches:
+      - sprint8-database-certification
+    paths:
+      - "src/data/database-certification.ts"
+      - "src/data/database-certification.test.ts"
+      - "src/data/real-roster-overrides-2026.ts"
+      - "src/app/database-status-panel.tsx"
+      - "scripts/apply-sprint8-database-fixes.mjs"
+      - "docs/sprints/sprint-8-certificacao-base.md"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/database-health.yml"
+      - ".github/workflows/daily-roster-sync.yml"
+      - ".github/workflows/sprint8-database-certification.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: v90-sprint8-certification-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  certify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sprint8-database-certification
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Upgrade npm lockfile engine
+        run: npm install -g npm@11
+      - name: Upgrade vulnerable Vitest toolchain
+        run: npm install --save-dev vitest@4.1.11
+      - name: Apply verified database fixes
+        run: node scripts/apply-sprint8-database-fixes.mjs
+      - name: Dependency security audit
+        run: npm audit --audit-level=moderate
+      - name: Certify playable database
+        run: npx vitest run src/data/database-certification.test.ts src/data/database-status.test.ts src/data/world-2026/international-cup-fields.test.ts src/game-engine/international-cup-engine.test.ts
+      - name: Validate full test suite
+        run: npm test
+      - name: Validate production build
+        run: npm run build
+      - name: Persist validated Sprint 8 changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src/data/real-roster-overrides-2026.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(sprint8): secure dependencies and certify Jacuipense roster"
+          git pull --rebase origin sprint8-database-certification
+          git push origin HEAD:sprint8-database-certification
