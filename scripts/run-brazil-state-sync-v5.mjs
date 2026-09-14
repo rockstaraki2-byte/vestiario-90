@@ -12,7 +12,7 @@ if (searchStart < 0 || searchEnd < 0 || verifiedEnd < 0 || !(searchStart < searc
   throw new Error("Could not locate state resolver functions");
 }
 
-const imports = `import { BRASILEIRAO_2026_CLUBS } from "../src/data/brasileirao-2026/transfermarkt-snapshot.ts";\nimport { BRAZIL_2026_EXPANDED_COMPETITIONS } from "../src/data/brazil-2026/expanded-rosters.ts";\nimport { BRAZIL_SERIE_D_2026_CLUBS } from "../src/data/brazil-2026/serie-d.ts";\nimport { BRAZIL_STATE_2026_COMPETITIONS as EXISTING_STATE_COMPETITIONS } from "../src/data/world-2026/state-competitions.generated.ts";\n`;
+const imports = `import { BRASILEIRAO_2026_CLUBS } from "../src/data/brasileirao-2026/transfermarkt-snapshot.ts";\nimport { BRAZIL_2026_EXPANDED_COMPETITIONS } from "../src/data/brazil-2026/expanded-rosters.ts";\nimport { BRAZIL_SERIE_D_2026_CLUBS } from "../src/data/brazil-2026/serie-d.ts";\nimport { BRAZIL_STATE_2026_COMPETITIONS as EXISTING_STATE_COMPETITIONS } from "../src/data/world-2026/state-competitions.generated.ts";\nconst SPRINT2_PRIORITY_IDS = new Set(["MGA1","RSA1","PRA1","BAA1","PEA1","GOA1"]);\n`;
 
 const replacement = String.raw`function decodeHtmlText(value) {
   return String(value ?? "")
@@ -76,7 +76,7 @@ const KNOWN_ALIASES = {
   "guarany de bage fc":"guarany bage", "ec sao luiz ijui":"sao luiz", "ypiranga fc erechim":"ypiranga rs",
   "operario fec":"operario pr", "if sao joseense":"sao joseense", "fc cascavel":"cascavel", "foz do iguacu fc":"foz do iguacu",
   "clube andraus brasil":"andraus", "galo maringa":"galo maringa",
-  "ec bahia":"bahia", "ec vitoria":"vitoria ba", "alagoainhas ac":"atletico alagoinhas", "ad bahia de feira":"bahia de feira",
+  "ec bahia":"bahia", "ec vitoria":"vitoria ba", "alagoinhas ac":"atletico alagoinhas", "ad bahia de feira":"bahia de feira",
   "ec jacuipense":"jacuipense", "sd juazeirense":"juazeirense", "galicia ec":"galicia", "ad jequie":"jequie", "barcelona de ilheus fc":"barcelona ilheus",
   "sport recife":"sport", "nautico":"nautico", "aa maguary":"maguary", "santa cruz fc pe":"santa cruz pe",
   "aad vitoria das tabocas":"vitoria pe", "decisao fc":"decisao", "retro fc brasil":"retro", "ad jaguar pe":"jaguar pe",
@@ -129,6 +129,10 @@ let patched = imports + original.slice(0, searchStart) + replacement + original.
 patched = patched.replace(
   'const NEVER_PRESERVE = new Set(["RSA1","BAA1","PAA1"]);',
   'const NEVER_PRESERVE = new Set(["MGA1","RSA1","PRA1","BAA1","PEA1","GOA1","PAA1"]);'
+);
+patched = patched.replace(
+  'for(const spec of SPECS){\n  try{const competition=await build(spec);',
+  'for(const spec of SPECS){\n  if(!SPRINT2_PRIORITY_IDS.has(spec[0])){const fallback=previousById.get(spec[0]);if(fallback){built.push(fallback);preserved++;}continue;}\n  try{const competition=await build(spec);'
 );
 await writeFile(TEMP, patched);
 try {
