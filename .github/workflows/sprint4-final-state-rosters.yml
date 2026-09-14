@@ -27,41 +27,45 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Resolve final five 2026 state championships
+      - name: Resolve final five states and audit Alagoano
         run: node scripts/run-brazil-state-sync-v11.mjs
       - name: Validate 27-state snapshot
         run: |
           node - <<'NODE'
           import("./src/data/world-2026/state-competitions.generated.ts").then((m) => {
-            const expectedCounts = {ACA1:8,APA1:8,RRA1:9,ROA1:7,TOA1:8};
-            const expectedNames = {
-              ACA1:["Galvez","Independência","ADESG","Vasco","Humaitá","Rio Branco","São Francisco","Santa Cruz"],
-              APA1:["Trem","Ypiranga","Oratório","Cristal","Independente","Macapá","Santos","São José"],
-              RRA1:["Atlético Roraima","Baré","Sampaio","Monte Roraima","Náutico","Progresso","Rio Negro","River","São Raimundo"],
-              ROA1:["Barcelona","Porto Velho","Genus","Guaporé","Ji-Paraná","Rondoniense","Cacoalense"],
-              TOA1:["Araguaína","Bela Vista","Capital","Guaraí","Gurupi","Palmas","Tocantinópolis","União"]
+            const expectedIds = {
+              ACA1:["69424","10862","10871","32560","32612","60741","87723","137893"],
+              APA1:["123477","54247","26494","53471","37491","36532","36012","83882"],
+              RRA1:["73575","70707","87822","119625","65748","87824","87823","119510","73574"],
+              ROA1:["72476","72477","68823","87821","64303","96876","54241"],
+              TOA1:["32639","96025","82329","114114","36477","48003","27242","96026"],
+              ALA1:["20092","12600","18545","11449","52513","85388","96022","12914","138869"]
             };
             const rows = new Map(m.BRAZIL_STATE_2026_COMPETITIONS.map((c) => [c.id,c]));
             if (rows.size !== 27) throw new Error(`Expected 27 state championships, found ${rows.size}`);
-            for (const [id,count] of Object.entries(expectedCounts)) {
+            for (const [id,ids] of Object.entries(expectedIds)) {
               const c = rows.get(id);
               if (!c) throw new Error(`${id} missing`);
-              if (c.clubs.length !== count) throw new Error(`${id} incomplete participants: ${c.clubs.length}/${count}`);
+              if (c.clubs.length !== ids.length) throw new Error(`${id} incomplete participants: ${c.clubs.length}/${ids.length}`);
               if (String(c.sourceMode ?? "").includes("preserved")) throw new Error(`${id} must be freshly resolved`);
-              if (c.coverage?.players < c.clubs.length * 8) throw new Error(`${id} insufficient roster coverage`);
-              const identities = new Set(c.clubs.map((club) => String(club.transfermarktId ?? "")));
+              if (c.coverage?.players < c.clubs.length * 8) throw new Error(`${id} insufficient roster coverage: ${c.coverage?.players ?? 0}`);
+              const actual = c.clubs.map((club) => String(club.transfermarktId ?? ""));
+              const identities = new Set(actual);
               if (identities.size !== c.clubs.length) throw new Error(`${id} duplicate club identity`);
+              const missing = ids.filter((clubId) => !identities.has(clubId));
+              const unexpected = actual.filter((clubId) => !ids.includes(clubId));
+              if (missing.length || unexpected.length) throw new Error(`${id} identity mismatch; missing=${missing.join(",")} unexpected=${unexpected.join(",")}`);
               for (const club of c.clubs) {
                 if (!club.transfermarktId || !club.imageUrl) throw new Error(`${id}: club without identity/badge`);
                 if (/virtual|placeholder|pend[eê]ncia/i.test(String(club.name))) throw new Error(`${id}: invalid club ${club.name}`);
               }
-              const normalized = c.clubs.map((club) => String(club.name).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase());
-              for (const token of expectedNames[id]) {
-                const needle = token.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
-                if (!normalized.some((name) => name.includes(needle))) throw new Error(`${id}: expected participant token missing: ${token}`);
-              }
               console.log(`${id}: ${c.clubs.length} clubs / ${c.coverage?.players ?? 0} players / ${c.sourceMode}`);
             }
+            const ala = rows.get("ALA1");
+            if (!ala.clubs.some((club) => String(club.transfermarktId) === "12914" && club.name === "Murici FC")) throw new Error("ALA1 missing Murici FC identity 12914");
+            if (!ala.clubs.some((club) => String(club.transfermarktId) === "138869" && club.name === "Murici Sport Clube")) throw new Error("ALA1 missing Murici Sport Clube identity 138869");
+            const toc = rows.get("TOA1");
+            if (!toc.clubs.some((club) => String(club.transfermarktId) === "96026" && /União Atlético/i.test(club.name))) throw new Error("TOA1 must expose identity 96026 as União Atlético");
             console.log(`State map complete: ${rows.size}/27`);
           }).catch((error) => { console.error(error); process.exit(1); });
           NODE
