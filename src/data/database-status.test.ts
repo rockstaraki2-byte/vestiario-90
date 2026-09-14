@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DATABASE_ENGINE_SUPPORTED_IDS, DATABASE_STATUS_ROWS, DATABASE_STATUS_SUMMARY } from "./database-status";
+import { BRAZIL_STATE_2026_COMPETITIONS } from "./world-2026/state-competitions.generated";
 
 describe("database status health map",()=>{
  it("exposes all health dimensions for every competition",()=>{
@@ -28,6 +29,24 @@ describe("database status health map",()=>{
   expect(calendarOnly).toBeDefined();
   expect(calendarOnly?.qualityScore).toBeLessThan(80);
   expect(calendarOnly?.alerts.some(item=>item.code==="missing-engine")).toBe(true);
+ });
+
+ it("keeps Brazilian state quality defects explicit",()=>{
+  const loadedIds=new Set(BRAZIL_STATE_2026_COMPETITIONS.map(comp=>comp.id));
+  const states=DATABASE_STATUS_ROWS.filter(row=>loadedIds.has(row.id));
+  expect(loadedIds.size).toBe(27);
+  expect(states).toHaveLength(27);
+  for(const row of states){
+   expect(row.virtualClubs,`${row.id} contains virtual clubs`).toBe(0);
+   expect(row.suspiciousPlayers,`${row.id} contains suspicious players`).toBe(0);
+   expect(row.missingCrestClubs,`${row.id} contains clubs without a valid crest`).toBe(0);
+   if(row.shortRosterClubs>0){
+    expect(row.rosterStatus).toBe("partial");
+    expect(row.alerts.some(item=>item.code==="short-roster")).toBe(true);
+   }else{
+    expect(row.rosterStatus).toBe("updated");
+   }
+  }
  });
 
  it("keeps summary counters consistent",()=>{
