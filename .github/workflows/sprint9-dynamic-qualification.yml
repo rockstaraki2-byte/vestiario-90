@@ -1,0 +1,52 @@
+name: Sprint 9 dynamic qualification
+on:
+  push:
+    branches:
+      - sprint9-dynamic-qualification
+    paths:
+      - "src/game-engine/next-season-qualification.ts"
+      - "src/game-engine/next-season-qualification.test.ts"
+      - "src/game-engine/season-ecosystem.ts"
+      - "src/game-engine/world-competitions.ts"
+      - "scripts/apply-sprint9-dynamic-qualification.mjs"
+      - "docs/sprints/sprint-9-qualificacao-dinamica.md"
+      - ".github/workflows/sprint9-dynamic-qualification.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: v90-sprint9-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: sprint9-dynamic-qualification
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply Sprint 9 engine integration
+        run: node scripts/apply-sprint9-dynamic-qualification.mjs
+      - name: Dependency security audit
+        run: npm audit --audit-level=moderate
+      - name: Validate dynamic qualification
+        run: npx vitest run src/game-engine/next-season-qualification.test.ts src/game-engine/international-cup-engine.test.ts src/data/database-certification.test.ts src/game-engine/world-competitions.test.ts
+      - name: Validate full suite
+        run: npm test
+      - name: Validate production build
+        run: npm run build
+      - name: Persist validated Sprint 9 engine changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/game-engine/season-ecosystem.ts src/game-engine/world-competitions.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat(sprint9): integrate dynamic continental qualification"
+          git pull --rebase origin sprint9-dynamic-qualification
+          git push origin HEAD:sprint9-dynamic-qualification
