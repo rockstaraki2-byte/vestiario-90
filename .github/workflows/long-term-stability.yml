@@ -14,6 +14,9 @@ on:
       - "src/game-engine/world-competitions.ts"
       - "src/game-engine/world-leagues.ts"
       - "src/game-engine/season-ecosystem.ts"
+      - "src/game-engine/development.ts"
+      - "src/game-engine/advanced-world.ts"
+      - "src/game-engine/player-lifecycle.ts"
 
 permissions:
   contents: read
