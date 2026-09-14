@@ -116,7 +116,6 @@ export function resolveDomesticCupField(id:DomesticCupEngineId):DomesticCupResol
   if(!club)unresolvedConfirmed.push(name);else add(club);
  }
  const beforeFallback=chosen.length;
- // Prefer clubs with an actual Transfermarkt identity; named database fallbacks are only used if the real snapshot is insufficient.
  for(const club of eligible.filter(item=>Number(item.transfermarktId)>0)){if(chosen.length>=config.fieldSize)break;add(club);}
  for(const club of eligible){if(chosen.length>=config.fieldSize)break;add(club);}
  return{config,clubs:chosen.slice(0,config.fieldSize),unresolvedConfirmed,fallbackCount:Math.max(0,chosen.slice(0,config.fieldSize).length-beforeFallback)};
@@ -124,3 +123,4 @@ export function resolveDomesticCupField(id:DomesticCupEngineId):DomesticCupResol
 
 export function domesticCupClubsForStatus(id:DomesticCupEngineId){return resolveDomesticCupField(id).clubs;}
 export function domesticCupConfirmedNames(id:DomesticCupEngineId){return DOMESTIC_CUP_FIELD_CONFIGS.find(item=>item.id===id)?.confirmedNames??[];}
+export function domesticCupConfirmedTransfermarktId(id:DomesticCupEngineId,name:string){return CONFIRMED_CLUB_IDS[id]?.[name]??null;}
