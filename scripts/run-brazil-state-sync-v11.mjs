@@ -18,6 +18,7 @@ const previousErrors = parseExportedJson(beforeSource, "export const BRAZIL_STAT
 const preservedErrors = previousErrors.filter((item) => !PRIORITY_IDS.has(String(item.id ?? item.competitionId ?? "")));
 
 await import(`./run-brazil-state-sync-v10.mjs?run=${Date.now()}`);
+await import(`./refresh-state-roster-quality-sprint4.mjs?run=${Date.now()}`);
 
 let afterSource = await readFile(STATE_FILE, "utf8");
 const currentErrors = parseExportedJson(afterSource, "export const BRAZIL_STATE_2026_SYNC_ERRORS=");
