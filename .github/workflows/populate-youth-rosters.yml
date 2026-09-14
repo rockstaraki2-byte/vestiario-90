@@ -27,7 +27,7 @@ jobs:
       - name: Validate generated module
         run: |
           node -e 'import("./src/data/world-2026/youth-competitions.generated.ts").then(m=>{console.log(`Youth coverage: ${m.YOUTH_WORLD_2026_COMPETITIONS.length}/6; errors: ${m.YOUTH_WORLD_2026_SYNC_ERRORS.length}`); if(m.YOUTH_WORLD_2026_COMPETITIONS.length===0) process.exit(1)})'
-          npx tsc --noEmit
+          npm run build
       - name: Commit youth snapshot
         run: |
           git config user.name "github-actions[bot]"
