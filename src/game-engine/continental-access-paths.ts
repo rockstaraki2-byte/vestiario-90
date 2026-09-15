@@ -165,15 +165,38 @@ export function resolveContinentalAccessPaths(
     }
 
     const local = new Set<string>();
-    for (const entry of resolved) {
-      const key = qualificationClubKey(entry.name);
-      if (local.has(key)) throw new Error(`${id}: duplicate club after access resolution: ${entry.name}`);
-      if (globalBlocked.has(key)) throw new Error(`${id}: club already allocated to another continental competition: ${entry.name}`);
+    const finalResolved: ContinentalAccessEntrant[] = [];
+    for (const original of resolved) {
+      let entry = original;
+      let key = qualificationClubKey(entry.name);
+      if (local.has(key) || globalBlocked.has(key)) {
+        let replacement: ContinentalAccessEntrant | undefined;
+        while (reserveIndex < reserves.length && !replacement) {
+          const candidate = reserves[reserveIndex++];
+          const candidateKey = qualificationClubKey(candidate.name);
+          if (local.has(candidateKey) || globalBlocked.has(candidateKey)) continue;
+          const sourceSeason = original.provenance?.sourceSeason ?? season - 1;
+          replacement = {
+            ...candidate,
+            reason: `Vaga herdada por sobreposição continental de ${original.name}`,
+            provenance: {
+              ...(candidate.provenance ?? { sourceSeason, route: "continental-pool", phase: "preliminary" }),
+              sourceSeason,
+              phase: "main",
+            },
+          };
+        }
+        if (!replacement) throw new Error(`${id}: no real club available to replace continental overlap: ${original.name}`);
+        entry = replacement;
+        key = qualificationClubKey(entry.name);
+        replacements++;
+      }
       local.add(key);
       globalBlocked.add(key);
+      finalResolved.push(entry);
     }
 
-    result[id] = resolved;
+    result[id] = finalResolved;
     paths.push({
       competitionId: id,
       direct: source.filter(entry => entry.provenance?.phase !== "preliminary").length,
