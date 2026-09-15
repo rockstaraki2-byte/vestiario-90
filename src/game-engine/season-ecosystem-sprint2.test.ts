@@ -49,16 +49,17 @@ describe("football ecosystem sprint 2",()=>{
     expect(uecl.every(key=>!uefaTopTwo.has(key))).toBe(true);
   });
 
-  it("leva campeão e vice da Copa do Brasil para a Libertadores",()=>{
+  it("leva o campeão da Copa do Brasil à Libertadores e o vice à pré-Libertadores",()=>{
     const state=createSeason("sprint2-cdb-finalists",2026),cdb=state.worldCompetitions.tournaments.find(t=>t.definition.id==="CDB");
     expect(cdb).toBeDefined();
     const champion=cdb!.participants[0],runner=cdb!.participants[1],match=cdb!.matches[0];
     expect(champion).toBeDefined();expect(runner).toBeDefined();expect(match).toBeDefined();
     cdb!.championId=champion.id;
     match.stage="Final";match.home=champion;match.away=runner;match.played=true;match.homeGoals=2;match.awayGoals=1;match.winnerId=champion.id;
-    const lib=finalizeFootballEcosystem(state).nextInternationalEntrants.LIB??[],championEntry=lib.find(item=>item.name===champion.name),runnerEntry=lib.find(item=>item.name===runner.name);
+    const ecosystem=finalizeFootballEcosystem(state),lib=ecosystem.nextInternationalEntrants.LIB??[],championEntry=lib.find(item=>item.name===champion.name),libPath=ecosystem.continentalAccessPaths?.find(path=>path.competitionId==="LIB"),runnerTie=libPath?.ties.find(tie=>tie.projectedClub===runner.name);
     expect(championEntry?.reason).toContain("Campeão da Copa do Brasil");
-    expect(runnerEntry?.reason).toContain("Vice da Copa do Brasil");
-    expect(runnerEntry?.reason).toContain("pré-Libertadores");
+    expect(runnerTie).toBeDefined();
+    expect(runnerTie?.projectedClub).toBe(runner.name);
+    expect(lib.some(item=>item.name===runnerTie?.winner)).toBe(true);
   });
 });
