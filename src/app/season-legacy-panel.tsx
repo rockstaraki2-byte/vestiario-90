@@ -1,9 +1,10 @@
 import { ArrowDownUp, Award, Globe2, History, TrendingUp } from "lucide-react";
 import type { FootballEcosystemState } from "@/game-engine/season-ecosystem";
-import { associationCoefficientRanking } from "@/game-engine/qualification-ecosystem";
+import { associationCoefficientRanking, type AssociationCoefficientSeason } from "@/game-engine/qualification-ecosystem";
 import styles from "./season-legacy-panel.module.css";
 
 const CONTINENTAL = new Set(["LIB", "SUD", "UCL", "UEL", "UECL"]);
+type Sprint10Ecosystem = FootballEcosystemState & { associationCoefficients?: AssociationCoefficientSeason[] };
 
 function routeLabel(route?: string) {
   if (route === "titleholder") return "campeão vigente";
@@ -14,8 +15,9 @@ function routeLabel(route?: string) {
 }
 
 export default function SeasonLegacyPanel({ ecosystem }: { ecosystem: FootballEcosystemState }) {
+  const sprint10 = ecosystem as Sprint10Ecosystem;
   const archive = ecosystem.archives[0];
-  const association = associationCoefficientRanking(ecosystem.associationCoefficients).slice(0, 10);
+  const association = associationCoefficientRanking(sprint10.associationCoefficients).slice(0, 10);
   const clubCoeff = [...Object.entries(ecosystem.coefficients)].sort((a, b) => b[1] - a[1]).slice(0, 10);
 
   return <section className={styles.shell}>
@@ -46,7 +48,8 @@ export default function SeasonLegacyPanel({ ecosystem }: { ecosystem: FootballEc
       <section>
         <b><Globe2 /> VAGAS CONTINENTAIS</b>
         {archive.qualifiers.filter(x => CONTINENTAL.has(x.competitionId)).map(x => {
-          const highlighted = x.entries?.slice(0, 4) ?? [];
+          const entries = (x as typeof x & { entries?: Array<{ name: string; provenance: { route: string; phase: string } }> }).entries;
+          const highlighted = entries?.slice(0, 4) ?? [];
           return <article key={x.competitionId}>
             <div>
               <strong>{x.competitionId}</strong>
