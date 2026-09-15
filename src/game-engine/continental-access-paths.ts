@@ -148,7 +148,8 @@ export function resolveContinentalAccessPaths(
       }
       const opponent = reserves[reserveIndex++];
       if (!opponent) throw new Error(`${id}: no real club available for preliminary route`);
-      opponent.provenance = { ...(opponent.provenance ?? { sourceSeason: season, route: "continental-pool", phase: "preliminary" }), sourceSeason: season };
+      const sourceSeason = entry.provenance?.sourceSeason ?? season - 1;
+      opponent.provenance = { ...(opponent.provenance ?? { sourceSeason, route: "continental-pool", phase: "preliminary" }), sourceSeason };
       const outcome = resolveTie(id, season, entry, opponent);
       ties.push(outcome.tie);
       if (outcome.winner !== entry) replacements++;
@@ -156,8 +157,8 @@ export function resolveContinentalAccessPaths(
         ...outcome.winner,
         reason: outcome.winner === entry ? entry.reason : `Venceu rota preliminar contra ${entry.name}`,
         provenance: {
-          ...(outcome.winner.provenance ?? entry.provenance ?? { sourceSeason: season, route: "continental-pool", phase: "preliminary" }),
-          sourceSeason: season,
+          ...(outcome.winner.provenance ?? entry.provenance ?? { sourceSeason, route: "continental-pool", phase: "preliminary" }),
+          sourceSeason,
           phase: "main",
         },
       });
