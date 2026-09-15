@@ -1,10 +1,11 @@
-import { ArrowDownUp, Award, Globe2, History, TrendingUp } from "lucide-react";
+import { ArrowDownUp, Award, BadgeCheck, Globe2, History, ShieldAlert, TrendingUp } from "lucide-react";
 import type { FootballEcosystemState } from "@/game-engine/season-ecosystem";
 import { associationCoefficientRanking, type AssociationCoefficientSeason } from "@/game-engine/qualification-ecosystem";
+import type { ContinentalEcosystemCertification } from "@/game-engine/continental-ecosystem-certification";
 import styles from "./season-legacy-panel.module.css";
 
 const CONTINENTAL = new Set(["LIB", "SUD", "UCL", "UEL", "UECL"]);
-type Sprint10Ecosystem = FootballEcosystemState & { associationCoefficients?: AssociationCoefficientSeason[] };
+type Sprint11Ecosystem = FootballEcosystemState & { associationCoefficients?: AssociationCoefficientSeason[]; continentalCertification?: ContinentalEcosystemCertification };
 
 function routeLabel(route?: string) {
   if (route === "titleholder") return "campeão vigente";
@@ -14,10 +15,18 @@ function routeLabel(route?: string) {
   return "liga nacional";
 }
 
+function certificationLabel(certification?: ContinentalEcosystemCertification) {
+  if (!certification) return "aguardando primeira certificação";
+  if (certification.status === "certified") return `certificado • ${certification.actualParticipants}/${certification.expectedParticipants} vagas`;
+  if (certification.status === "warning") return `atenção • ${certification.issues.length} ocorrência${certification.issues.length === 1 ? "" : "s"}`;
+  return `bloqueado • ${certification.issues.filter(item => item.severity === "blocked").length} falha${certification.issues.filter(item => item.severity === "blocked").length === 1 ? "" : "s"}`;
+}
+
 export default function SeasonLegacyPanel({ ecosystem }: { ecosystem: FootballEcosystemState }) {
-  const sprint10 = ecosystem as Sprint10Ecosystem;
+  const sprint11 = ecosystem as Sprint11Ecosystem;
   const archive = ecosystem.archives[0];
-  const association = associationCoefficientRanking(sprint10.associationCoefficients).slice(0, 10);
+  const certification = sprint11.continentalCertification ?? (archive as typeof archive & { continentalCertification?: ContinentalEcosystemCertification } | undefined)?.continentalCertification;
+  const association = associationCoefficientRanking(sprint11.associationCoefficients).slice(0, 10);
   const clubCoeff = [...Object.entries(ecosystem.coefficients)].sort((a, b) => b[1] - a[1]).slice(0, 10);
 
   return <section className={styles.shell}>
@@ -25,9 +34,10 @@ export default function SeasonLegacyPanel({ ecosystem }: { ecosystem: FootballEc
       <div>
         <span>MUNDO PERSISTENTE</span>
         <h3>Histórico, acessos e coeficientes</h3>
-        <p>Resultados de cada temporada agora deixam rastro: origem das vagas, fases de entrada e força acumulada das associações.</p>
+        <p>Resultados de cada temporada deixam rastro: origem das vagas, fases de entrada, força das associações e certificação antes da próxima edição.</p>
+        <small>{certificationLabel(certification)}</small>
       </div>
-      <History />
+      {certification?.status === "blocked" ? <ShieldAlert /> : <History />}
     </header>
     {archive ? <div className={styles.grid}>
       <section>
@@ -71,6 +81,17 @@ export default function SeasonLegacyPanel({ ecosystem }: { ecosystem: FootballEc
           <div><strong>{name}</strong><small>coeficiente de clube • legado</small></div>
           <span>{value.toFixed(1)}</span>
         </article>)}
+      </section>
+      <section>
+        <b>{certification?.status === "blocked" ? <ShieldAlert /> : <BadgeCheck />} CERTIFICAÇÃO CONTINENTAL</b>
+        <article>
+          <div>
+            <strong>{certification?.status === "certified" ? "CERTIFICADO" : certification?.status === "warning" ? "ATENÇÃO" : certification?.status === "blocked" ? "BLOQUEADO" : "PENDENTE"}</strong>
+            <small>{certification ? `temporada-base ${certification.sourceSeason}` : "será gerada no fechamento da temporada"}</small>
+          </div>
+          <span>{certification ? `${certification.actualParticipants}/${certification.expectedParticipants}` : "—"}</span>
+          {certification?.issues.slice(0, 4).map((item, index) => <em key={`${item.code}-${index}`}>{item.message}</em>)}
+        </article>
       </section>
     </div> : <div className={styles.empty}>A primeira página do histórico será fechada quando a temporada atual terminar.</div>}
   </section>;
