@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { assertContinentalEcosystemCertified, certifyContinentalEcosystem, CONTINENTAL_FIELD_SIZE } from "./continental-ecosystem-certification";
 import type { AssociationCoefficientSeason, QualificationProvenance } from "./qualification-ecosystem";
 
+type TestQualificationEntry={name:string;country:string;reason:string;provenance?:QualificationProvenance};
 const provenance = (season:number, route:QualificationProvenance["route"]="league"):QualificationProvenance => ({ sourceSeason: season, route, phase: "main" });
-function field(prefix:string,count:number,season=2026,country="Teste") {
+function field(prefix:string,count:number,season=2026,country="Teste"):TestQualificationEntry[] {
   return Array.from({length:count},(_,index)=>({name:`${prefix} Club ${index+1}`,country,reason:"Classificação nacional",provenance:provenance(season)}));
 }
 function validFields(season=2026){

@@ -7,6 +7,7 @@ import {
   topPerformanceAssociations,
   updateAssociationHistory,
 } from "./qualification-ecosystem";
+import type { AssociationCoefficientSeason } from "./qualification-ecosystem";
 
 describe("Sprint 10 • qualification ecosystem", () => {
   it("estrutura a procedência das vagas continentais", () => {
@@ -60,7 +61,7 @@ describe("Sprint 10 • qualification ecosystem", () => {
   });
 
   it("mantém janela de cinco temporadas e ranqueia associações pelo acumulado", () => {
-    let history = [];
+    let history: AssociationCoefficientSeason[] = [];
     for (let season = 2025; season <= 2031; season++) {
       history = updateAssociationHistory(history, [
         { season, country: "Inglaterra", points: 12, competitions: { UCL: 12 } },
