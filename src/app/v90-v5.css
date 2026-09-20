@@ -9,3 +9,29 @@ button[class*="page-module"][class*="clubCard"]{width:100%;color:inherit;text-al
 @media(max-width:900px){
   aside[class*="page-module"][class*="sidebar"] nav{overflow:auto;}
 }
+
+
+/* V90 visual system — FM-inspired shell, with its own identity. */
+body{background-color:#08111d!important}
+[class*="page-module"][class*="sidebar"]{width:252px;background:linear-gradient(180deg,#091525,#08111d);border-right-color:#21384e}
+[class*="page-module"][class*="main"]{margin-left:252px}
+[class*="page-module"][class*="topbar"]{height:72px;background:rgba(8,17,29,.94);border-bottom-color:#21384e}
+[class*="page-module"][class*="content"]{max-width:1480px;padding:28px 32px 58px}
+[class*="page-module"][class*="brand"]{border-bottom-color:#21384e}
+[class*="page-module"][class*="brand"]>span,[class*="page-module"][class*="mobileBrand"]{background:#5bd36e;color:#06130b}
+[class*="page-module"][class*="brand"] small{color:#73df81}
+[class*="page-module"][class*="sidebar"] nav button:hover,[class*="page-module"][class*="settings"]:hover{background:#132c43}
+[class*="page-module"][class*="sidebar"] nav .activeNav{background:#123823;box-shadow:inset 3px 0 #5bd36e}
+[class*="page-module"][class*="clubCard"]{background:#0f1f30;border-color:#233e56}
+[class*="page-module"][class*="topActions"]>button:not([class*="advance"]){background:#102238;border-color:#28465f}
+[class*="page-module"][class*="advanceMode"]{height:38px;border:1px solid #2c4b63;border-radius:9px;background:#102238;color:#b9d0d9;padding:0 9px;font-size:8px;font-weight:900;letter-spacing:.04em}
+[class*="page-module"][class*="advanceMode"]:focus{border-color:#5bd36e}
+[class*="page-module"][class*="advance"]{background:#5bd36e;color:#06130b}
+[class*="page-module"][class*="toast"]{background:#5bd36e;color:#06130b}
+[class*="page-module"][class*="mobileNav"]{background:rgba(8,17,29,.97);border-top-color:#21384e}
+@media(max-width:720px){
+ [class*="page-module"][class*="main"]{margin-left:0}
+ [class*="page-module"][class*="content"]{padding:15px 10px calc(102px + env(safe-area-inset-bottom))}
+ [class*="page-module"][class*="advanceMode"]{display:none}
+ [class*="page-module"][class*="topbar"]{height:62px}
+}
