@@ -47,7 +47,8 @@ import { advanceCalendarDay, applyForNationalTeam, createSeason, getCupMatchCont
 
 const sleep=(ms:number)=>new Promise<void>(resolve=>window.setTimeout(resolve,ms));
 const MOBILE_ICONS:Record<(typeof FM_MOBILE_PRIMARY)[number],typeof Home>={"Visão geral":Home,"Elenco":Users,"Táticas":LayoutGrid,"Calendário":CalendarDays};
-const SPECIAL_SCREENS=new Set(["Planejamento","Diretoria","Responsabilidades","Treino","Centro Médico","Dinâmica social","Scouting","Base","Staff","Reunião de staff","Análise de jogo","Adversário","Perfil do treinador","Histórico","Rivalidades"]);\ntype AdvanceMode="decision"|"day"|"match";
+const SPECIAL_SCREENS=new Set(["Planejamento","Diretoria","Responsabilidades","Treino","Centro Médico","Dinâmica social","Scouting","Base","Staff","Reunião de staff","Análise de jogo","Adversário","Perfil do treinador","Histórico","Rivalidades"]);
+type AdvanceMode="decision"|"day"|"match";
 
 export default function Dashboard(){
   const [screen,setScreen]=useState<"menu"|"game">("menu"),[saveId,setSaveId]=useState<string|null>(null),[saveRecovery,setSaveRecovery]=useState(0),[season,setSeason]=useState<SeasonState>(()=>createSeason("vestiario-90",2026)),[active,setActive]=useState("Visão geral"),[notice,setNotice]=useState(""),[tactic,setTactic]=useState<MatchTactic>(DEFAULT_TACTIC),[match,setMatch]=useState<MatchResult|null>(null),[liveMatch,setLiveMatch]=useState<LiveMatchState|null>(null),[activeCupMatchId,setActiveCupMatchId]=useState<string|null>(null),[moreOpen,setMoreOpen]=useState(false),[advancing,setAdvancing]=useState(false),[advanceMode,setAdvanceMode]=useState<AdvanceMode>("decision"),[advanceStatus,setAdvanceStatus]=useState({date:"",reason:"",news:[] as SeasonState["livingWorld"]["news"]});

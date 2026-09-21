@@ -34,7 +34,7 @@ export default function ManagerPortal({season,onNavigate}:{season:SeasonState;on
   <section className={styles.readinessStrip}>
    <Readiness label="DIRETORIA" value={season.livingWorld.boardConfidence+"%"} detail={season.boardState.mandate.name} tone={season.livingWorld.boardConfidence<45?"danger":season.livingWorld.boardConfidence<60?"warn":"good"}/>
    <Readiness label="VESTIÁRIO" value={mood+"%"} detail={summary.concerns.length?summary.concerns.length+" questões em atenção":"grupo alinhado"} tone={mood<55?"warn":"good"}/>
-   <Readiness label="FÍSICO" value={condition+"%"} detail="condição média • fadiga "+fatigue+"%" tone={fatigue>45?"danger":fatigue>30?"warn":"good"}/>
+   <Readiness label="FÍSICO" value={condition+"%"} detail={"condição média • fadiga "+fatigue+"%"} tone={fatigue>45?"danger":fatigue>30?"warn":"good"}/>
    <Readiness label="PRESSÃO EXTERNA" value={pressure+"%"} detail={pressure>60?"imprensa em cima":"ambiente administrável"} tone={pressure>60?"warn":"good"}/>
   </section>
 
@@ -58,7 +58,7 @@ export default function ManagerPortal({season,onNavigate}:{season:SeasonState;on
    <section className={styles.fmCard+" "+styles.matchBriefCard}>
     <header><span>PRÓXIMO COMPROMISSO</span><button onClick={()=>onNavigate("Táticas")}>Preparar jogo <ChevronRight/></button></header>
     {next&&opponent?<div className={styles.matchBriefBody}>
-     <div className={styles.matchMeta}><small>{shortDate(next.date)} • {next.competition}</small><b>{next.isHome?"CASA":"FORA"} • {opponent.name}</b><span>{daysUntil(season.currentDate,next.date)} dia"+(daysUntil(season.currentDate,next.date)===1?"":"s")+" para a partida</span></div>
+     <div className={styles.matchMeta}><small>{shortDate(next.date)} • {next.competition}</small><b>{next.isHome?"CASA":"FORA"} • {opponent.name}</b><span>{daysUntil(season.currentDate,next.date)} dia{daysUntil(season.currentDate,next.date)===1?"":"s"} para a partida</span></div>
      <div className={styles.nextGame}><TeamButton name={club.name} shortName={club.shortName} imageUrl={club.imageUrl} clubId={club.id}/><div><strong>VS</strong><em>{next.isHome?"MANDO DE CAMPO":"FORA DE CASA"}</em></div><TeamButton name={opponent.name} shortName={opponent.shortName} imageUrl={opponent.imageUrl} clubId={opponent.id}/></div>
      <div className={styles.matchBriefFooter}><span><Dumbbell size={14}/> {advice.target==="Táticas"?"Plano tático recomendado":"Comissão monitorando o elenco"}</span><span><Clock3 size={14}/> {next.stage??"Calendário"}</span></div>
     </div>:<div className={styles.emptyTile}><CalendarDays/><b>Sem jogo marcado</b><small>Use o calendário para organizar a próxima semana.</small></div>}
