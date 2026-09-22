@@ -1,5 +1,5 @@
 export type RealWorldRosterChange={competitionId:string;club:string;player:string;action:"add"|"remove";fromClub?:string;toClub?:string;deal:string;confirmedAt:string;source:string};
-export const REAL_WORLD_ROSTER_OVERLAY_META={snapshot:"2026-09-21",mode:"new-saves-and-missing-leagues-only"} as const;
+export const REAL_WORLD_ROSTER_OVERLAY_META={snapshot:"2026-09-22",mode:"new-saves-and-missing-leagues-only"} as const;
 export const REAL_WORLD_ROSTER_OVERLAY:RealWorldRosterChange[]=[
 {competitionId:"ENG3",club:"Barnsley",player:"Jubril Okedina",action:"add",toClub:"Barnsley",deal:"one-year contract with club option for a further year",confirmedAt:"2026-09-15",source:"Barnsley FC official"},
 {competitionId:"ESP1",club:"RC Deportivo",player:"Teun Gijselhart",action:"remove",fromClub:"RC Deportivo",toClub:"Al Ain",deal:"loan until end of 2026/27 season",confirmedAt:"2026-09-16",source:"RC Deportivo official"},
@@ -16,5 +16,7 @@ export const REAL_WORLD_ROSTER_OVERLAY:RealWorldRosterChange[]=[
 {competitionId:"BRA3",club:"Floresta",player:"Natan",action:"add",toClub:"Floresta",deal:"signed for the second phase of the 2026 Série C and registered to play",confirmedAt:"2026-09-19",source:"Floresta EC official"},
 {competitionId:"BRA3",club:"Floresta",player:"Daniel Baianinho",action:"add",toClub:"Floresta",deal:"signed for the second phase of the 2026 Série C and registered to play",confirmedAt:"2026-09-19",source:"Floresta EC official"},
 {competitionId:"BRA3",club:"Amazonas",player:"Pará",action:"remove",fromClub:"Amazonas",toClub:"Brasil de Farroupilha",deal:"contract renewed with Amazonas through the end of 2027 and loaned to Brasil de Farroupilha for the remainder of the 2026 Gauchão Divisão de Acesso; BID registration confirmed",confirmedAt:"2026-09-21",source:"CBF BID / ge"},
-{competitionId:"BRA3",club:"Volta Redonda",player:"Henrique Silva",action:"remove",fromClub:"Volta Redonda",deal:"contract expired and player publicly confirmed his departure after five seasons",confirmedAt:"2026-09-21",source:"player announcement / ge"}
+{competitionId:"BRA3",club:"Volta Redonda",player:"Henrique Silva",action:"remove",fromClub:"Volta Redonda",deal:"contract expired and player publicly confirmed his departure after five seasons",confirmedAt:"2026-09-21",source:"player announcement / ge"},
+{competitionId:"BRA2",club:"EC Juventude",player:"Ari Moura",action:"remove",fromClub:"EC Juventude",deal:"contract terminated by mutual agreement for personal reasons; player left without making an appearance",confirmedAt:"2026-09-21",source:"EC Juventude official / ge"},
+{competitionId:"BRA2",club:"Botafogo-SP",player:"Yuri",action:"add",toClub:"Botafogo-SP",deal:"professional contract extended through December 2029; previous deal ran through 2027",confirmedAt:"2026-09-22",source:"Botafogo-SP official / Agência Botafogo"}
 ];
